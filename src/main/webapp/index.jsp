@@ -3,7 +3,6 @@
 String path = request.getContextPath();
 String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.getServerPort()+path+"/";
 %>
-
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
   <head>
@@ -14,28 +13,37 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
 	<meta http-equiv="keywords" content="keyword1,keyword2,keyword3">
 	<meta http-equiv="description" content="This is my page">
     <title>Payroll Calculator 2025</title>
-		<!-- 
-		    <style>
-        
-    </style>
-    <script>
-        function showForm() {
-            document.getElementById("employeeForm").style.display = "block";
-        }
-    </script>
 	<link rel="stylesheet" type="text/css" href="styles.css">
-	-->
+	<script src="script.js"></script>
   </head>
-  
   <body>
-  <h2>Welcome to Payroll System</h2>
+<h2>Welcome to Payroll System</h2>
+<textarea id="aiInput" placeholder="Ask AI something..."></textarea>
+<button onclick="askiAI()">Ask AI</button>
+<div id="aiOutput"></div>
   <button onclick="showaddEmployeeModal()">Nowy pracownik</button>
-  <button>Pokaz osoby</button>
+  <button onclick="loadAllEmployees()">Pokaz osoby</button>
+<table id="employeesTable" class="hiddenTable">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>First Name</th>
+      <th>Last Name</th>
+      <th>Job Title</th>
+      <th>Hire Date</th>
+      <th>Salary (Month)</th>
+    </tr>
+  </thead>
+  <tbody id="employeesTableBody">
+    <!-- rows will be inserted here -->
+  </tbody>
+</table>
+<button onclick="saveAllEmployees()">Save All Employees</button>
   <label for="employeeSelect">Wybierz pracownika:</label>
 	<select id="employeeSelect" onchange="fetchEmployeeData()">
-    	<option value="">Wybierz pracownika...</option>
+    	<option value="">Wybierz pracownika z listy</option>
 	</select><br>
-  <div class="overlay" id="overlay"></div>
+  <div class="overlay" id="overlayAdd"></div>
   <div class="modal" id="addEmployeeModal">
   <h3>Add New Employee ?</h3>
   <form action="AddEmployeeServlet" method="post">
@@ -61,15 +69,15 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
           <script>
         function showaddEmployeeModal() {
             document.getElementById("addEmployeeModal").style.display = "block";
-            document.getElementById("overlay").style.display = "block";
+            document.getElementById("overlayAdd").style.display = "block";
         }
 
         function closeaddEmployeeModal() {
             document.getElementById("addEmployeeModal").style.display = "none";
-            document.getElementById("overlay").style.display = "none";
+            document.getElementById("overlayAdd").style.display = "none";
         }
     </script>
-    <form action="calculatePayroll" method="post">
+    <form action="PayrollServlet" method="post">
         <label for="employeeIdInput">Enter Employee ID:</label>
         <input type="number" id="employeeIdInput" name="employeeIdInput" required>
         <br>
@@ -85,7 +93,7 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
     </form>
     <h2>Employee List</h2>
     <button onclick="showgetEmployeeModal(1)">View Employee 1</button>
-    <div class="overlay" id="overlay"></div>
+    <div class="overlay" id="overlayGet"></div>
     <div class="modal" id="getEmployeeModal">
         <h3>Employee Details</h3>
         <p><strong>Employee Name:</strong> <span id="empName">Loading...</span></p>
@@ -104,83 +112,12 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
             <input type="number" id="overtimeHours" name="overtimeHours"><br>
 
             <button type="submit">Update Data</button>
-            <button type="button" onclick="closegetEmployeeModal('getEmployeeModal')">Close</button>
-            
+            <button type="button" onclick="closegetEmployeeModal('getEmployeeModal')">Close</button>     
         </form>
     </div>
-    <!--<button onclick="showgetEmployeeModal(2)">View Employee 2</button>
-    <button onclick="showgetEmployeeModal(5)">View Employee 5</button>
-
-     <p id="empName">Loading employee name...</p>
-    <p id="jobTitle">Loading job title...</p>-->
-    <script>
-    function showgetEmployeeModal(employeeId) {
-		let employeeIdStr = String(employeeId).trim();
-        let url = `GetEmployeeServlet?idemployees=`+employeeIdStr;
-        document.getElementById("getEmployeeModal").style.display = "block";
-        document.getElementById("overlay").style.display = "block";
-        fetch(url)
-        .then(response => response.json()) // Read raw response instead of JSON first
-            .then(data => {
-            	console.log("Parsed JSON:", data);  // Debug output        }
-            	if (!data) {
-                    console.error("Error: Empty response received from server.");
-                    return;
-                }
-            	document.getElementById("empName").innerText = data.first_name + " " + data.last_name;
-            	document.getElementById("jobTitle").innerText = data.job_title;
-            })
-        .catch(error => console.error("Error fetching employee data:", error));
-    }
-        
-        
-    function closegetEmployeeModal() {
-        document.getElementById("getEmployeeModal").style.display = "none";
-        document.getElementById("overlay").style.display = "none";
-    }
-        </script>
-        <script>
-        document.addEventListener("DOMContentLoaded", function () {
-        	console.log("JavaScript Loaded!");
-            fetch(`GetListEmployees`)
-                .then(response => response.text())
-                .then(text => {
-                	console.log("Raw Response Text:", text);
-                	let data = JSON.parse(text); // Convert manually to JSON
-                	console.log("Employee Data Received:", data);
-                    let select = document.getElementById("employeeSelect");
-                    data.forEach(employee => {
-                        let option = document.createElement("option");
-                        option.value = employee.idemployees;
-                        option.innerText = employee.last_name;
-                        //option.innerText = employee.hire_date;
-                        //option.innerText = employee.salary_month;
-                        select.appendChild(option);
-                    });
-                })
-                .catch(error => console.error("Error fetching employee list:", error));
-        });
-
-        function fetchEmployeeData() {
-            let employeeIdGetEmpl = document.getElementById("employeeSelect").value;
-            document.getElementById("getEmployeeModal").style.display = "block";
-            document.getElementById("overlay").style.display = "block";
-            console.log("employeeIdGetEmpl:", employeeIdGetEmpl);
-            if (!employeeIdGetEmpl) return; // Prevent empty request
-					let employeeIdStrr = String(employeeIdGetEmpl).trim();
-        			let url = `GetEmployeeServlet?idemployees=`+employeeIdStrr;
-            console.log("Fetch URL:", url);
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                	console.log("Raw Response Text fetch(url):", data);
-                	document.getElementById("empName").innerText = data.first_name + " " + data.last_name;
-                    document.getElementById("jobTitle").innerText = data.job_title;
-                    document.getElementById("hireDate").innerText = data.hire_date;
-                    document.getElementById("salaryMonth").innerText = data.salary_month;
-                })
-                .catch(error => console.error("Error fetching employee data:", error));
-        }
-        </script>
+    <form action="ImportEmployees" method="post" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".csv,.xlsx">
+    <button type="submit">Import</button>
+</form>
   </body>
 </html>

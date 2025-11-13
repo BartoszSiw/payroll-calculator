@@ -1,30 +1,91 @@
 body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }
         input { padding: 10px; margin: 10px; }
         button { padding: 10px; margin: 10px; cursor: pointer; }
-
+		.overlayAdd {
+		    display: none;
+		    position: fixed;
+		    top: 0;
+		    left: 0;
+		    width: 100%;
+		    height: 100%;
+		    background: rgba(0, 0, 0, 0.5);
+		    z-index: 999;
+		}
+		.overlayGet {
+		    display: none;
+		    position: fixed;
+		    top: 0;
+		    left: 0;
+		    width: 100%;
+		    height: 100%;
+		    background: rgba(0, 0, 0, 0.5);
+		    z-index: 999;
+		}
         /* Modal Styles */
-        .getEmployeeModal {
+        .modal {
             display: none; /* Hidden by default */
             position: fixed;
             left: 50%;
             top: 50%;
             transform: translate(-50%, -50%);
-            background: rgb(0, 255, 255);
+            background: rgb(206, 255, 255);
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0px 0px 10px rgb(0, 255, 0);
+            box-shadow: 0px 0px 10px rgb(151, 255, 151);
             z-index: 1000;
         }
+		    
+/* table */
+.hiddenTable {
+  margin-top: 20px;
+  display: none;   /* start hidden */
+}
+		#employeesTable {
+		  width: 100%;
+		  border-collapse: collapse;
+		  margin-top: 20px;
+		  font-family: Arial, sans-serif;
+		  font-size: 14px;
+		}
 
-        /* Overlay Background */
-        .overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 999;
-        }
-        #employeeForm { display: none; padding: 20px; border: 1px solid #ccc; width: 300px; margin: auto; }
+		#employeesTable th, #employeesTable td {
+		  border: 1px solid #ddd;
+		  padding: 8px;
+		  text-align: left;
+		}
+
+		#employeesTable th {
+		  background-color: rgb(106, 191, 111);
+		  color: white;
+		  font-weight: bold;
+		}
+
+		#employeesTable tr:nth-child(even) {
+		  background-color: #f9f9f9;
+		}
+
+		#employeesTable tr:hover {
+		  background-color: #f1f1f1;
+		  cursor: pointer;
+		}
+		/* Overlay Background */
+
+		#employeeForm { display: none; padding: 20px; border: 1px solid #ccc; width: 300px; margin: auto; }
+		/* Base style for all tables */
+		table {
+		  border-collapse: collapse;
+		  width: 80%;
+		  margin: 20px 0;
+		}
+		th, td {
+		  border: 1px solid #ccc;
+		  padding: 8px;
+		}
+		tr:nth-child(even) {
+		  background-color: #f9f9f9;
+		}
+
+		/* Theme classes */
+		.table-green th { background-color: rgb(106, 191, 111); color: white; }
+		.table-blue th { background-color: rgb(52, 152, 219); color: white; }
+		.table-red th { background-color: rgb(231, 76, 60); color: white; }

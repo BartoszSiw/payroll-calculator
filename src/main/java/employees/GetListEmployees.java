@@ -26,8 +26,8 @@ public class GetListEmployees extends HttpServlet {
         try {
 			Class.forName("com.mysql.cj.jdbc.Driver");
 			Connection con = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
-			System.out.println("Connected to Database Successfully GetList!");
-            String sqll = "SELECT idemployees, last_name FROM employees";
+			System.out.println("Connected to Database Successfully GetList ?");
+            String sqll = "SELECT idemployees, first_name, last_name, job_title, hire_date, salary_month FROM employees";
             PreparedStatement stmtt = con.prepareStatement(sqll);
             //stmt.setInt(1, employeeIdGet);
             ResultSet rss = stmtt.executeQuery();
@@ -35,9 +35,15 @@ public class GetListEmployees extends HttpServlet {
             while (rss.next()) {
             	JSONObject employeeObj = new JSONObject();
             	String lastNameEmplo = rss.getString("last_name");
-            	System.out.println("Found Employees: " + lastNameEmplo); 
+            	String firstNameEmplo = rss.getString("first_name");
+            	
+            	System.out.println("Found Employees: " + lastNameEmplo + " " + firstNameEmplo); 
             	employeeObj.put("idemployees", rss.getInt("idemployees"));
+            	employeeObj.put("first_name", firstNameEmplo);
                 employeeObj.put("last_name", lastNameEmplo);
+                employeeObj.put("job_title", rss.getString("job_title"));
+                employeeObj.put("hire_date", rss.getDate("hire_date").toString());
+                employeeObj.put("salary_month", rss.getDouble("salary_month"));
             	employeesArray.put(employeeObj);
             }
         	String jsonResponse = employeesArray.toString();
