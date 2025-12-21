@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+
+    <!-- ========================================================= -->
+    <!-- ROOT ELEMENT                                              -->
+    <!-- ========================================================= -->
+    <xs:element name="TargetDocument">
+        <xs:complexType>
+            <xs:sequence>
+
+                <!-- META -->
+                <xs:element name="GenDocId" type="xs:string"/>
+                <xs:element name="SourceType" type="xs:string"/>
+
+                <!-- MATERIAL VALUES (typ 03) -->
+                <xs:element name="MaterialValues" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="DocumentNumber" type="xs:string"/>
+                            <xs:element name="Code" type="xs:string"/>
+                            <xs:element name="Year" type="xs:gYear"/>
+                            <xs:element name="NetSale" type="xs:decimal"/>
+                            <xs:element name="NetPurchase" type="xs:decimal"/>
+                            <xs:element name="Discount" type="xs:decimal"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+
+                <!-- FISCALIZATION (typ 94) -->
+                <xs:element name="Fiscalization" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="FiscalNumber" type="xs:string"/>
+                            <xs:element name="ShortNumber" type="xs:string"/>
+                            <xs:element name="Date" type="xs:date"/>
+                            <xs:element name="Gross" type="xs:decimal"/>
+                            <xs:element name="DeviceNumber" type="xs:string"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+
+                <!-- VAT (typ 06) -->
+                <xs:element name="VAT" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="Rate" type="xs:decimal"/>
+                            <xs:element name="Base" type="xs:decimal"/>
+                            <xs:element name="VatAmount" type="xs:decimal"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+
+                <!-- PAYMENTS (typ 40 + 43) -->
+                <xs:element name="Payments" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="Payment" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="Code" type="xs:string"/>
+                                        <xs:element name="Date" type="xs:date"/>
+                                        <xs:element name="Amount" type="xs:decimal"/>
+                                        <xs:element name="BankNumber" type="xs:string"/>
+                                        <xs:element name="OperationDate" type="xs:date"/>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+
+                <!-- NOTES (typ 98) -->
+                <xs:element name="Notes" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="Note" type="xs:string" maxOccurs="unbounded"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>

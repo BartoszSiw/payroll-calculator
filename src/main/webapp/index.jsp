@@ -14,6 +14,7 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
 	<meta http-equiv="description" content="This is my page">
     <title>Payroll Calculator 2025</title>
 	<link rel="stylesheet" type="text/css" href="styles.css">
+	<a href="converter/converter.jsp">Converter</a>
 	<script src="script.js"></script>
   </head>
   <body>

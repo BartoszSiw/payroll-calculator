@@ -72,20 +72,46 @@ body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }
 
 		#employeeForm { display: none; padding: 20px; border: 1px solid #ccc; width: 300px; margin: auto; }
 		/* Base style for all tables */
-		table {
+		#payrollTable {
 		  border-collapse: collapse;
 		  width: 80%;
 		  margin: 20px 0;
 		}
-		th, td {
-		  border: 1px solid #ccc;
+		#payrollTable th, td {
+		  border: 3px solid rgb(112, 112, 112);
 		  padding: 8px;
+		 
 		}
-		tr:nth-child(even) {
+		#payrollTable tr:nth-child(even) {
+		  background-color: rgb(172, 255, 214);
+		  /*border-radius: 20px;*/
+		}
+		.table {
+		  font-family: Arial, sans-serif;
+		  border-collapse: separate;
+		    border-spacing: 0;
+		    border: 1px solid #333;
+		    border-radius: 10px;
+		    overflow: hidden;
+		}
+
+		.table th, .table td {
+		  /*border: 1px solid #333;
+		  padding: 8px 12px;*/
+		  text-align: right;
+		}
+
+		.table th {
+		  background-color: #444;
+		  color: white;
+		  text-align: left;
+		}
+
+		.table tr:nth-child(even) {
 		  background-color: #f9f9f9;
 		}
 
-		/* Theme classes */
+		/* Theme classes 
 		.table-green th { background-color: rgb(106, 191, 111); color: white; }
 		.table-blue th { background-color: rgb(52, 152, 219); color: white; }
-		.table-red th { background-color: rgb(231, 76, 60); color: white; }
+		.table-red th { background-color: rgb(231, 76, 60); color: white; }*/

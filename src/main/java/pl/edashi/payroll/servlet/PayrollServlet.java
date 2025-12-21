@@ -36,44 +36,14 @@ public class PayrollServlet extends HttpServlet {
 
         // Calculate payroll
         PayrollResult result = payrollService.calculatePayroll(employeeId);
-        // return html
-        response.setContentType("text/html");
-        response.setCharacterEncoding("UTF-8");
-        PrintWriter out = response.getWriter();
-        out.println("<h2>Payroll Calculation</h2>");
-        out.println("<table>");
-        response.getWriter().println("<h2>Payroll Calculation</h2>");
-        response.getWriter().println("<table border='1' cellpadding='8' cellspacing='0'>");
-        response.getWriter().println("<tr><th>Item</th><th>Value</th></tr>");
-        response.getWriter().println("<tr><td>Base Salary</td><td>" + result.getBaseSalary() + "</td></tr>");
-        response.getWriter().println("<tr><td>Total Hours</td><td>" + result.getTotalHours() + "</td></tr>");
-        response.getWriter().println("<tr><td>Overtime Pay</td><td>" + result.getOvertimePay() + "</td></tr>");
-        response.getWriter().println("<tr><td>Gross Salary</td><td>" + result.getGrossSalary() + "</td></tr>");
-        response.getWriter().println("<tr><td>Social Contributions</td><td>" + result.getSocialContributions() + "</td></tr>");
-        response.getWriter().println("<tr><td>Health Insurance</td><td>" + result.getHealthInsurance() + "</td></tr>");
-        response.getWriter().println("<tr><td>Income Tax</td><td>" + result.getIncomeTax() + "</td></tr>");
-        response.getWriter().println("<tr><td><strong>Net Salary</strong></td><td><strong>" + result.getNetSalary() + "</strong></td></tr>");
-        response.getWriter().println("</table>");
+        //return html render jsp
 
-        // Return JSON response
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
+        // put result in request scope
+        request.setAttribute("payrollResult", result);
 
-        String json = String.format(
-            "{ \"baseSalary\": %.2f, \"totalHours\": %.2f, \"overtimePay\": %.2f, " +
-            "\"grossSalary\": %.2f, \"socialContributions\": %.2f, " +
-            "\"healthInsurance\": %.2f, \"incomeTax\": %.2f, \"netSalary\": %.2f }",
-            result.getBaseSalary(),
-            result.getTotalHours(),
-            result.getOvertimePay(),
-            result.getGrossSalary(),
-            result.getSocialContributions(),
-            result.getHealthInsurance(),
-            result.getIncomeTax(),
-            result.getNetSalary()
-        );
+        // forward to JSP
+        request.getRequestDispatcher("payrollResult.jsp").forward(request, response);
 
-        response.getWriter().write(json);
     }
 }
 

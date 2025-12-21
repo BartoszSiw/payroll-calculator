@@ -1,21 +1,23 @@
 package pl.edashi.converter.model;
 
 public class ConversionResult {
-    private double input;
-    private double factor;
-    private double output;
-    private String type;
+    private final DocumentMetadata metadata;
+    private final ConflictStatus status;
+    private final String convertedXml;   // docelowy XML (lub null przy konflikcie)
+    private final String message;
 
-    public ConversionResult(double input, double factor, double output, String type) {
-        this.input = input;
-        this.factor = factor;
-        this.output = output;
-        this.type = type;
+    public ConversionResult(DocumentMetadata metadata,
+                            ConflictStatus status,
+                            String convertedXml,
+                            String message) {
+        this.metadata = metadata;
+        this.status = status;
+        this.convertedXml = convertedXml;
+        this.message = message;
     }
 
-    public double getInput() { return input; }
-    public double getFactor() { return factor; }
-    public double getOutput() { return output; }
-    public String getType() { return type; }
+    public DocumentMetadata getMetadata() { return metadata; }
+    public ConflictStatus getStatus() { return status; }
+    public String getConvertedXml() { return convertedXml; }
+    public String getMessage() { return message; }
 }
-
