@@ -18,15 +18,16 @@
         <scope>provided</scope>
     </dependency>
     <dependency>
+    <groupId>org.glassfish.web</groupId>
+    <artifactId>jakarta.servlet.jsp.jstl</artifactId>
+    <version>3.0.1</version>
+</dependency>
+
+    <dependency>
     <groupId>org.eclipse</groupId>
     <artifactId>yasson</artifactId>
     <version>2.0.3</version> <!-- Latest Jakarta JSON Binding -->
 </dependency>
-    <dependency>
-      <groupId>org.glassfish.web</groupId>
-      <artifactId>javax.servlet.jsp.jstl</artifactId>
-      <version>1.2.4</version>
-    </dependency>
     <dependency>
     <groupId>mysql</groupId>
     <artifactId>mysql-connector-java</artifactId>
@@ -43,6 +44,11 @@
     <artifactId>poi-ooxml</artifactId>
     <version>5.2.5</version>
 </dependency>
+  	<dependency>
+  		<groupId>Kalkulator</groupId>
+  		<artifactId>Kalkulator</artifactId>
+  		<version>0.0.1-SNAPSHOT</version>
+  	</dependency>
   </dependencies>
   <build>
     <plugins>

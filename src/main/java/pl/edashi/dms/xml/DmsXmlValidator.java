@@ -1,11 +1,13 @@
 package pl.edashi.dms.xml;
-
-import org.xml.sax.SAXException;
+import java.io.StringReader;
+import java.io.FileNotFoundException;
+import java.net.URL;
 
 import javax.xml.XMLConstants;
 import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
-import java.io.StringReader;
+import javax.xml.validation.Validator;
 
 public class DmsXmlValidator {
 
@@ -13,13 +15,19 @@ public class DmsXmlValidator {
 
         SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
 
-        try {
-            var schema = factory.newSchema(new StreamSource(xsdPath));
-            var validator = schema.newValidator();
-            validator.validate(new StreamSource(new StringReader(xml)));
+        URL xsdUrl = DmsXmlValidator.class.getClassLoader().getResource(xsdPath);
+        if (xsdUrl == null) {
+            throw new FileNotFoundException("Nie znaleziono XSD: " + xsdPath);
+        }
 
-        } catch (SAXException e) {
-            throw new Exception("XML nie przechodzi walidacji XSD: " + e.getMessage());
+        Schema schema = factory.newSchema(xsdUrl);
+        Validator validator = schema.newValidator();
+
+        try {
+            validator.validate(new StreamSource(new StringReader(xml)));
+        } catch (Exception e) {
+            throw new Exception("XML nie przechodzi walidacji XSD: " + e.getMessage(), e);
         }
     }
 }
+

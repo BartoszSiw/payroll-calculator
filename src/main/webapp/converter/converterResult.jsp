@@ -1,28 +1,28 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
-<%@ page import="pl.edashi.converter.model.ConversionResult" %>
-
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%
-    ConversionResult result = (ConversionResult) request.getAttribute("result");
+    String xml = (String) request.getAttribute("xml");
 %>
 
 <html>
 <head>
     <title>Wynik konwersji</title>
+    <style>
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: Consolas, monospace;
+        }
+    </style>
 </head>
 <body>
 
-<h2>Wynik konwersji dokumentu</h2>
+<h2>Wygenerowany XML</h2>
 
-<p><strong>ID dokumentu:</strong> <%= result.getMetadata().getGenDocId() %></p>
-<p><strong>Status:</strong> <%= result.getStatus() %></p>
-<p><strong>Komunikat:</strong> <%= result.getMessage() %></p>
-
-<h3>Wynikowy XML:</h3>
-<pre style="background:#f0f0f0; padding:10px; border:1px solid #ccc;">
-<%= result.getConvertedXml() == null ? "Brak (konflikt)" : result.getConvertedXml() %>
-</pre>
-
-<a href="../converter/converter.jsp">Powrót</a>
+<pre><c:out value="${xml}" escapeXml="true"/></pre>
 
 </body>
 </html>
+

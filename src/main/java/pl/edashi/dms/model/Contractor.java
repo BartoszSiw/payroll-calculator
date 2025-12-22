@@ -1,7 +1,7 @@
-package pl.edashi.converter.model;
+package pl.edashi.dms.model;
 
 public class Contractor {
-    public String id;
+	public String id;
     public String nip;
     public String name1;
     public String name2;
@@ -14,4 +14,3 @@ public class Contractor {
     public String street;
     public String houseNumber;
 }
-

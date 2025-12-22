@@ -1,7 +1,7 @@
 package pl.edashi.converter.repository;
 
-import pl.edashi.converter.model.DocumentMetadata;
 import pl.edashi.converter.model.DocumentStructure;
+import pl.edashi.dms.model.DocumentMetadata;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

@@ -1,29 +1,29 @@
 package pl.edashi.dms.mapper;
-import pl.edashi.converter.model.*;
 import pl.edashi.dms.model.*;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
-public class DsToDmsMapper {
+public class DmsToDmsMapper {
 
-    public DmsDocument map(DsParsedDocument src) {
+    public DmsDocumentOut map(DmsParsedDocument src) {
     	
-        DmsDocument doc = new DmsDocument();
+        DmsDocumentOut doc = new DmsDocumentOut();
 
         // META
         doc.idZrodla = UUID.randomUUID().toString();
         doc.modul = "Handel";
-        doc.typ = "Faktura sprzedaży";
+        doc.typ = "DS";
         doc.rejestr = "SPRZEDAŻ";
 
         // DATY
         doc.dataWystawienia = src.metadata.getDate(); // musisz dodać w metadata
         doc.dataSprzedazy = src.metadata.getDate();
         doc.termin = src.metadata.getDate();
-        doc.numer = src.metadata.getGenDocId();
-        // NUMER
-        doc.numer = src.metadata.getGenDocId();
 
+        // NUMER
+        //doc.numer = src.metadata.getGenDocId();
+        doc.invoiceShortNumber = src.invoiceShortNumber;
+        //doc.invoiceNumber = src.invoiceNumber;
+        //doc.numer = src.invoiceShortNumber;
         // PODMIOT
         if (src.contractor != null) {
             doc.podmiotId = src.contractor.id;
@@ -40,19 +40,24 @@ public class DsToDmsMapper {
             doc.nrDomu = src.contractor.houseNumber;
         }
 
-        // POZYCJE (typ 03)
         doc.pozycje = new ArrayList<>();
+        //doc.pozycjeRobocizna = new ArrayList<>();
+
+        // POZYCJE – 03 i 04 (wszystkie z listy)
         if (src.positions != null) {
-            for (var p : src.positions) {
-                DmsPosition pos = new DmsPosition();
-                pos.kategoria = p.kategoria;
-                pos.stawkaVat = p.stawkaVat;
-                pos.netto = p.netto;
-                pos.vat = p.vat;
-                pos.rodzajSprzedazy = p.rodzajSprzedazy;
-                doc.pozycje.add(pos);
+            for (DmsPosition p : src.positions) {
+                DmsOutputPosition outPos = new DmsOutputPosition();
+                outPos.kategoria       = p.kategoria;
+                outPos.stawkaVat       = p.stawkaVat;
+                outPos.netto           = p.netto;
+                outPos.vat             = p.vat;
+                outPos.rodzajSprzedazy = p.rodzajSprzedazy;
+                outPos.vin             = p.vin;
+
+                doc.pozycje.add(outPos);
             }
         }
+
         // VAT (typ 06)
         doc.vatRate = src.vatRate;
         doc.vatBase = src.vatBase;
@@ -60,23 +65,21 @@ public class DsToDmsMapper {
         // PŁATNOŚCI (typ 40)
         doc.platnosci = new ArrayList<>();
         if (src.payments != null) {
-            for (var p : src.payments) {
-                DmsPayment pay = new DmsPayment();
-                pay.termin = p.termin;
-                pay.forma = p.forma;
-                pay.kwota = p.kwota;
-                pay.kierunek = p.kierunek;
-                pay.opis = p.opis;
-                doc.platnosci.add(pay);
+            for (DmsPayment p : src.payments) {
+                doc.platnosci.add(p);
             }
         }
+        // FAKTURA
+        doc.numer = src.invoiceNumber;
+        doc.rozszerzone = src.invoiceShortNumber;
+        //doc.identyfikatorKsiegowy = src.invoiceNumber;
+        //doc.platSplitNrDokumentu = src.invoiceNumber;
 
         // UWAGI (typ 98)
         doc.uwagi = src.notes;
 
         // DODATKOWY OPIS
-        doc.dodatkowyOpis = src.additionalDescription;
-
+        doc.dodatkowyOpis = src.fiscalNumber;;
         return doc;
     }
 }

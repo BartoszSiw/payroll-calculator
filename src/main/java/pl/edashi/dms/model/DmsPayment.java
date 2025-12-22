@@ -7,5 +7,5 @@ public class DmsPayment {
 	    public String kwota;
 	    public String kierunek;
 	    public String opis;
+	    public String nrBank;
 	}
-

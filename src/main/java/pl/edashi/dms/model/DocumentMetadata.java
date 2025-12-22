@@ -1,4 +1,4 @@
-package pl.edashi.converter.model;
+package pl.edashi.dms.model;
 
 public class DocumentMetadata {
     private final String genDocId;   // gen_doc_id

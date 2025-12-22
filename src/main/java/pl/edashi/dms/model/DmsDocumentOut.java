@@ -1,6 +1,8 @@
 package pl.edashi.dms.model;
+import java.util.ArrayList;
 import java.util.List;
-public class DmsDocument {
+public class DmsDocumentOut {
+	public List<DmsOutputPosition> pozycje = new ArrayList<>();
 	// META
     public String idZrodla;
     public String modul;
@@ -24,8 +26,12 @@ public class DmsDocument {
     public String kodPocztowy;
     public String ulica;
     public String nrDomu;
+    //FAKTURA
+    public String rozszerzone;
+    //public String invoiceNumber;
+    public String invoiceShortNumber;
     // POZYCJE
-    public List<DmsPosition> pozycje;
+ 
     // PŁATNOŚCI
     public List<DmsPayment> platnosci;
     // VAT
@@ -37,3 +43,4 @@ public class DmsDocument {
     public String dodatkowyOpis;
     public List<String> uwagi;
 }
+
