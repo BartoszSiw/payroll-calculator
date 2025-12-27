@@ -2,6 +2,7 @@ package pl.edashi.converter.service;
 import pl.edashi.common.logging.AppLogger;
 import pl.edashi.dms.mapper.DmsToDmsMapper;
 import pl.edashi.dms.model.DmsDocumentOut;
+import pl.edashi.dms.model.DmsParsedContractorList;
 import pl.edashi.dms.model.DmsParsedDocument;
 import pl.edashi.dms.xml.DmsOfflineXmlBuilder;
 import pl.edashi.dms.xml.DmsXmlValidator;
@@ -52,38 +53,53 @@ public class XmlWatcher implements Runnable {
             // 1. Wczytanie całego pliku XML jako String
             String xml = Files.readString(file);
 
-            // 2. Parsowanie dokumentu DMS (DS, KO, DK, WZ, KZ...)
-            DmsParsedDocument parsed =
+            // 2. Parsowanie dokumentu DMS (DS, KO, DK, WZ, KZ, SL ...)
+            Object parsed =
                     converterService.processSingleDocument(xml, file.getFileName().toString());
 
-            // 3. Mapowanie DS → DMS (tylko DS ma mapowanie do rejestru sprzedaży)
-            DmsDocumentOut dms = null;
+         // ============================
+            // 3. Obsługa DS (sprzedaż)
+            // ============================
+            if (parsed instanceof DmsParsedDocument ds) {
 
-            if ("DS".equals(parsed.metadata.getId())) {
-                dms = new DmsToDmsMapper().map(parsed);
-            } else {
-                System.out.println("Typ dokumentu " + parsed.metadata.getId() +
-                        " nie jest mapowany do DMS XML. Pomijam.");
+                // Mapowanie DS → DMS
+                DmsDocumentOut dms = new DmsToDmsMapper().map(ds);
+
+                // Generowanie finalnego XML zgodnego z Comarch OFFLINE
+                String finalXml = new DmsOfflineXmlBuilder().build(dms);
+
+                // Walidacja XSD
+                DmsXmlValidator.validate(finalXml, "xsd/optima_offline.xsd");
+
+                // Zapis do katalogu output/
+                Path outputDir = Paths.get("output");
+                if (!Files.exists(outputDir)) {
+                    Files.createDirectories(outputDir);
+                }
+
+                Path outFile = outputDir.resolve(ds.metadata.getGenDocId() + ".xml");
+                Files.writeString(outFile, finalXml);
+
+                System.out.println("Processed DMS file: " + file.getFileName()
+                        + " → saved as " + outFile.getFileName());
+
                 return;
             }
 
-            // 4. Generowanie finalnego XML zgodnego z Comarch OFFLINE
-            String finalXml = new DmsOfflineXmlBuilder().build(dms);
-
-            // 5. Walidacja XSD
-            DmsXmlValidator.validate(finalXml, "xsd/optima_offline.xsd");
-
-            // 6. Zapis do katalogu output/
-            Path outputDir = Paths.get("output");
-            if (!Files.exists(outputDir)) {
-                Files.createDirectories(outputDir);
+            // ============================
+            // 4. Obsługa SL (słownik kontrahentów)
+            // ============================
+            if (parsed instanceof DmsParsedContractorList sl) {
+                System.out.println("Plik SL wykryty: " + file.getFileName()
+                        + " — słownik kontrahentów nie jest przetwarzany przez XmlWatcher.");
+                return;
             }
 
-            Path outFile = outputDir.resolve(parsed.metadata.getGenDocId() + ".xml");
-            Files.writeString(outFile, finalXml);
+            // ============================
+            // 5. Nieznany typ
+            // ============================
+            System.out.println("Nieobsługiwany typ dokumentu w watcherze: " + parsed.getClass());
 
-            System.out.println("Processed DMS file: " + file.getFileName()
-                    + " → saved as " + outFile.getFileName());
 
         } catch (Exception e) {
             System.err.println("Error processing file " + file.getFileName() + ": " + e.getMessage());

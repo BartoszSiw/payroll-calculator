@@ -9,11 +9,18 @@ import pl.edashi.converter.repository.DocumentRepository;
 import pl.edashi.converter.service.ConverterService;
 import pl.edashi.dms.mapper.DmsToDmsMapper;
 import pl.edashi.dms.model.DmsDocumentOut;
+import pl.edashi.dms.model.DmsParsedContractor;
+import pl.edashi.dms.model.DmsParsedContractorList;
 import pl.edashi.dms.model.DmsParsedDocument;
 import pl.edashi.dms.xml.DmsOfflineXmlBuilder;
+import pl.edashi.optima.builder.ContractorsXmlBuilder;
+import pl.edashi.optima.mapper.ContractorMapper;
+import pl.edashi.optima.model.OfflineContractor;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.util.List;
 
 @WebServlet("/ConverterServlet")
 @MultipartConfig
@@ -55,23 +62,45 @@ public class ConverterServlet extends HttpServlet {
         // Wczytaj zawartość XML
         String xml = Files.readString(savedFile);
         try {
-            // 1. Parsowanie dokumentu DMS (DS, KO, DK, WZ...)
-            DmsParsedDocument parsed = converterService.processSingleDocument(xml, fileName);
+            // 1. Parsowanie dokumentu DMS (DS, KO, DK, SL WZ...)
+            //DmsParsedDocument parsed = converterService.processSingleDocument(xml, fileName);
+        	Object parsed = converterService.processSingleDocument(xml, fileName);
+            // ============================
+            // ŚCIEŻKA DS (sprzedaż)
+            // ============================
+        	if (parsed instanceof DmsParsedDocument ds) {
+        	    // 2. DS → działa jak dotychczas, Mapowanie DS → DMS (tylko dla DS)
+        	    DmsDocumentOut doc = new DmsToDmsMapper().map(ds);
+        	    String finalXml = new DmsOfflineXmlBuilder().build(doc);
+                // 3. Generowanie finalnego XML zgodnego z Comarch OFFLINE
+                String safeNumber = doc.invoiceNumber.replaceAll("[\\\\/:*?\"<>|]", "_");
 
-            // 2. Mapowanie DS → DMS (tylko dla DS)
-            DmsDocumentOut doc = new DmsToDmsMapper().map(parsed);
+                Path out = Paths.get("C:/Users/Administrator.DSI/OneDrive/OPTIMA/ImportyPR/" + safeNumber + ".xml");
+                Files.writeString(out, finalXml, StandardCharsets.UTF_8);
+                // 5. Przekazanie finalnego XML do JSP
+                req.setAttribute("xml", finalXml);
+                req.getRequestDispatcher("converter/converterResult.jsp").forward(req, resp);
+                return;
+        	}
+            // ============================
+            // ŚCIEŻKA SL (kontrahenci)
+            // ============================
+        	if (parsed instanceof DmsParsedContractorList sl) {
+        	    List<OfflineContractor> mapped = new ContractorMapper().map(sl.contractors);
+        	    String finalXml = new ContractorsXmlBuilder().build(mapped);
+        	    String safeName = sl.fileName.replaceAll("[\\\\/:*?\"<>|]", "_");
+        	    Path out = Paths.get("C:/Users/Administrator.DSI/OneDrive/OPTIMA/ImportyPR/" + safeName + ".xml");
+                Files.writeString(out, finalXml, StandardCharsets.UTF_8);
 
-            // 3. Generowanie finalnego XML zgodnego z Comarch OFFLINE
-            String finalXml = new DmsOfflineXmlBuilder().build(doc);
-            Path out = Paths.get("C:/Users/Administrator.DSI/OneDrive/OPTIMA/ImportyPR/" + doc.numer + ".xml");
-            Files.writeString(out, finalXml, StandardCharsets.UTF_8);
+                req.setAttribute("xml", finalXml);
+                req.getRequestDispatcher("converter/converterResult.jsp").forward(req, resp);
+                return;
+        	}
 
             // 4. Walidacja XSD
             //DmsXmlValidator.validate(finalXml, "xsd/optima_offline.xsd");
 
-            // 5. Przekazanie finalnego XML do JSP
-            req.setAttribute("xml", finalXml);
-            req.getRequestDispatcher("converter/converterResult.jsp").forward(req, resp);
+
 
         } catch (Exception e) {
             throw new ServletException("Błąd podczas przetwarzania XML: " + e.getMessage(), e);

@@ -23,7 +23,7 @@ public class DmsParserDS {
         String genDocId = root.getAttribute("gen_doc_id");
         String id = root.getAttribute("id");
         String trans = root.getAttribute("trans");
-
+        
         Element daty = (Element) doc.getElementsByTagName("daty").item(0);
 
         out.metadata = new DocumentMetadata(
@@ -35,12 +35,15 @@ public class DmsParserDS {
                 daty.getAttribute("data_sprzed"),
                 daty.getAttribute("data_zatw")
         );
-
+        Element dms = (Element) doc.getElementsByTagName("DMS").item(0);
         // ============================
         // 2. KONTRAHENT (typ 35)
         // ============================
         out.contractor = extractContractor(doc);
-
+        // ============================
+        // 2. DMS (typ dokumentu)
+        // ============================
+        extractDocumentNumberFromGenInfo(dms, out); 
         // ============================
         // 3. POZYCJE (typ 03)
         // ============================
@@ -56,11 +59,6 @@ public class DmsParserDS {
         // ============================
         out.payments = extractPayments(doc);
         
-        // ============================
-        // 6. FAKTURA (typ 94)
-        // ============================
-        extractInvoiceNumber(doc, out);
-
         // ============================
         // 7. FISKALIZACJA (typ 94)
         // ============================
@@ -103,7 +101,35 @@ public class DmsParserDS {
         }
         return null;
     }
+    // ------------------------------
+    // NR Dokumentu (typ 03)
+    // ------------------------------
+    private void extractDocumentNumberFromGenInfo(Element dms, DmsParsedDocument out) {
 
+        String info = dms.getAttribute("gen_info");
+        if (info == null || info.isEmpty()) {
+            return;
+        }
+
+        // usuń nawiasy
+        info = info.replace("(", "").replace(")", "");
+
+        // split po przecinku
+        String[] parts = info.split(",");
+
+        if (parts.length < 6) {
+            return;
+        }
+
+        // parts[3] = typ dokumentu (Pr, FV, ...)
+        // parts[4] = numer dokumentu
+        // parts[5] = data
+
+        out.documentType = parts[4].trim();   // jeśli chcesz
+        out.invoiceNumber = parts[5].trim();  // ← TO JEST NUMER DOKUMENTU
+        out.invoiceShortNumber = parts[5].trim(); // możesz użyć tego samego
+        System.out.println(parts[5].trim());
+    }
     // ------------------------------
     // POZYCJE (typ 03)
     // ------------------------------
@@ -114,13 +140,20 @@ public class DmsParserDS {
 
 
         for (int i = 0; i < list.getLength(); i++) {
-            Element el = (Element) list.item(i);
-            String typ = el.getAttribute("typ");
-            if ("03".equals(el.getAttribute("typ")) || "04".equals(el.getAttribute("typ"))) {
+            Element document = (Element) list.item(i);
+            String typ = document.getAttribute("typ");
+            // Obsługujemy tylko typy 03, 04, 05
+            if (!typ.equals("03") && !typ.equals("04") && !typ.equals("05")) {
+                continue;
+            }
 
-                Element dane = (Element) el.getElementsByTagName("dane").item(0);
+            // 🔥 Pętla po WSZYSTKICH <dane> w danym <document>
+            NodeList daneList = document.getElementsByTagName("dane");
+            for (int j = 0; j < daneList.getLength(); j++) {
+
+                Element dane = (Element) daneList.item(j);
                 // nrPar
-                Element nrPar = (Element) dane.getElementsByTagName("numer").item(0);
+                //Element nrPar = (Element) dane.getElementsByTagName("numer").item(0);
                 // <wartosci>
                 Element wart = (Element) dane.getElementsByTagName("wartosci").item(0);
                 // <klasyfikatory>
@@ -129,9 +162,11 @@ public class DmsParserDS {
                 Element rozs = (Element) dane.getElementsByTagName("rozszerzone").item(0);
                 DmsPosition p = new DmsPosition();
                 // Ustaw typ pozycji
-                p.type = el.getAttribute("typ");
+                p.type = typ;
                 // KATEGORIA → z <klasyfikatory kod="NM1">
                 p.kategoria = klas != null ? klas.getAttribute("kod") : "";
+                // VIN → z <rozszerzone vin="...">
+                p.vin = rozs != null ? rozs.getAttribute("vin") : "";
 
                 // STAWKA VAT → w typie 03 nie ma, więc ustawiamy domyślnie
                 p.stawkaVat = "23"; // lub pobierz z innego dokumentu, jeśli masz
@@ -151,12 +186,39 @@ public class DmsParserDS {
                 } else {
                     p.vat = "0.00";
                 }
+             // 🔥 RÓŻNE ZASADY DLA RÓŻNYCH TYPÓW
+                switch (typ) {
 
-                // RODZAJ SPRZEDAŻY → brak w typie 03, ustawiamy domyślnie
-                p.rodzajSprzedazy = "towary";
+                                case "03":
+                                    // Materiały handlowe / zakupy kosztowe
+                                    p.rodzajSprzedazy = "towary";
+                                    p.stawkaVat = "23";
+                                    break;
 
-                // VIN → z <rozszerzone vin="...">
-                p.vin = rozs != null ? rozs.getAttribute("vin") : "";
+                                case "04":
+                                    // Robocizna i usługi
+                                    p.rodzajSprzedazy = "uslugi";
+                                    p.stawkaVat = "23";
+
+                                    // czas robocizny
+                                    if (rozs != null) {
+                                        //p.czasRob = rozs.getAttribute("czas_rob");
+                                        //p.czasKat = rozs.getAttribute("czas_kat");
+                                    }
+                                    break;
+
+                                case "05":
+                                    // Usługi obce
+                                    p.rodzajSprzedazy = "uslugi_obce";
+                                    p.stawkaVat = "23";
+
+                                    // kod klienta, nr
+                                    if (rozs != null) {
+                                        //p.kodKlienta = rozs.getAttribute("kod_klienta");
+                                        //p.nr = rozs.getAttribute("nr");
+                                    }
+                                    break;
+                            }
 
                 listOut.add(p);
             }
@@ -218,16 +280,16 @@ public class DmsParserDS {
     // ------------------------------
     // FAKTURA (typ 94)
     // ------------------------------
-    private void extractInvoiceNumber(Document doc, DmsParsedDocument out) {
+    //private void extractOtherNumber(Document doc, DmsParsedDocument out) {
 
-        NodeList list = doc.getElementsByTagName("document");
+        //NodeList list = doc.getElementsByTagName("document");
 
-        for (int i = 0; i < list.getLength(); i++) {
-            Element el = (Element) list.item(i);
+        //for (int i = 0; i < list.getLength(); i++) {
+            //Element el = (Element) list.item(i);
 
-            if ("94".equals(el.getAttribute("typ"))) {
+            //if ("94".equals(el.getAttribute("typ"))) {
 
-                Element dane = (Element) el.getElementsByTagName("dane").item(0);
+                //Element dane = (Element) el.getElementsByTagName("dane").item(0);
 
                 // <numer nr="175">EAH1901348177/175</numer>
                 //Element numer = (Element) dane.getElementsByTagName("numer").item(0);
@@ -236,13 +298,13 @@ public class DmsParserDS {
                 //}
 
                 // <rozszerzone nr="EAH1901348177"/>
-                Element rozs = (Element) dane.getElementsByTagName("rozszerzone").item(0);
-                if (rozs != null) {
-                    out.invoiceShortNumber = rozs.getAttribute("nr"); // EAH1901348177
-                }
-            }
-        }
-    }
+                //Element rozs = (Element) dane.getElementsByTagName("rozszerzone").item(0);
+                //if (rozs != null) {
+                    //out.invoiceShortNumber = rozs.getAttribute("nr"); // EAH1901348177
+                //}
+            //}
+        //}
+    //}
     // ------------------------------
     // FISKALIZACJA (typ 94)
     // ------------------------------

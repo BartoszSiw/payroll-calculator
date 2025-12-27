@@ -49,13 +49,14 @@ public class DmsOfflineXmlBuilder {
         // META
         rs.appendChild(make(xml, "ID_ZRODLA", doc.idZrodla));
         rs.appendChild(make(xml, "MODUL", doc.modul));               // np. "Handel"
-        rs.appendChild(make(xml, "TYP", "Faktura sprzedaży"));       // tutaj możesz w przyszłości zmapować typ → opis
+        rs.appendChild(make(xml, "TYP", doc.documentType));       // tutaj możesz w przyszłości zmapować typ → opis
         rs.appendChild(make(xml, "REJESTR", doc.rejestr));
 
         rs.appendChild(make(xml, "DATA_WYSTAWIENIA", doc.dataWystawienia));
         rs.appendChild(make(xml, "DATA_SPRZEDAZY", doc.dataSprzedazy));
         rs.appendChild(make(xml, "TERMIN", doc.termin));
-        rs.appendChild(make(xml, "NUMER", doc.invoiceShortNumber));
+        rs.appendChild(make(xml, "NUMER", doc.invoiceNumber));
+
 
         // Pola flagowe – na razie stałe wartości (można potem zmapować z doc)
         rs.appendChild(make(xml, "KOREKTA", "Nie"));

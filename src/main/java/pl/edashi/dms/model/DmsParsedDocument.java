@@ -16,8 +16,8 @@ public class DmsParsedDocument {
     public String fiscalDevice;
     public String fiscalDate;
     public String additionalDescription;
-    
-    public String invoiceNumber;      // EAH1901348177/175
-    public String invoiceShortNumber; // EAH1901348177
+	public String documentType;		  // Pr, Fa
+    public String invoiceNumber;      // 1/100/01/01102/2025
+    public String invoiceShortNumber; // 1/100/01/01102/2025
 
 }

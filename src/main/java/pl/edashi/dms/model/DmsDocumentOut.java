@@ -27,8 +27,9 @@ public class DmsDocumentOut {
     public String ulica;
     public String nrDomu;
     //FAKTURA
+    public String documentType;
     public String rozszerzone;
-    //public String invoiceNumber;
+    public String invoiceNumber;
     public String invoiceShortNumber;
     // POZYCJE
  

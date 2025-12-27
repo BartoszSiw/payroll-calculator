@@ -10,7 +10,7 @@ public class DmsToDmsMapper {
 
         // META
         doc.idZrodla = UUID.randomUUID().toString();
-        doc.modul = "Handel";
+        doc.modul = "Rejestr Vat";
         doc.typ = "DS";
         doc.rejestr = "SPRZEDAŻ";
 
@@ -21,8 +21,9 @@ public class DmsToDmsMapper {
 
         // NUMER
         //doc.numer = src.metadata.getGenDocId();
-        doc.invoiceShortNumber = src.invoiceShortNumber;
-        //doc.invoiceNumber = src.invoiceNumber;
+        //doc.invoiceShortNumber = src.invoiceShortNumber;
+        doc.invoiceNumber = src.invoiceNumber;
+        doc.documentType = src.documentType;
         //doc.numer = src.invoiceShortNumber;
         // PODMIOT
         if (src.contractor != null) {
