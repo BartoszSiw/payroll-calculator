@@ -8,4 +8,6 @@ public class DmsPayment {
 	    public String kierunek;
 	    public String opis;
 	    public String nrBank;
+		public String vat;
+		public String vatZ;
 	}

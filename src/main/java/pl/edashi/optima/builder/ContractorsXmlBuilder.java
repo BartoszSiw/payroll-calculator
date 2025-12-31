@@ -10,20 +10,21 @@ import javax.xml.transform.stream.StreamResult;
 
 import java.io.StringWriter;
 import java.util.List;
+
+import pl.edashi.dms.xml.XmlSectionBuilder;
 import pl.edashi.optima.model.OfflineContractor;
 
-public class ContractorsXmlBuilder {
+public class ContractorsXmlBuilder implements XmlSectionBuilder {
 
     private static final String NS = "http://www.comarch.pl/cdn/optima/offline";
+    private final List<OfflineContractor> contractors;
+    public ContractorsXmlBuilder(List<OfflineContractor> contractors) {
+        this.contractors = contractors;
+    }
+    @Override
+    public void build(Document xml, Element root) {
 
-    public String build(List<OfflineContractor> contractors) throws Exception {
-
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setNamespaceAware(true);
-        Document xml = factory.newDocumentBuilder().newDocument();
-
-        Element root = xml.createElementNS(NS, "ROOT");
-        xml.appendChild(root);
+    //public String build(List<OfflineContractor> contractors) throws Exception {
 
         Element sekcja = xml.createElementNS(NS, "KONTRAHENCI");
         root.appendChild(sekcja);
@@ -118,18 +119,6 @@ public class ContractorsXmlBuilder {
 
             // Reszta: GRUPY, KNT_RACHUNKI, WERYFIKACJE – możesz dodać później
         }
-
-        TransformerFactory tf = TransformerFactory.newInstance();
-        Transformer transformer = tf.newTransformer();
-        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-        transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
-
-
-        StringWriter writer = new StringWriter();
-        transformer.transform(new DOMSource(xml), new StreamResult(writer));
-
-        return writer.toString();
-
     }
 
     private Element make(Document xml, String name, String value) {

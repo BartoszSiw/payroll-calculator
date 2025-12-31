@@ -44,6 +44,12 @@ Generates final XML using:
 ### 7. Output: XML for Optima
 Final XML document ready for import into Comarch Optima.
 
+### 8. Tomcat11 install
+- install and create:
+- C:\Tomcat11\bin
+- create file setenv.bat and paste line below
+- set CATALINA_OPTS=-Dorg.apache.tomcat.util.http.fileupload.fileCountMax=-1
+
 ## 🧱 Project Structure
 
 ## 🚀 Development Notes

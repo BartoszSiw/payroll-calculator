@@ -57,7 +57,7 @@ public class DmsParserDS {
         // ============================
         // 5. PŁATNOŚCI (typ 40 + 43)
         // ============================
-        out.payments = extractPayments(doc);
+        out.payments = extractPayments(doc, out);
         
         // ============================
         // 7. FISKALIZACJA (typ 94)
@@ -157,14 +157,25 @@ public class DmsParserDS {
                 // <wartosci>
                 Element wart = (Element) dane.getElementsByTagName("wartosci").item(0);
                 // <klasyfikatory>
-                Element klas = (Element) dane.getElementsByTagName("klasyfikatory").item(0);
+                Element klas = (Element) dane.getElementsByTagNameNS("*","klasyfikatory").item(0);
                 // <rozszerzone>
                 Element rozs = (Element) dane.getElementsByTagName("rozszerzone").item(0);
                 DmsPosition p = new DmsPosition();
+                String kanalKategoria = "";
                 // Ustaw typ pozycji
                 p.type = typ;
                 // KATEGORIA → z <klasyfikatory kod="NM1">
                 p.kategoria = klas != null ? klas.getAttribute("kod") : "";
+                p.kanal = klas != null ? klas.getAttribute("kanal") : "";
+                //System.out.println("klas = " + klas);
+                if (!p.kategoria.isBlank()) {
+                	p.kanalKategoria = p.kanal + "-" + p.kategoria;
+                    System.out.println("kod=" + klas.getAttribute("kod"));
+                    System.out.println("kanal=" + klas.getAttribute("kanal"));
+                } else {
+                	p.kanalKategoria = "";
+                }
+
                 // VIN → z <rozszerzone vin="...">
                 p.vin = rozs != null ? rozs.getAttribute("vin") : "";
 
@@ -192,13 +203,14 @@ public class DmsParserDS {
                                 case "03":
                                     // Materiały handlowe / zakupy kosztowe
                                     p.rodzajSprzedazy = "towary";
-                                    p.stawkaVat = "23";
+                                    //p.stawkaVat = "23";
+                                    //p.kategoria = "MATERIAŁY_HANDLOWE";
                                     break;
 
                                 case "04":
                                     // Robocizna i usługi
                                     p.rodzajSprzedazy = "uslugi";
-                                    p.stawkaVat = "23";
+                                    //p.stawkaVat = "23";
 
                                     // czas robocizny
                                     if (rozs != null) {
@@ -210,7 +222,7 @@ public class DmsParserDS {
                                 case "05":
                                     // Usługi obce
                                     p.rodzajSprzedazy = "uslugi_obce";
-                                    p.stawkaVat = "23";
+                                    //p.stawkaVat = "23";
 
                                     // kod klienta, nr
                                     if (rozs != null) {
@@ -224,6 +236,43 @@ public class DmsParserDS {
             }
 
         }
+     // ===============================
+     // KOREKTA VAT – zgodność z typem 06
+     // ===============================
+
+     // Pobierz VAT z dokumentu typ 06
+     NodeList vatDocs = doc.getElementsByTagName("document");
+     double vatFromDms = 0.0;
+
+     for (int i = 0; i < vatDocs.getLength(); i++) {
+         Element el = (Element) vatDocs.item(i);
+         if ("06".equals(el.getAttribute("typ"))) {
+             Element daneVat = (Element) el.getElementsByTagName("dane").item(0);
+             Element wartVat = (Element) daneVat.getElementsByTagName("wartosci").item(0);
+             vatFromDms = Double.parseDouble(wartVat.getAttribute("vat"));
+             break;
+         }
+     }
+
+     // Suma VAT z pozycji
+     double vatFromPositions = listOut.stream()
+             .mapToDouble(p -> Double.parseDouble(p.vat))
+             .sum();
+
+     // Różnica
+     double diff = vatFromDms - vatFromPositions;
+
+     // Jeśli różnica jest minimalna (0.01 lub -0.01)
+     if (Math.abs(diff) <= 0.10 && !listOut.isEmpty()) {
+         DmsPosition last = listOut.get(listOut.size() - 1);
+
+         double correctedVat = Double.parseDouble(last.vat) + diff;
+         last.vat = String.format(Locale.US, "%.2f", correctedVat);
+
+         // Możesz dodać log:
+         System.out.println("KOREKTA VAT: różnica " + diff + " dodana do ostatniej pozycji.");
+     }
+
         return listOut;
     }
 
@@ -252,14 +301,14 @@ public class DmsParserDS {
     // ------------------------------
     // PŁATNOŚCI (typ 40 + 43)
     // ------------------------------
-    private List<DmsPayment> extractPayments(Document doc) {
+    private List<DmsPayment> extractPayments(Document doc, DmsParsedDocument out) {
 
         List<DmsPayment> listOut = new ArrayList<>();
         NodeList list = doc.getElementsByTagName("document");
-
+        String terminPlatn = "";
         for (int i = 0; i < list.getLength(); i++) {
             Element el = (Element) list.item(i);
-
+// Płatności do dokumentu
             if ("40".equals(el.getAttribute("typ"))) {
 
                 Element dane = (Element) el.getElementsByTagName("dane").item(0);
@@ -267,13 +316,47 @@ public class DmsParserDS {
                 
                 DmsPayment p = new DmsPayment();
                 p.kwota = wart.getAttribute("kwota");
+                // VAT = VAT dokumentu (typ 06)
+                p.vatZ = out.vatAmount != null ? out.vatAmount : "0.00";
+                out.vatZ = p.vatZ;
                 p.termin = ((Element) dane.getElementsByTagName("daty").item(0)).getAttribute("data");
+                terminPlatn = p.termin;
                 p.forma = ((Element) dane.getElementsByTagName("klasyfikatory").item(0)).getAttribute("kod");
                 p.nrBank = ((Element) dane.getElementsByTagName("rozszerzone").item(0)).getAttribute("nr_rach");
                 p.kierunek = "przychód";
 
                 listOut.add(p);
             }
+         // ------------------------------
+         // ZALICZKI (typ 45)
+         // ------------------------------
+         if ("45".equals(el.getAttribute("typ"))) {
+
+             Element dane = (Element) el.getElementsByTagName("dane").item(0);
+             Element wart = (Element) dane.getElementsByTagName("wartosci").item(0);
+
+             DmsPayment p = new DmsPayment();
+             p.kwota = wart.getAttribute("brutto");   // kwota zaliczki
+             // VAT = brutto - netto
+             try {
+                 double brutto = Double.parseDouble(wart.getAttribute("brutto"));
+                 double netto  = Double.parseDouble(wart.getAttribute("netto"));
+                 double vatZaliczki    = brutto - netto;
+
+                 p.vatZ = String.format(Locale.US, "%.2f", vatZaliczki);
+                 out.vatZ = p.vatZ;
+             } catch (Exception ex) {
+                 p.vatZ = "0.00";
+                 out.vatZ = p.vatZ;
+             }
+             p.termin = terminPlatn;                           // brak terminu w zaliczce
+             p.forma = "przelew";                     // możesz zmienić jeśli chcesz
+             p.nrBank = "";                           // brak danych bankowych
+             p.kierunek = "przychód";
+
+             listOut.add(p);
+         }
+
         }
         return listOut;
     }

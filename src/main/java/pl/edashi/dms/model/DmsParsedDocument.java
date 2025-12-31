@@ -11,6 +11,7 @@ public class DmsParsedDocument {
     public String vatRate;
     public String vatBase;
     public String vatAmount;
+    public String vatZ;
 
     public String fiscalNumber;
     public String fiscalDevice;

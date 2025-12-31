@@ -30,6 +30,7 @@ public class ContractorMapper {
         if (src.isCompany) {
             c.platnikVat = "Tak";
             c.nip = src.nip;
+            c.nipKraj = src.nipKraj;
             c.regon = src.regon;
             c.pesel = "";
         } else {

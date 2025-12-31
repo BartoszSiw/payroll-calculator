@@ -96,7 +96,8 @@ public class ConverterService {
 
     private Document load(String xml) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
         DocumentBuilder builder = factory.newDocumentBuilder();
         return builder.parse(new InputSource(new StringReader(xml)));
-    }
+       }
 }

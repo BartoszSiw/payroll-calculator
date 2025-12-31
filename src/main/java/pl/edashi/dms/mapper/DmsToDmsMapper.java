@@ -54,7 +54,8 @@ public class DmsToDmsMapper {
                 outPos.vat             = p.vat;
                 outPos.rodzajSprzedazy = p.rodzajSprzedazy;
                 outPos.vin             = p.vin;
-
+                outPos.kanal		   = p.kanal;
+                outPos.kanalKategoria  = p.kanalKategoria;
                 doc.pozycje.add(outPos);
             }
         }
@@ -63,6 +64,7 @@ public class DmsToDmsMapper {
         doc.vatRate = src.vatRate;
         doc.vatBase = src.vatBase;
         doc.vatAmount = src.vatAmount;
+        //doc.vatZ = src.vatZ;
         // PŁATNOŚCI (typ 40)
         doc.platnosci = new ArrayList<>();
         if (src.payments != null) {

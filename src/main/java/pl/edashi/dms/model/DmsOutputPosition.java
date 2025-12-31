@@ -5,6 +5,9 @@ public class DmsOutputPosition {
     public String stawkaVat;
     public String netto;
     public String vat;
+    public String vatZ;
     public String rodzajSprzedazy;
     public String vin;
+	public String kanal;
+	public String kanalKategoria;
 }

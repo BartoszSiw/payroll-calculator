@@ -1,9 +1,7 @@
-<%@ page contentType="text/html;charset=UTF-8" %>
-<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ page contentType="text/html;charset=UTF-8"%>
 <%
     String xml = (String) request.getAttribute("xml");
 %>
-
 <html>
 <head>
     <title>Wynik konwersji</title>
@@ -18,11 +16,20 @@
     </style>
 </head>
 <body>
-
+<jsp:include page="/menu.jsp" />
 <h2>Wygenerowany XML</h2>
-
-<pre><c:out value="${xml}" escapeXml="true"/></pre>
-
+<ul>
+<%
+    java.util.List<?> list = (java.util.List<?>) request.getAttribute("results");
+    if (list != null) {
+        for (Object r : list) {
+%>
+            <li><%= r %></li>
+<%
+        }
+    }
+%>
+</ul>
 </body>
 </html>
 

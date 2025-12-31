@@ -13,6 +13,7 @@ import pl.edashi.dms.model.DmsParsedContractor;
 import pl.edashi.dms.model.DmsParsedContractorList;
 import pl.edashi.dms.model.DmsParsedDocument;
 import pl.edashi.dms.xml.DmsOfflineXmlBuilder;
+import pl.edashi.dms.xml.RootXmlBuilder;
 import pl.edashi.optima.builder.ContractorsXmlBuilder;
 import pl.edashi.optima.mapper.ContractorMapper;
 import pl.edashi.optima.model.OfflineContractor;
@@ -20,10 +21,26 @@ import pl.edashi.optima.model.OfflineContractor;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
+import org.w3c.dom.Document;
+
 @WebServlet("/ConverterServlet")
-@MultipartConfig
+@MultipartConfig(
+	    //fileSizeThreshold = 1024 * 1024,      // 1MB w pamięci
+	    maxFileSize = 10256L,                    // bez limitu
+	    maxRequestSize = 702561L                  // bez limitu
+	)
 public class ConverterServlet extends HttpServlet {
 
     /**
@@ -40,17 +57,19 @@ public class ConverterServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-    	log.info("Odebrano żądanie konwersji pliku XML");
-        Part filePart = req.getPart("xmlFile");
+    	log.info("Odebrano żądanie konwersji wielu plików XML");
+    	Collection<Part> parts = req.getParts();
+        List<String> results = new ArrayList<>();
 
-        if (filePart == null || filePart.getSize() == 0) {
-            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Nie wybrano pliku XML.");
-            return;
-        }
-
-        // Zapis pliku do katalogu uploads/
         Path uploadDir = Paths.get("uploads");
         Files.createDirectories(uploadDir);
+        // Tworzymy builder główny dla jednego pliku
+        RootXmlBuilder root = new RootXmlBuilder();
+        // nazwa finalnego pliku
+        String outputName = "WSPOLNY_IMPORT_" + System.currentTimeMillis();
+        for (Part filePart : parts) {
+            if (!"xmlFile".equals(filePart.getName())) continue;
+            if (filePart.getSize() == 0) continue;
 
         String fileName = Path.of(filePart.getSubmittedFileName()).getFileName().toString();
         Path savedFile = uploadDir.resolve(fileName);
@@ -58,7 +77,6 @@ public class ConverterServlet extends HttpServlet {
         try (InputStream input = filePart.getInputStream()) {
             Files.copy(input, savedFile, StandardCopyOption.REPLACE_EXISTING);
         }
-
         // Wczytaj zawartość XML
         String xml = Files.readString(savedFile);
         try {
@@ -71,40 +89,55 @@ public class ConverterServlet extends HttpServlet {
         	if (parsed instanceof DmsParsedDocument ds) {
         	    // 2. DS → działa jak dotychczas, Mapowanie DS → DMS (tylko dla DS)
         	    DmsDocumentOut doc = new DmsToDmsMapper().map(ds);
-        	    String finalXml = new DmsOfflineXmlBuilder().build(doc);
                 // 3. Generowanie finalnego XML zgodnego z Comarch OFFLINE
-                String safeNumber = doc.invoiceNumber.replaceAll("[\\\\/:*?\"<>|]", "_");
-
-                Path out = Paths.get("C:/Users/Administrator.DSI/OneDrive/OPTIMA/ImportyPR/" + safeNumber + ".xml");
-                Files.writeString(out, finalXml, StandardCharsets.UTF_8);
-                // 5. Przekazanie finalnego XML do JSP
-                req.setAttribute("xml", finalXml);
-                req.getRequestDispatcher("converter/converterResult.jsp").forward(req, resp);
-                return;
+                // dodajemy sekcję DS
+                root.addSection(new DmsOfflineXmlBuilder(doc));
+                results.add("Dodano DS: " + doc.invoiceNumber.replaceAll("[\\\\/:*?\"<>|]", "_"));
         	}
             // ============================
             // ŚCIEŻKA SL (kontrahenci)
             // ============================
-        	if (parsed instanceof DmsParsedContractorList sl) {
+        	else if (parsed instanceof DmsParsedContractorList sl) {
         	    List<OfflineContractor> mapped = new ContractorMapper().map(sl.contractors);
-        	    String finalXml = new ContractorsXmlBuilder().build(mapped);
-        	    String safeName = sl.fileName.replaceAll("[\\\\/:*?\"<>|]", "_");
-        	    Path out = Paths.get("C:/Users/Administrator.DSI/OneDrive/OPTIMA/ImportyPR/" + safeName + ".xml");
-                Files.writeString(out, finalXml, StandardCharsets.UTF_8);
-
-                req.setAttribute("xml", finalXml);
-                req.getRequestDispatcher("converter/converterResult.jsp").forward(req, resp);
-                return;
+        	    root.addSection(new ContractorsXmlBuilder(mapped));
+        	    results.add("Dodano DS: " +  sl.fileName.replaceAll("[\\\\/:*?\"<>|]", "_"));
         	}
-
             // 4. Walidacja XSD
             //DmsXmlValidator.validate(finalXml, "xsd/optima_offline.xsd");
-
-
-
+        	
         } catch (Exception e) {
-            throw new ServletException("Błąd podczas przetwarzania XML: " + e.getMessage(), e);
+        	results.add("Błąd w pliku " + fileName + ": " + e.getMessage());
         }
 
+    }
+    	// 5. BUDUJEMY JEDEN WSPÓLNY DOKUMENT XML
+    	
+        Document finalDoc;
+        try {
+            finalDoc = root.build();
+        } catch (Exception e) {
+            throw new ServletException("Błąd budowania XML: " + e.getMessage(), e);
+        }
+    	// 6. SERIALIZACJA DO PLIKU
+		try {
+	    	TransformerFactory tf = TransformerFactory.newInstance();
+	    	 Transformer transformer = tf.newTransformer();
+	    	transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+	    	transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+	    	Path out = Paths.get("C:/Users/Administrator.DSI/OneDrive/OPTIMA/ImportyPR/" + outputName + ".xml");
+	    	try {
+				transformer.transform(new DOMSource(finalDoc), new StreamResult(out.toFile()));
+			} catch (TransformerException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+	    	results.add("OK → " + outputName + ".xml");
+		} catch (TransformerConfigurationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+        // 5. Przekazanie finalnego XML do JSP
+        req.setAttribute("results", results);
+        req.getRequestDispatcher("converter/converterResult.jsp").forward(req, resp);
     }
 }

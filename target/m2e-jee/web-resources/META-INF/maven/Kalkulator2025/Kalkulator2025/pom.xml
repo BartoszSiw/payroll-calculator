@@ -11,18 +11,23 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <dependencies>
+  <dependency>
+    <groupId>jakarta.servlet.jsp</groupId>
+    <artifactId>jakarta.servlet.jsp-api</artifactId>
+    <version>3.0.0</version>
+    <scope>provided</scope>
+</dependency>
 	<dependency>
         <groupId>jakarta.servlet</groupId>
         <artifactId>jakarta.servlet-api</artifactId>
-        <version>5.0.0</version> 
+        <version>6.0.0</version> 
         <scope>provided</scope>
     </dependency>
-    <dependency>
+        <dependency>
     <groupId>org.glassfish.web</groupId>
     <artifactId>jakarta.servlet.jsp.jstl</artifactId>
     <version>3.0.1</version>
 </dependency>
-
     <dependency>
     <groupId>org.eclipse</groupId>
     <artifactId>yasson</artifactId>
@@ -44,11 +49,6 @@
     <artifactId>poi-ooxml</artifactId>
     <version>5.2.5</version>
 </dependency>
-  	<dependency>
-  		<groupId>Kalkulator</groupId>
-  		<artifactId>Kalkulator</artifactId>
-  		<version>0.0.1-SNAPSHOT</version>
-  	</dependency>
   </dependencies>
   <build>
     <plugins>

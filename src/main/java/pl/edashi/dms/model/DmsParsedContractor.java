@@ -1,9 +1,12 @@
 package pl.edashi.dms.model;
 
+import org.w3c.dom.Element;
+
 public class DmsParsedContractor {
     public String id;            // UUID
     public String akronim;
     public boolean isCompany;
+    //public boolean isOsoba;
     public String rodzaj;
     public String fullName;      // Imię + Nazwisko (dla O) lub nazwa1/nazwa2/nazwa3 dla F
     public String nazwa1;
@@ -15,6 +18,7 @@ public class DmsParsedContractor {
     public String kodPocztowy;
     public String miasto;
     public String kraj;
+	public String nipKraj;
     public String nip;
     public String regon;
     public String pesel;
