@@ -1,13 +1,53 @@
 package pl.edashi.dms.model;
 
 public class DmsPayment {
+    private String termin = "";
+    private String forma = "";
+    public String kwota = "";
+    private String kierunek = "";
+    private String opis = "";
+    private String nrBank = "";
+    private String vat = "";
+    private String vatZ = "";
+    private String operatorName = "";
+    private String description = "";
+    public DmsPayment() { }
 
-	    public String termin;
-	    public String forma;
-	    public String kwota;
-	    public String kierunek;
-	    public String opis;
-	    public String nrBank;
-		public String vat;
-		public String vatZ;
+    // --- Gettery ---
+    public String getTermin() { return termin; }
+    public String getForma() { return forma; }
+    public String getKwota() { return kwota; }
+    public String getKierunek() { return kierunek; }
+    public String getOpis() { return opis; }
+    public String getNrBank() { return nrBank; }
+    public String getVat() { return vat; }
+    public String getVatZ() { return vatZ; }
+    public String operatorName() { return operatorName;}
+    public String getDecsription() { return description; }
+    // --- Settery (null-safe) ---
+    public void setTermin(String termin) { this.termin = termin != null ? termin : ""; }
+    public void setForma(String forma) { this.forma = forma != null ? forma : ""; }
+    public void setKwota(String kwota) { this.kwota = kwota != null ? kwota : ""; }
+    public void setKierunek(String kierunek) { this.kierunek = kierunek != null ? kierunek : ""; }
+    public void setOpis(String opis) { this.opis = opis != null ? opis : ""; }
+    public void setNrBank(String nrBank) { this.nrBank = nrBank != null ? nrBank : ""; }
+    public void setVat(String vat) { this.vat = vat != null ? vat : ""; }
+    public void setVatZ(String vatZ) { this.vatZ = vatZ != null ? vatZ : ""; }
+	public void setOperatorName(String operatorName) {this.operatorName = operatorName != null ? operatorName : "";	}
+	public void setDecsription(String description) { this.description = description != null ? description : ""; }
+    @Override
+    public String toString() {
+        return "DmsPayment{" +
+                "termin='" + termin + '\'' +
+                ", forma='" + forma + '\'' +
+                ", kwota='" + kwota + '\'' +
+                ", kierunek='" + kierunek + '\'' +
+                ", opis='" + opis + '\'' +
+                ", nrBank='" + nrBank + '\'' +
+                ", vat='" + vat + '\'' +
+                ", vatZ='" + vatZ + '\'' +
+                ", description='" + description + '\'' +
+                '}';
+    }
+
 	}

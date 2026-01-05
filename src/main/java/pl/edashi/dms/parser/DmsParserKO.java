@@ -5,6 +5,7 @@ import pl.edashi.dms.model.*;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.util.ArrayList;
+import java.util.List;
 
 public class DmsParserKO {
 
@@ -24,15 +25,15 @@ public class DmsParserKO {
         // KO ma tylko jedną sekcję <daty>
         Element daty = (Element) doc.getElementsByTagName("daty").item(0);
 
-        out.metadata = new DocumentMetadata(
+        out.setMetadata(new DocumentMetadata(
                 genDocId,
                 id,
                 trans,
                 fileName,
-                daty != null ? daty.getAttribute("data") : "",
-                daty != null ? daty.getAttribute("data") : "",
-                daty != null ? daty.getAttribute("data") : ""
-        );
+                daty.getAttribute("data"),
+                daty.getAttribute("data_sprzed"),
+                daty.getAttribute("data_zatw")
+        ));
 
         // ============================
         // 2. DANE KO (typ 02)
@@ -66,23 +67,29 @@ public class DmsParserKO {
                 String operatorName = operator != null ? operator.getAttribute("nazwa") : "";
                 String operatorCode = operator != null ? operator.getAttribute("kod_pracownika") : "";
 
-                // ZAPISUJEMY DO POL DMS
-                out.additionalDescription = "KO " + fullNumber;
+                // ZAPISUJEMY DO POL DMS (przez settery)
+                out.setAdditionalDescription("KO " + fullNumber);
+                out.setDocumentType("KO");
+                out.setInvoiceNumber("KO " + fullNumber); // jeśli chcesz trzymać w invoiceNumber
+                //out.setNumer(fullNumber);
 
                 // KO nie ma pozycji, VAT, płatności, kontrahenta
-                out.positions = new ArrayList<>();
-                out.payments = new ArrayList<>();
-                out.notes = new ArrayList<>();
+                out.setPositions(new ArrayList<>()); 
+                out.setPayments(new ArrayList<>());
 
-                // Możesz dodać własne pola jeśli chcesz
-                out.vatRate = "";
-                out.vatBase = "";
-                out.vatAmount = "";
-
-                // Możesz dodać operatora do notes
+                List<String> notes = new ArrayList<>();
                 if (!operatorName.isEmpty()) {
-                    out.notes.add("Operator: " + operatorName + " (" + operatorCode + ")");
+                    notes.add("Operator: " + operatorName + " (" + operatorCode + ")");
                 }
+                if (!kwota.isEmpty()) {
+                    notes.add("Kwota: " + kwota + " " + waluta);
+                }
+                out.setNotes(notes);
+
+                // VAT pola
+                out.setVatRate("");
+                out.setVatBase("");
+                out.setVatAmount("");
 
                 break;
             }

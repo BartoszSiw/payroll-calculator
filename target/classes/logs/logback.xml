@@ -1,0 +1,47 @@
+<configuration>
+
+  <!-- katalog logów (możesz zmienić) -->
+  <property name="LOG_DIR" value="logs"/>
+
+  <!-- format logu -->
+  <property name="PATTERN" value="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"/>
+
+  <!-- konsola (opcjonalnie) -->
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>${PATTERN}</pattern>
+    </encoder>
+  </appender>
+
+  <!-- SiftingAppender: rozdziela logi do plików wg MDC 'module' -->
+  <appender name="SIFT" class="ch.qos.logback.classic.sift.SiftingAppender">
+    <discriminator class="ch.qos.logback.classic.sift.MDCBasedDiscriminator">
+      <Key>module</Key>
+      <DefaultValue>default</DefaultValue>
+    </discriminator>
+
+    <sift>
+      <appender name="FILE-${module}" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/${module}.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+          <!-- daily rolling, keep 30 days -->
+          <fileNamePattern>${LOG_DIR}/${module}.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+          <maxHistory>30</maxHistory>
+          <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+          <pattern>${PATTERN}</pattern>
+        </encoder>
+      </appender>
+    </sift>
+  </appender>
+
+  <!-- root logger: wysyłaj do konsoli i do SIFT -->
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="SIFT"/>
+  </root>
+
+  <!-- przykładowe poziomy dla pakietów -->
+  <logger name="pl.edashi" level="DEBUG"/>
+</configuration>

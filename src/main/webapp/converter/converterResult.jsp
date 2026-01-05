@@ -29,6 +29,14 @@
         }
     }
 %>
+<%     String relationsHtml = (String) request.getAttribute("relationsHtml");
+if (relationsHtml != null) {
+    out.write(relationsHtml); // wypisuje surowy HTML wygenerowany przez analyzer
+} else {
+%>
+<p>Brak wyników analizera</p>
+<%
+}%>
 </ul>
 </body>
 </html>

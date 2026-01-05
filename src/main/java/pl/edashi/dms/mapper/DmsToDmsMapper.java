@@ -1,88 +1,113 @@
 package pl.edashi.dms.mapper;
+import pl.edashi.common.logging.AppLogger;
 import pl.edashi.dms.model.*;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 public class DmsToDmsMapper {
-
+	private final AppLogger log = new AppLogger("DmsToDmsMapper");
     public DmsDocumentOut map(DmsParsedDocument src) {
-    	
         DmsDocumentOut doc = new DmsDocumentOut();
-
         // META
-        doc.idZrodla = UUID.randomUUID().toString();
-        doc.modul = "Rejestr Vat";
-        doc.typ = "DS";
-        doc.rejestr = "SPRZEDAŻ";
+       //log.info(String.format("[Mapper] BEFORE mapping: src.documentType='%s', src.invoiceShort='%s'",
+                //src.getDocumentType(), src.getInvoiceShortNumber()));
+        doc.setIdZrodla(UUID.randomUUID().toString());
+        doc.setModul("Rejestr Vat");
+     // zamiast doc.setTyp("DS");
+        //String srcType = src.getDocumentType();
+        //doc.setTyp(srcType != null && !srcType.isBlank() ? srcType.trim().toUpperCase() : "DS");
+        //doc.setTyp("DS"); // bo to jest parser DS
+        //doc.setDocumentType(safe(src.getDocumentType()));
+        String srcType = safe(src.getDocumentType()).toUpperCase();
+        doc.setTyp(srcType);
+        doc.setDocumentType(srcType);
 
-        // DATY
-        doc.dataWystawienia = src.metadata.getDate(); // musisz dodać w metadata
-        doc.dataSprzedazy = src.metadata.getDate();
-        doc.termin = src.metadata.getDate();
+        doc.setRejestr("SPRZEDAŻ");
+
+        // DATY - null-safe
+        DocumentMetadata meta = src.getMetadata();
+        String date = meta != null ? safe(meta.getDate()) : "";
+        doc.setDataWystawienia(date);
+        doc.setDataSprzedazy(date);
+        doc.setTermin(date);
 
         // NUMER
-        //doc.numer = src.metadata.getGenDocId();
-        //doc.invoiceShortNumber = src.invoiceShortNumber;
-        doc.invoiceNumber = src.invoiceNumber;
-        doc.documentType = src.documentType;
+        doc.setInvoiceNumber(safe(src.getInvoiceNumber()));
+        doc.setInvoiceShortNumber(safe(src.getInvoiceShortNumber()));
+        //doc.setDocumentType(safe(src.getDocumentType())); // zostaw, ale upewnij się, że DmsDocumentOut ma getter
+        log.info(String.format("Mapper: src.documentType='%s' -> doc.typ='%s' file=%s InvoiceNumber=%s InvoiceShortNumber=%s ",
+                src.getDocumentType(), doc.getTyp(), src.getSourceFileName(), src.getInvoiceNumber(), src.getInvoiceShortNumber()));
+
         //doc.numer = src.invoiceShortNumber;
-        // PODMIOT
-        if (src.contractor != null) {
-            doc.podmiotId = src.contractor.id;
-            doc.podmiotNip = src.contractor.nip;
-            doc.nazwa1 = src.contractor.name1;
-            doc.nazwa2 = src.contractor.name2;
-            doc.nazwa3 = src.contractor.name3;
-            doc.kraj = src.contractor.country;
-            doc.wojewodztwo = src.contractor.region;
-            doc.powiat = src.contractor.district;
-            doc.miasto = src.contractor.city;
-            doc.kodPocztowy = src.contractor.zip;
-            doc.ulica = src.contractor.street;
-            doc.nrDomu = src.contractor.houseNumber;
+        // PODMIOT (null-safe, używamy getterów)
+        Contractor c = src.getContractor();
+        if (c != null) {
+            doc.setPodmiotId(safe(c.getId()));
+            doc.setPodmiotNip(safe(c.getNip()));
+            doc.setNazwa1(safe(c.getName1()));
+            doc.setNazwa2(safe(c.getName2()));
+            doc.setNazwa3(safe(c.getName3()));
+            doc.setKraj(safe(c.getCountry()));
+            doc.setWojewodztwo(safe(c.getRegion()));
+            doc.setPowiat(safe(c.getDistrict()));
+            doc.setMiasto(safe(c.getCity()));
+            doc.setKodPocztowy(safe(c.getZip()));
+            doc.setUlica(safe(c.getStreet()));
+            doc.setNrDomu(safe(c.getHouseNumber()));
         }
-
-        doc.pozycje = new ArrayList<>();
-        //doc.pozycjeRobocizna = new ArrayList<>();
-
-        // POZYCJE – 03 i 04 (wszystkie z listy)
-        if (src.positions != null) {
-            for (DmsPosition p : src.positions) {
+     // POZYCJE - inicjalizacja listy i mapowanie pozycji
+        doc.setPozycje(new ArrayList<>());
+        List<DmsPosition> positions = src.getPositions();
+        if (positions != null && !positions.isEmpty()) {
+            for (DmsPosition p : positions) {
                 DmsOutputPosition outPos = new DmsOutputPosition();
-                outPos.kategoria       = p.kategoria;
-                outPos.stawkaVat       = p.stawkaVat;
-                outPos.netto           = p.netto;
-                outPos.vat             = p.vat;
-                outPos.rodzajSprzedazy = p.rodzajSprzedazy;
-                outPos.vin             = p.vin;
-                outPos.kanal		   = p.kanal;
-                outPos.kanalKategoria  = p.kanalKategoria;
-                doc.pozycje.add(outPos);
+                outPos.setKategoria(safe(p.getKategoria()));
+                outPos.setStawkaVat(safe(p.getStawkaVat()));
+                outPos.setNetto(safe(p.getNetto()));
+                outPos.setVat(safe(p.getVat()));
+                outPos.setRodzajSprzedazy(safe(p.getRodzajSprzedazy()));
+                outPos.setVin(safe(p.getVin()));
+                outPos.setKanal(safe(p.getKanal()));
+                outPos.setKanalKategoria(safe(p.getKanalKategoria()));
+                doc.getPozycje().add(outPos);
+                //log.info(String.format("[CHECK VAT] Mapping: netto='%s', getVat='%s', getVatZ='%s'",
+                		//outPos.getNetto(),outPos.getVat()));
             }
         }
 
-        // VAT (typ 06)
-        doc.vatRate = src.vatRate;
-        doc.vatBase = src.vatBase;
-        doc.vatAmount = src.vatAmount;
-        //doc.vatZ = src.vatZ;
+     // VAT (typ 06)
+        doc.setVatRate(safe(src.getVatRate()));
+        doc.setVatBase(safe(src.getVatBase()));
+        doc.setVatAmount(safe(src.getVatAmount()));
+        //doc.setVatZ(safe(src.getVatZ())); // odkomentuj jeśli masz pole vatZ i getter w src
+
         // PŁATNOŚCI (typ 40)
-        doc.platnosci = new ArrayList<>();
-        if (src.payments != null) {
-            for (DmsPayment p : src.payments) {
-                doc.platnosci.add(p);
-            }
+        doc.setPlatnosci(new ArrayList<>());
+        List<DmsPayment> payments = src.getPayments();
+        if (payments != null && !payments.isEmpty()) {
+            // jeśli DmsPayment jest zgodny z doc.platnosci, kopiujemy bezpośrednio
+            doc.getPlatnosci().addAll(payments);
+            // jeśli trzeba mapować pola DmsPayment -> inny typ, zrób mapowanie tutaj
         }
+
         // FAKTURA
-        doc.numer = src.invoiceNumber;
-        doc.rozszerzone = src.invoiceShortNumber;
-        //doc.identyfikatorKsiegowy = src.invoiceNumber;
-        //doc.platSplitNrDokumentu = src.invoiceNumber;
+        doc.setNumer(safe(src.getInvoiceNumber()));
+        doc.setRozszerzone(safe(src.getInvoiceShortNumber()));
 
         // UWAGI (typ 98)
-        doc.uwagi = src.notes;
+        doc.setUwagi(src.getNotes() != null ? new ArrayList<>(src.getNotes()) : new ArrayList<>());
 
         // DODATKOWY OPIS
-        doc.dodatkowyOpis = src.fiscalNumber;;
+        doc.setDodatkowyOpis(safe(src.getFiscalNumber()));
+        //log.info(String.format("[Mapper] AFTER mapping: doc.typ='%s', doc.documentType='%s'",
+                //doc.getTyp(), doc.getDocumentType()));
+        //log.info(String.format("[CHECK] Mapping: type='%s', docType='%s', netto={}, brutto={}, vat={}",
+        	    //doc.getTyp(),src.getDocumentType()));
+
         return doc;
+    }
+    // Null-safe helper
+    private static String safe(String s) {
+        return s == null ? "" : s;
     }
 }

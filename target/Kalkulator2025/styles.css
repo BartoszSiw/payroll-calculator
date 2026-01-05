@@ -1,5 +1,37 @@
-body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }
-        input { padding: 10px; margin: 10px; }
+body{ font-family: Arial, sans-serif; text-align: center; margin: 50px; }
+/* === HORIZONTAL MENU === */
+.navbar {
+    background: #2c3e50;        /* dark blue/grey */
+    padding: 0;
+    margin: 0;
+    display: flex;
+    gap: 20px;                  /* spacing between links */
+    align-items: center;
+    height: 50px;
+    padding-left: 20px;
+}
+
+.navbar a {
+    color: #ecf0f1;             /* light text */
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 16px;
+    padding: 10px 15px;
+    border-radius: 4px;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.navbar a:hover {
+    background: #34495e;        /* slightly lighter hover */
+    color: #ffffff;
+}
+
+.navbar a.active {
+    background: #1abc9c;        /* highlight active page */
+    color: #ffffff;
+} 
+
+input { padding: 10px; margin: 10px; }
         button { padding: 10px; margin: 10px; cursor: pointer; }
 		.overlayAdd {
 		    display: none;

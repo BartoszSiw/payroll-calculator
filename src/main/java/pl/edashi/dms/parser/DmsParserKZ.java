@@ -22,15 +22,15 @@ public class DmsParserKZ {
 
         Element daty = (Element) doc.getElementsByTagName("daty").item(0);
 
-        out.metadata = new DocumentMetadata(
+        out.setMetadata(new DocumentMetadata(
                 genDocId,
                 id,
                 trans,
                 fileName,
-                daty != null ? daty.getAttribute("data") : "",
-                daty != null ? daty.getAttribute("data") : "",
-                daty != null ? daty.getAttribute("data") : ""
-        );
+                daty.getAttribute("data"),
+                daty.getAttribute("data_sprzed"),
+                daty.getAttribute("data_zatw")
+        ));
 
         // ============================
         // 2. DANE KZ (typ 02)
@@ -53,32 +53,36 @@ public class DmsParserKZ {
             String waluta = wartosci != null ? wartosci.getAttribute("waluta") : "";
 
             // zapisujemy do notes
-            out.notes = new ArrayList<>();
+            out.setNotes(new ArrayList<>()); 
             if (!operatorName.isEmpty()) {
-                out.notes.add("Operator: " + operatorName);
+                out.getNotes().add("Operator: " + operatorName);
             }
             if (!kwota.isEmpty()) {
-                out.notes.add("Kwota: " + kwota + " " + waluta);
+                out.getNotes().add("Kwota: " + kwota + " " + waluta);
             }
 
             // dodatkowy opis
-            out.additionalDescription = "KZ " + fullNumber;
+            out.setAdditionalDescription("KZ " + fullNumber);
+            //out.setNumer(fullNumber);
+            out.setInvoiceNumber("KZ " + fullNumber); // jeśli chcesz trzymać w invoiceNumber
+            out.setDocumentType("KZ");
         }
 
         // ============================
         // 3. PUSTE POLA (KZ ich nie ma)
         // ============================
-        out.contractor = null;
-        out.positions = new ArrayList<>();
-        out.payments = new ArrayList<>();
+        out.setContractor(null);
+        out.setPositions(new ArrayList<DmsPosition>());
 
-        out.vatRate = "";
-        out.vatBase = "";
-        out.vatAmount = "";
+        out.setPayments(new ArrayList<>());
 
-        out.fiscalNumber = "";
-        out.fiscalDevice = "";
-        out.fiscalDate = "";
+        out.setVatRate("");
+        out.setVatBase("");
+        out.setVatAmount("");
+
+        out.setFiscalNumber("");
+        out.setFiscalDevice("");
+        out.setFiscalDate("");
 
         return out;
     }

@@ -1,8 +1,9 @@
 package pl.edashi.dms.parser;
-
+import pl.edashi.common.logging.AppLogger;
 import org.w3c.dom.*;
 
 import pl.edashi.dms.model.*;
+import pl.edashi.dms.parser.util.DocumentNumberExtractor;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.util.ArrayList;
@@ -10,7 +11,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class DmsParserDS {
-
+	private final AppLogger log = new AppLogger("DmsParserDS");
     public DmsParsedDocument parse(Document doc, String fileName) {
 
         DmsParsedDocument out = new DmsParsedDocument();
@@ -23,10 +24,45 @@ public class DmsParserDS {
         String genDocId = root.getAttribute("gen_doc_id");
         String id = root.getAttribute("id");
         String trans = root.getAttribute("trans");
-        
-        Element daty = (Element) doc.getElementsByTagName("daty").item(0);
+        out.setSourceFileName(fileName);
 
-        out.metadata = new DocumentMetadata(
+        Element daty = (Element) doc.getElementsByTagName("daty").item(0);
+     // preferowana, centralna metoda ekstrakcji dla parsera DS
+        
+        boolean found = DocumentNumberExtractor.extractFromGenInfo(root, out, fileName);
+        /*log.info(String.format(
+        	    "[Parser DS] AFTER gen_info: type='%s', invoiceShort='%s', invoice='%s', file='%s'",
+        	    out.getDocumentType(),
+        	    out.getInvoiceShortNumber(),
+        	    out.getInvoiceNumber(),
+        	    fileName
+        	));*/
+        //log.info(String.format("[Parser DS] AFTER extractor: documentType='%s', invoiceShort='%s', file='%s'",
+                //out.getDocumentType(), out.getInvoiceShortNumber(), fileName));
+
+     // 2) Jeśli gen_info NIC nie ustawiło – fallback
+        if (!found || (out.getInvoiceShortNumber() == null && out.getInvoiceNumber() == null)) {
+
+            String main = DocumentNumberExtractor.extractMainNumberFromDmsElement(root);
+
+            if (main != null && !main.isBlank()) {
+                out.setInvoiceNumber(main);
+                out.setInvoiceShortNumber(DocumentNumberExtractor.normalizeNumber(main));
+            }
+
+            // jeśli nadal brak typu – ustaw DS
+            if (out.getDocumentType() == null || out.getDocumentType().isBlank()) {
+                out.setDocumentType("DS");
+            }
+        }
+
+
+
+        // debug (tymczasowo) — pokaże co mamy po ekstrakcji
+        //log.info(String.format("Parser DS: extracted documentType='%s', invoiceShort='%s', file=%s",
+                               //out.getDocumentType(), out.getInvoiceShortNumber(), fileName));
+
+        out.setMetadata(new DocumentMetadata(
                 genDocId,
                 id,
                 trans,
@@ -34,20 +70,21 @@ public class DmsParserDS {
                 daty.getAttribute("data"),
                 daty.getAttribute("data_sprzed"),
                 daty.getAttribute("data_zatw")
-        );
+        ));
         Element dms = (Element) doc.getElementsByTagName("DMS").item(0);
         // ============================
         // 2. KONTRAHENT (typ 35)
         // ============================
-        out.contractor = extractContractor(doc);
+        out.setContractor(extractContractor(doc));
         // ============================
         // 2. DMS (typ dokumentu)
         // ============================
-        extractDocumentNumberFromGenInfo(dms, out); 
+        //extractDocumentNumberFromGenInfo(dms, out); 
+        out.setTypDocAnalizer("DS");
         // ============================
         // 3. POZYCJE (typ 03)
         // ============================
-        out.positions = extractPositions(doc);
+        out.setPositions(extractPositions(doc));
 
         // ============================
         // 4. VAT (typ 06)
@@ -57,7 +94,7 @@ public class DmsParserDS {
         // ============================
         // 5. PŁATNOŚCI (typ 40 + 43)
         // ============================
-        out.payments = extractPayments(doc, out);
+        out.setPayments(extractPayments(doc, out));
         
         // ============================
         // 7. FISKALIZACJA (typ 94)
@@ -67,7 +104,7 @@ public class DmsParserDS {
         // ============================
         // 8. UWAGI (typ 98)
         // ============================
-        out.notes = extractNotes(doc);
+        out.setNotes(extractNotes(doc));
 
         return out;
     }
@@ -101,35 +138,7 @@ public class DmsParserDS {
         }
         return null;
     }
-    // ------------------------------
-    // NR Dokumentu (typ 03)
-    // ------------------------------
-    private void extractDocumentNumberFromGenInfo(Element dms, DmsParsedDocument out) {
 
-        String info = dms.getAttribute("gen_info");
-        if (info == null || info.isEmpty()) {
-            return;
-        }
-
-        // usuń nawiasy
-        info = info.replace("(", "").replace(")", "");
-
-        // split po przecinku
-        String[] parts = info.split(",");
-
-        if (parts.length < 6) {
-            return;
-        }
-
-        // parts[3] = typ dokumentu (Pr, FV, ...)
-        // parts[4] = numer dokumentu
-        // parts[5] = data
-
-        out.documentType = parts[4].trim();   // jeśli chcesz
-        out.invoiceNumber = parts[5].trim();  // ← TO JEST NUMER DOKUMENTU
-        out.invoiceShortNumber = parts[5].trim(); // możesz użyć tego samego
-        System.out.println(parts[5].trim());
-    }
     // ------------------------------
     // POZYCJE (typ 03)
     // ------------------------------
@@ -142,6 +151,7 @@ public class DmsParserDS {
         for (int i = 0; i < list.getLength(); i++) {
             Element document = (Element) list.item(i);
             String typ = document.getAttribute("typ");
+            //log.info("22 typ: " + typ);
             // Obsługujemy tylko typy 03, 04, 05
             if (!typ.equals("03") && !typ.equals("04") && !typ.equals("05")) {
                 continue;
@@ -170,8 +180,8 @@ public class DmsParserDS {
                 //System.out.println("klas = " + klas);
                 if (!p.kategoria.isBlank()) {
                 	p.kanalKategoria = p.kanal + "-" + p.kategoria;
-                    System.out.println("kod=" + klas.getAttribute("kod"));
-                    System.out.println("kanal=" + klas.getAttribute("kanal"));
+                    //System.out.println("kod=" + klas.getAttribute("kod"));
+                    //System.out.println("kanal=" + klas.getAttribute("kanal"));
                 } else {
                 	p.kanalKategoria = "";
                 }
@@ -270,7 +280,7 @@ public class DmsParserDS {
          last.vat = String.format(Locale.US, "%.2f", correctedVat);
 
          // Możesz dodać log:
-         System.out.println("KOREKTA VAT: różnica " + diff + " dodana do ostatniej pozycji.");
+         //System.out.println("KOREKTA VAT: różnica " + diff + " dodana do ostatniej pozycji.");
      }
 
         return listOut;
@@ -280,7 +290,7 @@ public class DmsParserDS {
     // VAT (typ 06)
     // ------------------------------
     private void extractVat(Document doc, DmsParsedDocument out) {
-
+        if (doc == null || out == null) return;
         NodeList list = doc.getElementsByTagName("document");
 
         for (int i = 0; i < list.getLength(); i++) {
@@ -288,12 +298,17 @@ public class DmsParserDS {
 
             if ("06".equals(el.getAttribute("typ"))) {
 
-                Element dane = (Element) el.getElementsByTagName("dane").item(0);
-                Element wart = (Element) dane.getElementsByTagName("wartosci").item(0);
+                Element dane = firstElementByTag(el, "dane");
+                if (dane == null) continue;
+                Element wart = firstElementByTag(dane, "wartosci");
 
-                out.vatRate = dane.getAttribute("stawka");
-                out.vatBase = wart.getAttribute("podstawa");
-                out.vatAmount = wart.getAttribute("vat");
+                String stawka = safeAttr(dane, "stawka");
+                String podstawa = wart != null ? safeAttr(wart, "podstawa") : "";
+                String vat = wart != null ? safeAttr(wart, "vat") : "";
+
+                out.setVatRate(stawka);
+                out.setVatBase(podstawa);
+                out.setVatAmount(vat);
             }
         }
     }
@@ -304,55 +319,70 @@ public class DmsParserDS {
     private List<DmsPayment> extractPayments(Document doc, DmsParsedDocument out) {
 
         List<DmsPayment> listOut = new ArrayList<>();
+        if (doc == null || out == null) return listOut;
         NodeList list = doc.getElementsByTagName("document");
         String terminPlatn = "";
         for (int i = 0; i < list.getLength(); i++) {
             Element el = (Element) list.item(i);
-// Płatności do dokumentu
-            if ("40".equals(el.getAttribute("typ"))) {
-
-                Element dane = (Element) el.getElementsByTagName("dane").item(0);
-                Element wart = (Element) dane.getElementsByTagName("wartosci").item(0);
+            String typ = safeAttr(el, "typ");
+            // Płatności do dokumentu
+            if ("40".equals(typ)) {
+                Element dane = firstElementByTag(el, "dane");
+                if (dane == null) continue;
+                Element wart = firstElementByTag(dane, "wartosci");
                 
                 DmsPayment p = new DmsPayment();
-                p.kwota = wart.getAttribute("kwota");
-                // VAT = VAT dokumentu (typ 06)
-                p.vatZ = out.vatAmount != null ? out.vatAmount : "0.00";
-                out.vatZ = p.vatZ;
-                p.termin = ((Element) dane.getElementsByTagName("daty").item(0)).getAttribute("data");
-                terminPlatn = p.termin;
-                p.forma = ((Element) dane.getElementsByTagName("klasyfikatory").item(0)).getAttribute("kod");
-                p.nrBank = ((Element) dane.getElementsByTagName("rozszerzone").item(0)).getAttribute("nr_rach");
-                p.kierunek = "przychód";
+                String kwota = wart != null ? safeAttr(wart, "kwota") : "";
+                p.setKwota(kwota);
+                // VAT = VAT dokumentu (typ 06) — korzystamy z getterów/setterów DmsParsedDocument
+                String vatAmount = out.getVatAmount() != null && !out.getVatAmount().isEmpty() ? out.getVatAmount() : "0.00";
+                p.setVatZ(vatAmount);
+                out.setVatZ(vatAmount);
+                Element daty = firstElementByTag(dane, "daty");
+                String termin = daty != null ? safeAttr(daty, "data") : "";
+                p.setTermin(termin);
+                terminPlatn = termin;
 
+                Element klasyf = firstElementByTag(dane, "klasyfikatory");
+                String forma = klasyf != null ? safeAttr(klasyf, "kod") : "";
+                p.setForma(forma);
+
+                Element rozs = firstElementByTag(dane, "rozszerzone");
+                String nrRach = rozs != null ? safeAttr(rozs, "nr_rach") : "";
+                p.setNrBank(nrRach);
+
+                p.setKierunek("przychód");
                 listOut.add(p);
             }
          // ------------------------------
          // ZALICZKI (typ 45)
          // ------------------------------
-         if ("45".equals(el.getAttribute("typ"))) {
-
-             Element dane = (Element) el.getElementsByTagName("dane").item(0);
-             Element wart = (Element) dane.getElementsByTagName("wartosci").item(0);
+            if ("45".equals(typ)) {
+                Element dane = firstElementByTag(el, "dane");
+                if (dane == null) continue;
+                Element wart = firstElementByTag(dane, "wartosci");
 
              DmsPayment p = new DmsPayment();
-             p.kwota = wart.getAttribute("brutto");   // kwota zaliczki
+             String bruttoStr = wart != null ? safeAttr(wart, "brutto") : "";
+             String nettoStr = wart != null ? safeAttr(wart, "netto") : "";
+             p.setKwota(bruttoStr);
              // VAT = brutto - netto
              try {
-                 double brutto = Double.parseDouble(wart.getAttribute("brutto"));
-                 double netto  = Double.parseDouble(wart.getAttribute("netto"));
-                 double vatZaliczki    = brutto - netto;
-
-                 p.vatZ = String.format(Locale.US, "%.2f", vatZaliczki);
-                 out.vatZ = p.vatZ;
+                 double brutto = bruttoStr != null && !bruttoStr.isEmpty() ? Double.parseDouble(bruttoStr) : 0.0;
+                 double netto  = nettoStr != null && !nettoStr.isEmpty() ? Double.parseDouble(nettoStr) : 0.0;
+                 double vatZaliczki = brutto - netto;
+                 String vatZ = String.format(Locale.US, "%.2f", vatZaliczki);
+                 p.setVatZ(vatZ);
+                 out.setVatZ(vatZ);
              } catch (Exception ex) {
-                 p.vatZ = "0.00";
-                 out.vatZ = p.vatZ;
+                 p.setVatZ("0.00");
+                 out.setVatZ("0.00");
              }
-             p.termin = terminPlatn;                           // brak terminu w zaliczce
-             p.forma = "przelew";                     // możesz zmienić jeśli chcesz
-             p.nrBank = "";                           // brak danych bankowych
-             p.kierunek = "przychód";
+             // brak terminu w zaliczce — używamy ostatniego znanego terminu płatności
+             p.setTermin(terminPlatn != null ? terminPlatn : "");
+             p.setForma("przelew");
+             p.setNrBank("");
+             p.setKierunek("przychód");
 
              listOut.add(p);
          }
@@ -361,51 +391,34 @@ public class DmsParserDS {
         return listOut;
     }
     // ------------------------------
-    // FAKTURA (typ 94)
-    // ------------------------------
-    //private void extractOtherNumber(Document doc, DmsParsedDocument out) {
-
-        //NodeList list = doc.getElementsByTagName("document");
-
-        //for (int i = 0; i < list.getLength(); i++) {
-            //Element el = (Element) list.item(i);
-
-            //if ("94".equals(el.getAttribute("typ"))) {
-
-                //Element dane = (Element) el.getElementsByTagName("dane").item(0);
-
-                // <numer nr="175">EAH1901348177/175</numer>
-                //Element numer = (Element) dane.getElementsByTagName("numer").item(0);
-                //if (numer != null) {
-                  //  out.invoiceNumber = numer.getTextContent(); // EAH1901348177/175
-                //}
-
-                // <rozszerzone nr="EAH1901348177"/>
-                //Element rozs = (Element) dane.getElementsByTagName("rozszerzone").item(0);
-                //if (rozs != null) {
-                    //out.invoiceShortNumber = rozs.getAttribute("nr"); // EAH1901348177
-                //}
-            //}
-        //}
-    //}
-    // ------------------------------
     // FISKALIZACJA (typ 94)
     // ------------------------------
     private void extractFiscal(Document doc, DmsParsedDocument out) {
-
+        if (doc == null || out == null) return;
         NodeList list = doc.getElementsByTagName("document");
 
         for (int i = 0; i < list.getLength(); i++) {
             Element el = (Element) list.item(i);
 
-            if ("94".equals(el.getAttribute("typ"))) {
+            if (!"94".equals(safeAttr(el, "typ"))) continue;
 
-                Element dane = (Element) el.getElementsByTagName("dane").item(0);
+            Element dane = firstElementByTag(el, "dane");
+            if (dane == null) continue;
+            // numer
+            Element numerEl = firstElementByTag(dane, "numer");
+            String fiscalNumber = numerEl != null ? trimOrEmpty(numerEl.getTextContent()) : "";
 
-                out.fiscalNumber = ((Element) dane.getElementsByTagName("numer").item(0)).getTextContent();
-                out.fiscalDate = ((Element) dane.getElementsByTagName("daty").item(0)).getAttribute("data");
-                out.fiscalDevice = ((Element) dane.getElementsByTagName("rozszerzone").item(0)).getAttribute("nr");
-            }
+            // data
+            Element datyEl = firstElementByTag(dane, "daty");
+            String fiscalDate = datyEl != null ? safeAttr(datyEl, "data") : "";
+
+            // urząd fiskalny / nr
+            Element rozsEl = firstElementByTag(dane, "rozszerzone");
+            String fiscalDevice = rozsEl != null ? safeAttr(rozsEl, "nr") : "";
+
+            out.setFiscalNumber(fiscalNumber);
+            out.setFiscalDate(fiscalDate);
+            out.setFiscalDevice(fiscalDevice);
         }
     }
 
@@ -441,4 +454,22 @@ public class DmsParserDS {
         }
         return notes;
     }
+    // ------------------------------
+    // Pomocnicze metody
+    // ------------------------------
+    private static Element firstElementByTag(Node parent, String tagName) {
+        if (parent == null) return null;
+        NodeList list;
+        if (parent instanceof Document) list = ((Document) parent).getElementsByTagName(tagName);
+        else list = ((Element) parent).getElementsByTagName(tagName);
+        return (list == null || list.getLength() == 0) ? null : (Element) list.item(0);
+    }
+
+    private static String safeAttr(Element el, String name) {
+        if (el == null) return "";
+        String v = el.getAttribute(name);
+        return v != null ? v : "";
+    }
+    private static String trimOrEmpty(String s) { return s == null ? "" : s.trim(); }
+
 }

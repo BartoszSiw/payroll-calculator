@@ -6,6 +6,7 @@
     <link rel="stylesheet" type="text/css" href="styles.css">
 </head>
 <body>
+<jsp:include page="/menu.jsp" />
     <h2>Payroll Calculation</h2>
 
     <%
