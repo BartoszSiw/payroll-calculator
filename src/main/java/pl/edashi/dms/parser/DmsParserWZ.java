@@ -22,6 +22,7 @@ public class DmsParserWZ {
         String trans = root != null ? root.getAttribute("trans") : "";
 
         Element daty = (Element) doc.getElementsByTagName("daty").item(0);
+        Element warto = (Element) doc.getElementsByTagName("wartosci").item(0);
         String data = daty != null ? daty.getAttribute("data") : "";
         String dataZatw = daty != null ? daty.getAttribute("data_zatw") : "";
         DocumentMetadata meta = new DocumentMetadata(
@@ -31,7 +32,9 @@ public class DmsParserWZ {
                 fileName,
                 data,
                 data,
-                dataZatw
+                dataZatw,
+                data,
+                warto.getAttribute("netto_zakup")
         );
         out.setMetadata(meta);
         out.setSourceFileName(fileName);

@@ -14,12 +14,12 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-
 import java.io.InputStream;
 import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 /**
  * Parser DK.xml
  * - wyciąga główny numer dokumentu (z elementu <numer> w <dane>)
@@ -54,6 +54,7 @@ public class DmsParserDK {
         if (!isEmpty(genDocId)) out.setId(genDocId);
         else if (!isEmpty(id)) out.setId(id);
         Element daty = firstElementByTag(doc, "daty");
+        Element warto = (Element) doc.getElementsByTagName("wartosci").item(0);
         String data = daty != null ? safeAttr(daty, "data") : "";
 
         DocumentMetadata metadata = new DocumentMetadata(
@@ -63,7 +64,9 @@ public class DmsParserDK {
                 fileName != null ? fileName : "",
                 data,
                 data,
-                data
+                data,
+                data,
+                warto.getAttribute("waluta")
         );
         out.setMetadata(metadata);
         // ============================
@@ -71,11 +74,14 @@ public class DmsParserDK {
         // ============================
         Contractor contractor = extractContractor(doc);
         out.setContractor(contractor);
-
+        // ============================
+        // 6. POZYCJE (typ 49)
+        // ============================
+        extractPositions(doc, out);
         // ============================
         // 3. PŁATNOŚCI (typ 48 + 49)
         // ============================
-        List<DmsPayment> payments = extractPayments(doc);
+        List<DmsPayment> payments = extractPayments(doc, out);
         out.setPayments(payments);
 
         // ============================
@@ -96,7 +102,7 @@ public class DmsParserDK {
         // ============================
         // 7. PUSTE POLA (DK ich nie ma)
         // ============================
-        out.setPositions(new ArrayList<>()); // puste
+        //out.setPositions(new ArrayList<>()); // puste
         out.setVatRate("");
         out.setVatBase("");
         out.setVatAmount("");
@@ -151,7 +157,7 @@ public class DmsParserDK {
     // ------------------------------
     // PŁATNOŚCI (typ 48 + 49)
     // ------------------------------
-    private List<DmsPayment> extractPayments(Document doc) {
+    private List<DmsPayment> extractPayments(Document doc, DmsParsedDocument out) {
 
         List<DmsPayment> listOut = new ArrayList<>();
         NodeList list = doc.getElementsByTagName("document");
@@ -187,10 +193,10 @@ public class DmsParserDK {
                 p.setKwota(kwota);
                 p.setTermin(date);
                 p.setForma(forma);
-                p.setKierunek("przychód");
+                p.setKierunek(out.getKierunek());
                 p.setOpis(opis);
                 p.setOperatorName(operatorName);
-
+                p.setAdvance(false);
                 listOut.add(p);
             }
         }
@@ -246,43 +252,47 @@ public class DmsParserDK {
     }
     private void extractPositions(Document xml, DmsParsedDocument out){
     	NodeList docs = xml.getElementsByTagName("document");
-    	//System.out.println(">>> SZUKAM document typ=49");
-log.info("1>>> ParserDK: file='%s'" + out.getSourceFileName());
-    	for (int i = 0; i < docs.getLength(); i++) {
-    	    Element el = (Element) docs.item(i);
-    	    //System.out.println(">>> ZNALAZŁEM document typ=" + el.getAttribute("typ"));
-    	    if (!"49".equals(el.getAttribute("typ"))) continue;
+    	//log.info("ParserDK: START extractPositions for file=" + out.getSourceFileName());
+    	Set<String> POSITION_TYPES = Set.of("DS", "PR");
 
-    	    //System.out.println(">>> TO JEST TYP 49");
+    	for (int i = 0; i < docs.getLength(); i++) {
+            Element el = (Element) docs.item(i);
+            String typ = el.getAttribute("typ");
+            if (!"49".equals(typ)) continue;
+
+            //log.info("ParserDK: FOUND document typ=49 in file=" + out.getSourceFileName());
     	    
 
-    	    Element dane49 = firstElementByTag(el, "dane");
-    	    if (dane49 == null) continue;
+            Element dane49 = firstElementByTag(el, "dane");
+            if (dane49 == null) {
+                //log.info("ParserDK: brak <dane> w typ49");
+                continue;
+            }
 
-    	    // klasyfikacja
-    	    String klasyf = null;
-    	    Element kl = firstElementByTag(dane49, "klasyfikatory");
-    	    if (kl != null) {
-    	        klasyf = safeAttr(kl, "klasyfikacja");
-    	    }
+            Element kl = firstElementByTag(dane49, "klasyfikatory");
+            String klasyf = kl != null ? safeAttr(kl, "klasyfikacja") : null;
 
-    	    // numer DS
-    	    String numer = null;
-    	    Element numEl = firstElementByTag(dane49, "numer");
-    	    if (numEl != null) {
-    	        numer = numEl.getTextContent().trim();
-    	    }
-    	    log.info("2>>> ParserDK: klasyf='%s '" + klasyf);
-    	    log.info("3>>> ParserDK:  numer='%s '" + numer);
-    	    // zapisujemy tylko DS
-    	    if ("DS".equalsIgnoreCase(klasyf) && numer != null && !numer.isBlank()) {
-    	    	DmsPosition pos = new DmsPosition();
-    	    	pos.setKlasyfikacja(klasyf);
-    	    	pos.setNumer(numer);
-    	    	out.getPositions().add(pos);
+            Element numEl = firstElementByTag(dane49, "numer");
+            String numer = numEl != null ? numEl.getTextContent().trim() : null;
 
-    	    }
-    	}
+            //log.info("ParserDK: typ49 klasyf=" + klasyf + " numer=" + numer);
+
+            //if ("DS".equalsIgnoreCase(klasyf) && numer != null && !numer.isBlank()) {
+            	if (POSITION_TYPES.contains(klasyf.toUpperCase()) 
+            	        && numer != null && !numer.isBlank()) {
+                DmsPosition pos = new DmsPosition();
+                pos.setKlasyfikacja(klasyf);
+                pos.setNumer(numer);
+
+                out.getPositions().add(pos);
+
+                /*log.info("ParserDK: ADDED POSITION DS=" + numer
+                        + " (positions count now=" + out.getPositions().size() + ")");*/
+            }
+        }
+
+        /*log.info("ParserDK: END extractPositions for file=" + out.getSourceFileName()
+                + " totalPositions=" + out.getPositions().size());*/
 
   
     }

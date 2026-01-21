@@ -17,7 +17,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
     private final DmsDocumentOut doc;
     public DmsOfflineXmlBuilder(DmsDocumentOut doc) {
         if (doc == null) throw new IllegalArgumentException("DmsOfflineXmlBuilder: doc is null");
-        Set<String> DS_TYPES = Set.of("DS", "FV", "PR", "FZL", "FVK", "RWS");
+        Set<String> DS_TYPES = Set.of("DS", "FV", "PR", "FZL", "FVK", "RWS","PRK", "FZLK", "FVU", "FVM", "FVG");
     	 if (!DS_TYPES.contains(doc.getTyp())) {
             throw new IllegalArgumentException("DmsOfflineXmlBuilder: obsługiwany jest tylko typ DS, otrzymano: " + safe(doc.getTyp()));
         }
@@ -43,7 +43,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         // Nagłówek sekcji
         rejSekcja.appendChild(make(docXml, "WERSJA", "2.00"));
         rejSekcja.appendChild(make(docXml, "BAZA_ZRD_ID", "KSIEG"));   // możesz potem wyciągnąć to z konfiguracji
-        rejSekcja.appendChild(make(docXml, "BAZA_DOC_ID", "DMSJB"));   // j.w.
+        rejSekcja.appendChild(make(docXml, "BAZA_DOC_ID", "DMS_1"));   // j.w.
 
         // Główny dokument: REJESTR_SPRZEDAZY_VAT
         Element rs = docXml.createElementNS(NS, "REJESTR_SPRZEDAZY_VAT");
@@ -60,24 +60,23 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         rs.appendChild(make(docXml, "TERMIN",safe(doc.getTermin())));
         rs.appendChild(make(docXml, "NUMER", safe(doc.getDocumentType()) + "_" + safe(doc.getInvoiceNumber())));
 
-
         // Pola flagowe – na razie stałe wartości (można potem zmapować z doc)
-        rs.appendChild(make(docXml, "KOREKTA", "Nie"));
-        rs.appendChild(make(docXml, "KOREKTA_NUMER", ""));
+        rs.appendChild(make(docXml, "KOREKTA", doc.getKorekta()));
+        rs.appendChild(make(docXml, "KOREKTA_NUMER", doc.getKorektaNumer()));
         rs.appendChild(make(docXml, "METODA_KASOWA", "Nie"));
-        rs.appendChild(make(docXml, "FISKALNA", "Nie"));
-        rs.appendChild(make(docXml, "DETALICZNA", "Nie"));
-        rs.appendChild(make(docXml, "WEWNETRZNA", "Nie"));
+        rs.appendChild(make(docXml, "FISKALNA", doc.getDokumentFiskalny()));
+        rs.appendChild(make(docXml, "DETALICZNA", doc.getDokumentDetaliczny()));
+        rs.appendChild(make(docXml, "WEWNETRZNA", doc.getDocumentWewne()));
         rs.appendChild(make(docXml, "EKSPORT", "nie"));
         rs.appendChild(make(docXml, "FINALNY", "Nie"));
-        rs.appendChild(make(docXml, "PODATNIK_CZYNNY", "Tak"));
+        rs.appendChild(make(docXml, "PODATNIK_CZYNNY", doc.getCzynny()));
 
         // Identyfikator księgowy – na razie numer dokumentu
-        rs.appendChild(make(docXml, "IDENTYFIKATOR_KSIEGOWY", safe(doc.getNumer())));
+        rs.appendChild(make(docXml, "IDENTYFIKATOR_KSIEGOWY", ""));//safe(doc.getNumer())
 
         // PODMIOT (kontrahent)
         rs.appendChild(make(docXml, "TYP_PODMIOTU", "kontrahent"));
-        //rs.appendChild(make(docXml, "PODMIOT", "1")); // uproszczenie
+        rs.appendChild(make(docXml, "PODMIOT", safe(doc.getPodmiotAkronim()))); // uproszczenie
         //rs.appendChild(make(docXml, "PODMIOT_ID", doc.podmiotId));
         rs.appendChild(make(docXml, "PODMIOT_NIP", safe(doc.getPodmiotNip())));
 
@@ -100,7 +99,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
 
         rs.appendChild(make(docXml, "DODATKOWE", ""));
         rs.appendChild(make(docXml, "TYP_PLATNIKA", "kontrahent"));
-        //rs.appendChild(make(docXml, "PLATNIK", "1"));
+        rs.appendChild(make(docXml, "PLATNIK", safe(doc.getPodmiotAkronim())));
         //rs.appendChild(make(docXml, "PLATNIK_ID", doc.podmiotId));
         rs.appendChild(make(docXml, "PLATNIK_NIP", safe(doc.getPodmiotNip())));
         rs.appendChild(make(docXml, "PESEL", ""));
@@ -152,7 +151,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
                 poz.appendChild(make(docXml, "KATEGORIA_ID_POS", ""));
                 poz.appendChild(make(docXml, "STAWKA_VAT", safe(p.getStawkaVat())));
                 // STATUS_VAT – uproszczenie
-                poz.appendChild(make(docXml, "STATUS_VAT", "opodatkowana"));
+                poz.appendChild(make(docXml, "STATUS_VAT", safe(p.getStatusVat())));
                 // NETTO_SYS / VAT_SYS – uproszczenie, kopiujemy
                 poz.appendChild(make(docXml, "NETTO", safe(p.getNetto())));
                 poz.appendChild(make(docXml, "VAT", safe(p.getVat())));
@@ -166,22 +165,23 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
 
                 poz.appendChild(make(docXml, "RODZAJ_SPRZEDAZY", safe(p.getRodzajSprzedazy())));
                 // UWZ_W_PROPORCJI – na razie "Tak"
-                poz.appendChild(make(docXml, "UWZ_W_PROPORCJI", "Tak"));
+                poz.appendChild(make(docXml, "UWZ_W_PROPORCJI", safe(doc.getUwzgProp())));
             }
         }
 
         // PLATNOSCI
-        Element platnosci = docXml.createElementNS(NS, "PLATNOSCI");
-        rs.appendChild(platnosci);
-
+        if (doc.getPlatnosci() != null && !doc.getPlatnosci().isEmpty()) {
+            Element platnosci = docXml.createElementNS(NS, "PLATNOSCI");
+            rs.appendChild(platnosci);
+            // dodaj PLATNOSC...
         List<DmsPayment> platnosciList = doc.getPlatnosci();
         if (platnosciList != null && !platnosciList.isEmpty()) {
             for (DmsPayment p : platnosciList) {
+            	if (p.isAdvance()) continue; // NIE eksportujemy zaliczek
                 Element plat = docXml.createElementNS(NS, "PLATNOSC");
                 platnosci.appendChild(plat);
-
-                plat.appendChild(make(docXml, "ID_ZRODLA_PLAT", safe(doc.getIdZrodla()))); // lub osobne ID jeśli masz
-                plat.appendChild(make(docXml, "TERMIN_PLAT", safe(p.getTermin())));
+                plat.appendChild(make(docXml, "ID_ZRODLA_PLAT", safe(p.getIdPlatn()))); // osobne UUID 
+                plat.appendChild(make(docXml, "TERMIN_PLAT", safe(p.getTerminPlatnosci())));
                 plat.appendChild(make(docXml, "FORMA_PLATNOSCI_PLAT", safe(p.getForma())));
                 plat.appendChild(make(docXml, "FORMA_PLATNOSCI_ID_PLAT", ""));
                 plat.appendChild(make(docXml, "KWOTA_PLAT", safe(p.getKwota())));
@@ -198,7 +198,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
                 plat.appendChild(make(docXml, "DATA_KURSU_PLAT", safe(p.getTermin())));
                 plat.appendChild(make(docXml, "WALUTA_DOK", "PLN"));
                 plat.appendChild(make(docXml, "PLATNOSC_TYP_PODMIOTU", "kontrahent"));
-                //plat.appendChild(make(docXml, "PLATNOSC_PODMIOT", "1"));
+                plat.appendChild(make(docXml, "PLATNOSC_PODMIOT", safe(doc.getPodmiotAkronim())));
                 //plat.appendChild(make(docXml, "PLATNOSC_PODMIOT_ID", doc.podmiotId));
                 plat.appendChild(make(docXml, "PLATNOSC_PODMIOT_NIP", safe(doc.getPodmiotNip())));
                 plat.appendChild(make(docXml, "PLAT_ELIXIR_O1", safe(p.getOpis())));
@@ -212,6 +212,8 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
                 plat.appendChild(make(docXml, "PLAT_SPLIT_NIP", safe(doc.getPodmiotNip())));
                 plat.appendChild(make(docXml, "PLAT_SPLIT_NR_DOKUMENTU", safe(doc.getNumer())));
             }
+        }  //else {
+        	//platnosci.appendChild(docXml.createCDATASection(" "));
         }
 
         // KODY_JPK – na razie puste

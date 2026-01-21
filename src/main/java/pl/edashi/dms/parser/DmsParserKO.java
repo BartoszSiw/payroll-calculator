@@ -24,6 +24,7 @@ public class DmsParserKO {
 
         // KO ma tylko jedną sekcję <daty>
         Element daty = (Element) doc.getElementsByTagName("daty").item(0);
+        Element warto = (Element) doc.getElementsByTagName("wartosci").item(0);
 
         out.setMetadata(new DocumentMetadata(
                 genDocId,
@@ -32,7 +33,9 @@ public class DmsParserKO {
                 fileName,
                 daty.getAttribute("data"),
                 daty.getAttribute("data_sprzed"),
-                daty.getAttribute("data_zatw")
+                daty.getAttribute("data_zatw"),
+                daty.getAttribute("data"),
+                warto.getAttribute("waluta")
         ));
 
         // ============================

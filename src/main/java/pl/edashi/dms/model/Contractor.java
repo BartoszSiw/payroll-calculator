@@ -13,6 +13,9 @@ public class Contractor {
     public String zip;
     public String street;
     public String houseNumber;
+	public String fullName;
+	public String czynny;
+	public boolean isCompany;
     public Contractor() { }
 
     // --- Gettery ---
@@ -28,6 +31,9 @@ public class Contractor {
     public String getZip() { return zip; }
     public String getStreet() { return street; }
     public String getHouseNumber() { return houseNumber; }
+    public String getFullName() { return fullName; }
+	public String getCzynny() {	return czynny;}
+	public boolean isCompany() {return isCompany;}
 
     // --- Settery ---
     public void setId(String id) { this.id = id != null ? id : ""; }
@@ -42,14 +48,22 @@ public class Contractor {
     public void setZip(String zip) { this.zip = zip != null ? zip : ""; }
     public void setStreet(String street) { this.street = street != null ? street : ""; }
     public void setHouseNumber(String houseNumber) { this.houseNumber = houseNumber != null ? houseNumber : ""; }
+    public void setFullName(String fullName) { this.fullName = fullName != null ? fullName : ""; }
+    public void setCzynny(String czynny) { this.czynny = czynny != null ? czynny : ""; }
+    public void setCompany(boolean company) { this.isCompany = company; }
+    
     @Override
     public String toString() {
         return "Contractor{" +
                 "id='" + id + '\'' +
                 ", nip='" + nip + '\'' +
                 ", name1='" + name1 + '\'' +
+                ", name2='" + name2 + '\'' +
+                ", name3='" + name3 + '\'' +
+                ", fullName='" + fullName + '\'' +
                 ", city='" + city + '\'' +
                 ", zip='" + zip + '\'' +
                 '}';
     }
+
 }

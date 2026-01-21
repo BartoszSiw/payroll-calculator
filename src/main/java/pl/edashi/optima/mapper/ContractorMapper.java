@@ -18,22 +18,23 @@ public class ContractorMapper {
         OfflineContractor c = new OfflineContractor();
 
         c.idZrodla = src.id;
-        c.akronim = src.akronim;
-
-        c.rodzaj = "odbiorca";
+        
+    	c.akronim = src.akronim;
+        c.rodzaj = "odbiorca dostawca";
         c.eksport = "krajowy";
-        c.finalny = "Nie";
         c.medialny = "Nie";
         c.krajIso = "PL";
         c.algorytm = "netto";
 
         if (src.isCompany) {
+            c.finalny = "Nie";
             c.platnikVat = "Tak";
             c.nip = src.nip;
             c.nipKraj = src.nipKraj;
             c.regon = src.regon;
             c.pesel = "";
         } else {
+            c.finalny = "Tak";
             c.platnikVat = "Nie";
             c.nip = "";
             c.regon = "";

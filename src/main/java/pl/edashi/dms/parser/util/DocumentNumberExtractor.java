@@ -62,12 +62,15 @@ public final class DocumentNumberExtractor {
         if (dms == null || out == null) return false;
 
         String info = dms.getAttribute("gen_info");
+        LOG.info(info);        
         //LOG.info("[Extractor][gen_info] raw gen_info='" + info + "'");
         if (info == null || info.isBlank()) {
             // fallback: spróbuj ustawić typ z atrybutu DMS id lub z nazwy pliku
             String dmsId = dms.getAttribute("id");
+          LOG.info("[NrExtractor][gen_info] 1 dmsId='" + dmsId + "'");
             if (dmsId != null && !dmsId.isBlank()) out.setDocumentType(dmsId.trim().toUpperCase());
             else if (sourceFileName != null) {
+            	LOG.info("[NrExtractor][gen_info] 2 dmsId='" + dmsId + "'");
                 if (sourceFileName.startsWith("DS")) out.setDocumentType("DS");
                 else if (sourceFileName.startsWith("DK")) out.setDocumentType("DK");
             }
@@ -84,15 +87,16 @@ public final class DocumentNumberExtractor {
         if (parts.length >= 6) {
             String maybeType = parts[4];
             String maybeNumber = parts[5];
-            //LOG.info("[Extractor][gen_info] maybeType='" + maybeType + "'");
-            //LOG.info("[Extractor][gen_info] maybeNumber='" + maybeNumber + "'");
+            maybeNumber = stripLeadingIndex(maybeNumber);
+            LOG.info("[Extractor][gen_info] maybeType='" + maybeType + "'");
+            LOG.info("[Extractor][gen_info] maybeNumber='" + maybeNumber + "'");
             if (maybeType != null && !maybeType.isBlank()) {
-            	//LOG.info("[Extractor][gen_info] SET documentType='" + maybeType + "'");
+            	LOG.info("[Extractor][gen_info] SET documentType='" + maybeType + "'");
                 out.setDocumentType(maybeType.trim().toUpperCase());
             }
 
             if (maybeNumber != null && !maybeNumber.isBlank() && looksLikeDocumentNumber(maybeNumber)) {
-            	//LOG.info("[Extractor][gen_info] FOUND number='" + maybeNumber + "'");
+            	LOG.info("[Extractor][gen_info] FOUND number='" + maybeNumber + "'");
             	String normalized = normalizeNumber(maybeNumber);
                 out.setInvoiceNumber(maybeNumber.trim());
                 out.setInvoiceShortNumber(normalized);
@@ -101,7 +105,7 @@ public final class DocumentNumberExtractor {
         }
 
         // dodatkowa próba: znajdź pierwszy fragment wyglądający jak numer
-        Matcher m = Pattern.compile("(\\b[0-9A-Za-z]+(?:[\\/\\-_][0-9A-Za-z]+)+\\b)").matcher(cleaned);
+        Matcher m = Pattern.compile("(\\b[0-9A-Za-z]+(?: [\\/\\-_][0-9A-Za-z]+)+\\b)").matcher(cleaned);
         if (m.find()) {
             String found = m.group(1).trim();
             //LOG.info("[Extractor][gen_info] REGEX FOUND number='" + found + "'");
@@ -292,5 +296,15 @@ public final class DocumentNumberExtractor {
         r = r.replaceAll("\\s+", " ");
         return r.trim();
     }
+    private static String stripLeadingIndex(String s) {
+        if (s == null) return null;
+        String trimmed = s.trim();
+        // jeśli zaczyna się od "1 " lub "2 "
+        if (trimmed.matches("^[12]\\s+.*")) {
+            return trimmed.substring(2).trim();
+        }
+        return trimmed;
+    }
+
 }
 

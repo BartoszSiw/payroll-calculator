@@ -5,14 +5,13 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
-
 import pl.edashi.converter.repository.DocumentRepository;
 import pl.edashi.converter.service.ConverterService;
 import pl.edashi.dms.mapper.DmsToDmsMapper;
 import pl.edashi.dms.model.DmsDocumentOut;
 import pl.edashi.dms.model.DmsParsedContractorList;
 import pl.edashi.dms.model.DmsParsedDocument;
+import pl.edashi.dms.xml.DmsOfflinePurchaseBuilder;
 import pl.edashi.dms.xml.DmsOfflineXmlBuilder;
 import pl.edashi.dms.xml.RootXmlBuilder;
 import pl.edashi.optima.builder.ContractorsXmlBuilder;
@@ -55,15 +54,12 @@ public class ConverterServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-    	log.info("1 Odebrano żądanie konwersji wielu plików XML");
+    	//log.info("1 Odebrano żądanie konwersji wielu plików XML");
         // ============================
         // 1. KONFIGURACJA UPLOADU
         // ============================
     	DiskFileItemFactory factory = DiskFileItemFactory.builder().get();
-;
-
-
-        JakartaServletFileUpload upload = new JakartaServletFileUpload(factory);
+    JakartaServletFileUpload upload = new JakartaServletFileUpload(factory);
 
         // BRAK LIMITU LICZBY PLIKÓW
         upload.setFileCountMax(-1);
@@ -96,12 +92,19 @@ public class ConverterServlet extends HttpServlet {
         // ============================
         // List for analyzer
         List<DmsParsedDocument> allParsedDocs = new ArrayList<>();
+        String filtrRejestru = null;
+        for (FileItem item : items) {
+            if (item.isFormField() && "rejestr".equals(item.getFieldName())) {
+                filtrRejestru = item.getString().trim();
+        		String finfo = String.format(filtrRejestru, " filtrRejestru='%s'");
+        		//log.info(finfo);
+            }
+        }
         for (FileItem item : items) {
 
             if (item.isFormField()) continue; // pomijamy pola formularza
             if (!"xmlFile".equals(item.getFieldName())) continue;
             if (item.getSize() == 0) continue;
-
             String fileName = Paths.get(item.getName()).getFileName().toString();
             Path savedFile = uploadDir.resolve(fileName);
 
@@ -111,10 +114,25 @@ public class ConverterServlet extends HttpServlet {
         // Wczytaj zawartość XML
         String xml = Files.readString(savedFile);
         try {
+        	//log.info(outputName);
             // 1. Parsowanie dokumentu DMS (DS, KO, DK, SL WZ...)
             //DmsParsedDocument parsed = converterService.processSingleDocument(xml, fileName);
         	Object parsed = converterService.processSingleDocument(xml, fileName);
         	if (parsed instanceof DmsParsedDocument d) {
+        		String t = d.getDocumentType();
+        		if (t != null) {
+        		    d.setDocumentType(t.trim().toUpperCase());
+        		}
+        		String tinfo = String.format(t, " t='%s'",filtrRejestru, " filtrRejestru='%s'");
+        		//log.info(tinfo);
+        		   // 🔥 FILTR REJESTRU — NAJLEPSZE MIEJSCE
+        		if (filtrRejestru != null && !filtrRejestru.isBlank()) {
+        		    if (!filtrRejestru.equals(d.getDaneRejestr())) {
+        		        //log.info("Pomijam dokument (rejestr=" + d.getDaneRejestr() + ")");
+        		        continue;
+        		    }
+        		}
+
         	    // dodajemy do listy wszystkich sparsowanych dokumentów
         	    allParsedDocs.add(d);
 
@@ -123,9 +141,9 @@ public class ConverterServlet extends HttpServlet {
 
         	    DmsDocumentOut docOut = null;
         	    try {
-        	        docOut = new DmsToDmsMapper().map(d);
+        	    	docOut = new DmsToDmsMapper().map(d);
         	    } catch (Exception e) {
-        	        log.error("Błąd mapowania dokumentu " + fileName + ": " + e.getMessage(), e);
+        	        //log.error("Błąd mapowania dokumentu " + fileName + ": " + e.getMessage(), e);
         	        results.add("Błąd mapowania: " + fileName + " -> " + e.getMessage());
         	        continue; // przejdź do następnego pliku
         	    }
@@ -150,17 +168,32 @@ public class ConverterServlet extends HttpServlet {
         	// bezpieczne pobranie i normalizacja typu dokumentu
         	 String rawDocType = d.getDocumentType();
         	 String docType = rawDocType != null ? rawDocType.trim().toUpperCase() : "";
-
         	 // debug log — pokaże co dokładnie mamy przed warunkami
-        	 String msg = String.format("Processing: file=%s, rawDocType='%s', normalizedDocType='%s', invoice='%s'",
+        	 String msg = String.format("Processing: file=%s, rawDocType='%s', docType='%s', invoice='%s'",
                      fileName, rawDocType, docType, invoice);
         	 //log.info(msg);
-        	 Set<String> DS_TYPES = Set.of("DS", "FV", "PR");//, "FZL", "FVK", "RWS"
- 		    Set<String> DK_TYPES = Set.of("DK", "02");
+        	 Set<String> DS_TYPES = Set.of("DS", "FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG");
+ 		    Set<String> DK_TYPES = Set.of("DK"); //"02"
+ 		   Set<String> DZ_TYPES = Set.of("DZ", "FVZ");
+ 		   //log.info("SERVLET POSITIONS COUNT: " + d.getPositions().size() 
+ 			         //+ " file=" + d.getSourceFileName());
+           // ============================
+           // ŚCIEŻKA DZ (zakup)
+           // ============================
+ 		    if (DZ_TYPES.contains(docType)) {
+ 		        try {
+ 		            // używamy dedykowanego buildera zakupowego
+ 		            root.addSection(new DmsOfflinePurchaseBuilder(docOut));
+ 		            results.add("Dodano DZ: " + invoice);
+ 		            //log.info("Added DZ: file=" + fileName + " invoice=" + invoice);
+ 		        } catch (Exception e) {
+ 		            //log.error("Błąd budowy sekcji DZ dla " + fileName + ": " + e.getMessage(), e);
+ 		            results.add("Błąd DZ: " + fileName + " -> " + e.getMessage());
+ 		        }
                 // ============================
                 // ŚCIEŻKA DS (sprzedaż)
                 // ============================
-        	 if (DS_TYPES.contains(docType)) {
+ 		    }else if (DS_TYPES.contains(docType)) {
         		    try {
         		        root.addSection(new DmsOfflineXmlBuilder(docOut));
         		        results.add("Dodano DS: " + invoice);
@@ -175,7 +208,7 @@ public class ConverterServlet extends HttpServlet {
         		    results.add("Dodano DK: " + invoice);
         		} else {
         		    results.add("Dodano (" + (docType.isBlank() ? "UNKNOWN" : docType) + "): " + invoice);
-        		}
+        		} 
         	}
             // ============================
             // ŚCIEŻKA SL (kontrahenci)
@@ -190,6 +223,7 @@ public class ConverterServlet extends HttpServlet {
         	
         } catch (Exception e) {
         	results.add("Błąd w pliku " + fileName + ": " + e.getMessage());
+        	//try { String snippet = xml == null ? "<null>" : xml.length() > 20000 ? xml.substring(0,20000) : xml; log.error("XML snippet for " + fileName + ":\n" + snippet); } catch (Exception ignored) {} results.add("Błąd w pliku " + fileName + ": " + e.getMessage());
         }
 
     }

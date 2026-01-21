@@ -6,6 +6,7 @@ import pl.edashi.converter.repository.DocumentRepository;
 import pl.edashi.dms.model.DmsParsedContractorList;
 import pl.edashi.dms.parser.DmsParserDK;
 import pl.edashi.dms.parser.DmsParserDS;
+import pl.edashi.dms.parser.DmsParserDZ;
 import pl.edashi.dms.parser.DmsParserKO;
 import pl.edashi.dms.parser.DmsParserKZ;
 import pl.edashi.dms.parser.DmsParserSL;
@@ -51,12 +52,17 @@ public class ConverterService {
         Element root = doc.getDocumentElement(); // <DMS ...>
         if (root == null) throw new IllegalArgumentException("Brak elementu root w pliku: " + sourceFile);
         String type = root.getAttribute("id");
+
         if (type == null || type.isEmpty()) {
             throw new IllegalArgumentException("Brak atrybutu id w DMS root: " + sourceFile);
         }
         switch (type) {
         case "DS":
+            //log.info("case DS");
             return new DmsParserDS().parse(doc, sourceFile);
+        case "DZ":
+        	//log.info("case DZ");
+            return new DmsParserDZ().parse(doc, sourceFile);
 
         case "KO":
             return new DmsParserKO().parse(doc, sourceFile);
@@ -132,6 +138,7 @@ public class ConverterService {
                 // - invoiceNumber (np. z DS)
                 // - invoiceShortNumber (jeśli używasz)
                 // - dodatkowe relatedNumbers (np. z DK -> pozycje 49)
+        		
         		.registerExtractor(doc -> {
         		    List<ExtractedNumber> out = new ArrayList<>();
 
@@ -139,14 +146,16 @@ public class ConverterService {
         		            ? doc.getDocumentType().toUpperCase()
         		            : "";
 
+
         		    //
         		    // ============================
         		    // 1) DS (FV, PR, FZL, FVK, RWS)
         		    // ============================
         		    //
-        		    if (Set.of("FV", "PR", "FZL", "FVK", "RWS").contains(type)) {
-        		    	System.out.println("EXTRACTOR DS: type=" + type + " file=" + doc.getSourceFileName()
-        		        + " nr=" + doc.getInvoiceShortNumber());
+        		    if (Set.of("FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG").contains(type)) {
+        		    	//type = "DS";
+        		    	//System.out.println("EXTRACTOR DS: type=" + type + " file=" + doc.getSourceFileName()
+        		        //+ " nr=" + doc.getInvoiceShortNumber());
 
         		        String nr = firstNonBlank(
         		                doc.getInvoiceShortNumber(),
@@ -164,35 +173,50 @@ public class ConverterService {
         		    // ============================
         		    // 2) DK — numer DK + numery DS z pozycji
         		    // ============================
-        		    //
-        		    if ("DK".equals(type)) {
-        		    	System.out.println("EXTRACTOR DK: type=" + type + " file=" + doc.getSourceFileName()
-        		        + " nr=" + doc.getInvoiceShortNumber());
-
-        		        // 2.1 numer DK
-        		        String nrDK = firstNonBlank(
-        		                doc.getInvoiceShortNumber(),
-        		                doc.getInvoiceNumber()
-        		        );
-
-        		        if (nrDK != null) {
-        		            out.add(new ExtractedNumber(nrDK, doc.getId()));
-        		        }
-
-        		        // 2.2 numery DS z pozycji (typ=49)
-        		        if (doc.getPositions() != null) {
-        		            for (DmsPosition pos : doc.getPositions()) {
-        		                if ("DS".equalsIgnoreCase(pos.getKlasyfikacja())) {
-        		                    String nrDS = pos.getNumer();
-        		                    if (nrDS != null && !nrDS.isBlank()) {
-        		                        out.add(new ExtractedNumber(nrDS.trim(), doc.getId()));
-        		                    }
-        		                }
-        		            }
-        		        }
-
-        		        return out;
-        		    }
+        		    	if ("DK".equals(type)) {
+        		    		//type = "DK";
+        		    	    // 2.1 numer DK (nagłówek)
+        		    	    /*log.info(String.format(
+        		    	            "[DK] START file=%s invoiceShort='%s' invoice='%s' positions='%s'",
+        		    	            doc.getSourceFileName(),
+        		    	            doc.getInvoiceShortNumber(),
+        		    	            doc.getInvoiceNumber(),
+        		    	            doc.getPositions().size()
+        		    	    ));*/
+        		    	    addIfNotBlank(out, doc.getInvoiceShortNumber(), doc.getSourceFileName());
+        		    	    addIfNotBlank(out, doc.getInvoiceNumber(), doc.getSourceFileName());
+        		    	   /* log.info(String.format(
+        		    	            "[DK] HEADER ADDED file=%s short='%s' full='%s'",
+        		    	            doc.getSourceFileName(),
+        		    	            doc.getInvoiceShortNumber(),
+        		    	            doc.getInvoiceNumber()
+        		    	    ));*/
+        		    	    // 2.2 numery DS z pozycji DK (typ=49)
+        		    	    if (doc.getPositions() != null) {
+        		    	        for (DmsPosition pos : doc.getPositions()) {
+        		    	           /* log.info(String.format(
+        		    	                    "[DK] POS CHECK file=%s klasyf='%s' numer='%s'",
+        		    	                    doc.getSourceFileName(),
+        		    	                    pos.getKlasyfikacja(),
+        		    	                    pos.getNumer()
+        		    	            ));*/
+        		    	            if (Set.of("DS", "PR").contains(pos.getKlasyfikacja().toUpperCase())) {
+        		    	                addIfNotBlank(out, pos.getNumer(), doc.getSourceFileName());
+        		    	               /* log.info(String.format(
+        		    	                        "[DK] POS ADDED (DS) file=%s numer='%s'",
+        		    	                        doc.getSourceFileName(),
+        		    	                        pos.getNumer()
+        		    	                ));*/
+        		    	            }
+        		    	        }
+        		    	    }
+        		    	   /* log.info(String.format(
+        		    	            "[DK] END file=%s extractedCount=%d",
+        		    	            doc.getSourceFileName(),
+        		    	            out.size()
+        		    	    ));*/
+        		    	    return out;
+        		    	}
 
         		    //
         		    // ============================
@@ -214,16 +238,23 @@ public class ConverterService {
                 .build();
 
         // metaProvider: jak pobrać typ i nazwę pliku z obiektu dokumentu
-        Function<DmsParsedDocument, DocumentRelationAnalyzer.DocumentMeta> metaProvider = d ->
-                new DocumentRelationAnalyzer.DocumentMeta(
-                        d.getDocumentType() != null ? d.getDocumentType() : "UNKNOWN",
-                        d.getSourceFileName(),
-                        d.getId()
-                );
-                allParsedDocs.forEach(d ->
+        Function<DmsParsedDocument, DocumentRelationAnalyzer.DocumentMeta> metaProvider = d -> {
+            String type = d.getDocumentType();
+
+            if (type == null || type.isBlank()) {
+                type = "UNKNOWN";
+            }
+
+            return new DocumentRelationAnalyzer.DocumentMeta(
+                    type,
+                    d.getSourceFileName(),
+                    d.getId()
+            );
+        };
+                /*allParsedDocs.forEach(d ->
                 log.info(String.format("META CHECK: file='%s', type='%s'", d.getSourceFileName(),
                                  d.getDocumentType()))
-            );
+            );*/
 
         analyzer.indexDocuments(allParsedDocs, metaProvider);
 
@@ -236,5 +267,11 @@ public class ConverterService {
         }
         return null;
     }
+    private void addIfNotBlank(List<ExtractedNumber> out, String nr, String id) {
+        if (nr != null && !nr.isBlank()) {
+            out.add(new ExtractedNumber(nr.trim(), id));
+        }
+    }
+
 
 }

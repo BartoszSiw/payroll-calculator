@@ -9,8 +9,10 @@ public class DocumentMetadata {
     private final String date;          // data wystawienia
     private final String dateSale;      // data sprzedaży
     private final String dateApproval;  // data zatwierdzenia
+    private final String dateOperation;  // data operacji w DZ
+    private final String waluta;  // waluta 
     
-    public DocumentMetadata(String genDocId, String id, String trans, String sourceFile, String date, String dateSale, String dateApproval) {
+    public DocumentMetadata(String genDocId, String id, String trans, String sourceFile, String date, String dateSale, String dateApproval, String dateOperation, String waluta) {
         this.genDocId = genDocId;
         this.id = id;
         this.trans = trans;
@@ -18,6 +20,8 @@ public class DocumentMetadata {
         this.date = date;
         this.dateSale = dateSale;
         this.dateApproval = dateApproval;
+        this.dateOperation = dateOperation;
+       this.waluta = waluta;
     }
 
     public String getGenDocId() { return genDocId; }
@@ -27,4 +31,6 @@ public class DocumentMetadata {
     public String getDate() { return date; }
     public String getDateSale() { return dateSale; }
     public String getDateApproval() { return dateApproval; }
+    public String getDateOperation() { return dateOperation; }
+    public String getWaluta() { return waluta; }
 }

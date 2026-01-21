@@ -14,6 +14,15 @@ DS XML
 → **Builder**  
 → **Optima‑compatible XML**
 
+🔥 DLACZEGO TERMIN_PLAT jest pusty?
+Bo:
+
+1. Parser → ustawia p.setTerminPlatnosci(...)
+2. DmsParsedDocument → trzyma listę payments
+3. Mapper → kopiuje payments do DmsDocumentOut
+4. DmsDocumentOut → NIE MA pola terminPlatnosci
+5. Builder → wywołuje p.getTerminPlatnosci() na obiekcie z DmsDocumentOut
+
 ### 1. Input: DS XML
 Raw DS document received from external systems.
 

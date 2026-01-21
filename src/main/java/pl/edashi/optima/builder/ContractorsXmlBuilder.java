@@ -31,7 +31,7 @@ public class ContractorsXmlBuilder implements XmlSectionBuilder {
 
         sekcja.appendChild(make(xml, "WERSJA", "2.00"));
         sekcja.appendChild(make(xml, "BAZA_ZRD_ID", "KSIEG"));
-        sekcja.appendChild(make(xml, "BAZA_DOC_ID", "DMSJB"));
+        sekcja.appendChild(make(xml, "BAZA_DOC_ID", "DMS_1"));
 
         for (OfflineContractor c : contractors) {
             Element k = xml.createElementNS(NS, "KONTRAHENT");
@@ -56,8 +56,8 @@ public class ContractorsXmlBuilder implements XmlSectionBuilder {
             k.appendChild(make(xml, "METODA_KASOWA_SPR", "Nie"));
             k.appendChild(make(xml, "NIE_UWZGLEDNIAJ_KASOWY_PIT", "Nie"));
 
-            k.appendChild(make(xml, "KONTOODB", " "));
-            k.appendChild(make(xml, "KONTODOST", " "));
+            k.appendChild(make(xml, "KONTOODB", "202"));
+            k.appendChild(make(xml, "KONTODOST", "201"));
 
             k.appendChild(make(xml, "FORMA_PLATNOSCI", c.formaPlatnosci));
             k.appendChild(make(xml, "FORMA_PLATNOSCI_ID", c.formaPlatnosciId));

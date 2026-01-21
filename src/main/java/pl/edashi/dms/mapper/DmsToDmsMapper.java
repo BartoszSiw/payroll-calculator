@@ -19,30 +19,42 @@ public class DmsToDmsMapper {
         //doc.setTyp("DS"); // bo to jest parser DS
         //doc.setDocumentType(safe(src.getDocumentType()));
         String srcType = safe(src.getDocumentType()).toUpperCase();
+        String srcWewne = safe(src.getDocumentWewne());
         doc.setTyp(srcType);
         doc.setDocumentType(srcType);
-
-        doc.setRejestr("SPRZEDAŻ");
+        doc.setDocumentWewne(srcWewne);
+        doc.setRejestr(src.getDaneRejestr());
 
         // DATY - null-safe
         DocumentMetadata meta = src.getMetadata();
         String date = meta != null ? safe(meta.getDate()) : "";
+        String dateSale = meta != null ? safe(meta.getDateSale()) : "";
+        String walutaWarto = meta != null ? safe(meta.getWaluta()) : "";
         doc.setDataWystawienia(date);
-        doc.setDataSprzedazy(date);
+        doc.setDataSprzedazy(dateSale);
         doc.setTermin(date);
+        doc.setDataOperacji(date);
+        doc.setDataWplywu(date);
+        doc.setDataObowiazkuPodatkowego(date);
+        doc.setDataPrawaOdliczenia(date);
+        doc.setWaluta(walutaWarto);
+        
+        // WARTO
+        
 
         // NUMER
         doc.setInvoiceNumber(safe(src.getInvoiceNumber()));
         doc.setInvoiceShortNumber(safe(src.getInvoiceShortNumber()));
         //doc.setDocumentType(safe(src.getDocumentType())); // zostaw, ale upewnij się, że DmsDocumentOut ma getter
-        log.info(String.format("Mapper: src.documentType='%s' -> doc.typ='%s' file=%s InvoiceNumber=%s InvoiceShortNumber=%s ",
-                src.getDocumentType(), doc.getTyp(), src.getSourceFileName(), src.getInvoiceNumber(), src.getInvoiceShortNumber()));
+        //log.info(String.format("Mapper: src.documentType='%s' -> doc.typ='%s' file=%s InvoiceNumber=%s InvoiceShortNumber=%s ",
+                //src.getDocumentType(), doc.getTyp(), src.getSourceFileName(), src.getInvoiceNumber(), src.getInvoiceShortNumber()));
 
         //doc.numer = src.invoiceShortNumber;
         // PODMIOT (null-safe, używamy getterów)
         Contractor c = src.getContractor();
         if (c != null) {
             doc.setPodmiotId(safe(c.getId()));
+            doc.setPodmiotAkronim(c.getFullName());
             doc.setPodmiotNip(safe(c.getNip()));
             doc.setNazwa1(safe(c.getName1()));
             doc.setNazwa2(safe(c.getName2()));
@@ -54,7 +66,14 @@ public class DmsToDmsMapper {
             doc.setKodPocztowy(safe(c.getZip()));
             doc.setUlica(safe(c.getStreet()));
             doc.setNrDomu(safe(c.getHouseNumber()));
+            doc.setCzynny(safe(c.getCzynny()));
+            
         }
+        doc.setDokumentFiskalny(safe(src.getDokumentFiskalny())); 
+        doc.setDokumentDetaliczny(safe(src.getDokumentDetaliczny()));
+        doc.setKorekta(safe(src.getKorekta()));
+        doc.setKorektaNumer(safe(src.getKorektaNumer()));
+
      // POZYCJE - inicjalizacja listy i mapowanie pozycji
         doc.setPozycje(new ArrayList<>());
         List<DmsPosition> positions = src.getPositions();
@@ -63,13 +82,16 @@ public class DmsToDmsMapper {
                 DmsOutputPosition outPos = new DmsOutputPosition();
                 outPos.setKategoria(safe(p.getKategoria()));
                 outPos.setStawkaVat(safe(p.getStawkaVat()));
+                outPos.setStatusVat(safe(p.getStatusVat()));
                 outPos.setNetto(safe(p.getNetto()));
                 outPos.setVat(safe(p.getVat()));
                 outPos.setRodzajSprzedazy(safe(p.getRodzajSprzedazy()));
                 outPos.setVin(safe(p.getVin()));
                 outPos.setKanal(safe(p.getKanal()));
                 outPos.setKanalKategoria(safe(p.getKanalKategoria()));
+                outPos.setKierunek(safe(p.getKierunek()));
                 doc.getPozycje().add(outPos);
+                
                 //log.info(String.format("[CHECK VAT] Mapping: netto='%s', getVat='%s', getVatZ='%s'",
                 		//outPos.getNetto(),outPos.getVat()));
             }
@@ -86,9 +108,12 @@ public class DmsToDmsMapper {
         List<DmsPayment> payments = src.getPayments();
         if (payments != null && !payments.isEmpty()) {
             // jeśli DmsPayment jest zgodny z doc.platnosci, kopiujemy bezpośrednio
+        	//doc.setTerminPlatnosci(safe(src.getTerminPlatnosci()));
             doc.getPlatnosci().addAll(payments);
+            
             // jeśli trzeba mapować pola DmsPayment -> inny typ, zrób mapowanie tutaj
         }
+        
 
         // FAKTURA
         doc.setNumer(safe(src.getInvoiceNumber()));

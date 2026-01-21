@@ -36,7 +36,7 @@ public class DmsParserSL {
                     c.wyrRaw = wyr;
                     c.isCompany = "F".equals(wyr);
                     //c.isOsoba = "O".equals(wyr);
-                    c.rodzaj = "odbiorca";
+                    c.rodzaj = "odbiorca dostawca";
 
 
                     if (c.isCompany) {
@@ -56,8 +56,8 @@ public class DmsParserSL {
                         String n2 = d.getAttribute("nazwa2");
 
                         c.fullName = (n1 + "_" + n2).trim();
-                        c.nazwa1 = c.fullName;
-                        c.nazwa2 = "";
+                        c.nazwa1 = n1;
+                        c.nazwa2 = n2;
                         c.nazwa3 = "";
 
                         c.nip = "";
