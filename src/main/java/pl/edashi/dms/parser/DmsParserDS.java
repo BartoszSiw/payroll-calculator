@@ -38,8 +38,9 @@ public class DmsParserDS {
         Element daty = (Element) doc.getElementsByTagName("daty").item(0);
         Element warto = (Element) doc.getElementsByTagName("wartosci").item(0);
      // preferowana, centralna metoda ekstrakcji dla parsera DS
-        
-        boolean found = DocumentNumberExtractor.extractFromGenInfo(root, out, fileName);
+        boolean hasNumberInDane = false;
+
+        boolean found = DocumentNumberExtractor.extractFromGenInfo(root, out, fileName,hasNumberInDane);
      // jeśli AppLogger ma metodę do pobrania wewnętrznego loggera:
         //org.slf4j.Logger slf = org.slf4j.LoggerFactory.getLogger(DmsParserDS.class);
         //log.info("SLF4J logger name = " + slf.getName());
@@ -251,9 +252,9 @@ public class DmsParserDS {
 
                 DmsPosition p = new DmsPosition();
                 p.type = typ;
-                p.kategoria = klas != null ? klas.getAttribute("kod") : "";
+                p.kategoria2 = klas != null ? klas.getAttribute("kod") : "";
                 p.kanal = klas != null ? klas.getAttribute("kanal") : "";
-                p.kanalKategoria = (p.kategoria != null && !p.kategoria.isBlank()) ? p.kanal + "-" + p.kategoria : "";
+                p.kanalKategoria = (p.kategoria2 != null && !p.kategoria2.isBlank()) ? p.kanal + "-" + p.kategoria2 : "";
                 p.vin = rozs != null ? rozs.getAttribute("vin") : "";
 
                 p.netto = wart != null ? wart.getAttribute("netto_sprzed") : "";
@@ -296,8 +297,8 @@ public class DmsParserDS {
                 }
 
                 switch (typ) {
-                    case "03": p.rodzajSprzedazy = "towary"; break;
-                    case "04": p.rodzajSprzedazy = "uslugi"; break;
+                    case "03": p.rodzajSprzedazy = "towary"; p.kategoria = "MATERIAŁY";break; //Wartości: Materiały handlowe 
+                    case "04": p.rodzajSprzedazy = "uslugi"; p.kategoria = "Robocizna i usługi"; break;
                     case "05": p.rodzajSprzedazy = "uslugi_obce"; break;
                 }
                 //log.info(p.rodzajSprzedazy);

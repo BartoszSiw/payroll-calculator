@@ -58,7 +58,7 @@ public final class DocumentNumberExtractor {
      * Jeśli znajdzie, ustawia documentType, invoiceNumber i invoiceShortNumber w out.
      * Jeśli nie znajdzie, nie modyfikuje out (zwraca false).
      */
-    public static boolean extractFromGenInfo(Element dms, DmsParsedDocument out, String sourceFileName) {
+    public static boolean extractFromGenInfo(Element dms, DmsParsedDocument out, String sourceFileName, boolean hasNumberInDane) {
         if (dms == null || out == null) return false;
 
         String info = dms.getAttribute("gen_info");
@@ -95,9 +95,19 @@ public final class DocumentNumberExtractor {
                 out.setDocumentType(maybeType.trim().toUpperCase());
             }
 
-            if (maybeNumber != null && !maybeNumber.isBlank() && looksLikeDocumentNumber(maybeNumber)) {
-            	LOG.info("[Extractor][gen_info] FOUND number='" + maybeNumber + "'");
-            	String normalized = normalizeNumber(maybeNumber);
+         // 1) Główna ścieżka: numer w expected position
+            if (!hasNumberInDane && maybeNumber != null && !maybeNumber.isBlank()) {
+                LOG.info("[Extractor][gen_info] FOUND number='" + maybeNumber + "'");
+                String normalized = normalizeNumber(maybeNumber);
+                out.setInvoiceNumber(maybeNumber.trim());
+                out.setInvoiceShortNumber(normalized);
+                return true;
+            }
+
+            // 2) Alternatywna ścieżka: regex / looksLikeDocumentNumber
+            if (!hasNumberInDane && maybeNumber != null && !maybeNumber.isBlank() && looksLikeDocumentNumber(maybeNumber)) {
+                LOG.info("[Extractor][gen_info] FOUND number='" + maybeNumber + "'");
+                String normalized = normalizeNumber(maybeNumber);
                 out.setInvoiceNumber(maybeNumber.trim());
                 out.setInvoiceShortNumber(normalized);
                 return true;
@@ -136,10 +146,10 @@ public final class DocumentNumberExtractor {
         if (dms == null || out == null || parserType == null) return false;
 
         String type = parserType.trim().toUpperCase();
-
+        boolean hasNumberInDane = false;
         // 1) dla DS: najpierw gen_info (z możliwością użycia nazwy pliku jako fallback)
         if ("DS".equals(type)) {
-            if (extractFromGenInfo(dms, out, sourceFileName)) return true;
+            if (extractFromGenInfo(dms, out, sourceFileName,hasNumberInDane)) return true;
             // fallback: spróbuj nested (np. 48/49) lub główny numer
             if (extractFromNestedDocuments(dms, out, "48", "49")) return true;
             String main = extractMainNumberFromDmsElement(dms);
@@ -156,7 +166,7 @@ public final class DocumentNumberExtractor {
         if ("DK".equals(type)) {
             if (extractFromNestedDocuments(dms, out, "48", "49")) return true;
             // jeśli nie ma nested, spróbuj gen_info (przekazujemy sourceFileName jeśli mamy)
-            if (extractFromGenInfo(dms, out, sourceFileName)) return true;
+            if (extractFromGenInfo(dms, out, sourceFileName,hasNumberInDane)) return true;
             String main = extractMainNumberFromDmsElement(dms);
             if (main != null && !main.isBlank()) {
                 out.setInvoiceNumber(main);
@@ -168,7 +178,7 @@ public final class DocumentNumberExtractor {
         }
 
         // 3) inne typy: domyślna kolejność — gen_info, nested (48/49), main
-        if (extractFromGenInfo(dms, out, sourceFileName)) return true;
+        if (extractFromGenInfo(dms, out, sourceFileName,hasNumberInDane)) return true;
         if (extractFromNestedDocuments(dms, out, "48", "49")) return true;
 
         String main = extractMainNumberFromDmsElement(dms);
@@ -216,7 +226,7 @@ public final class DocumentNumberExtractor {
     }
 
     // próbuje pobrać numer z rozszerzone@opis1, z elementu <numer> (tekst) lub atrybutu nr
-    private static String extractNumberFromDane(Element dane) {
+    public static String extractNumberFromDane(Element dane) {
         if (dane == null) return "";
 
         // 1) rozszerzone@opis1
@@ -232,10 +242,10 @@ public final class DocumentNumberExtractor {
         // 2) bezpośredni <numer> wewnątrz tego <dane>
         Element numer = firstElementByTag(dane, "numer");
         if (numer != null) {
-            String txt = numer.getTextContent();
-            if (txt != null && !txt.isBlank()) return txt.trim();
             String attrNr = safeAttr(numer, "nr");
             if (attrNr != null && !attrNr.isBlank()) return attrNr.trim();
+            String txt = numer.getTextContent();
+            if (txt != null && !txt.isBlank()) return txt.trim();
         }
 
         // 3) szukaj dowolnego <numer> głębiej w tym <dane>
@@ -243,10 +253,14 @@ public final class DocumentNumberExtractor {
         for (int n = 0; n < allNumer.getLength(); n++) {
             Element anyNum = (Element) allNumer.item(n);
             if (anyNum == null) continue;
-            String txt = anyNum.getTextContent();
-            if (txt != null && !txt.isBlank()) return txt.trim();
+
+            // 🔥 najpierw atrybut nr=
             String attrNr = safeAttr(anyNum, "nr");
             if (attrNr != null && !attrNr.isBlank()) return attrNr.trim();
+
+            // dopiero potem tekst
+            String txt = anyNum.getTextContent();
+            if (txt != null && !txt.isBlank()) return txt.trim();
         }
 
         return "";
@@ -305,6 +319,18 @@ public final class DocumentNumberExtractor {
         }
         return trimmed;
     }
+    public static String extractNumberFromNumerElement(Element numer) {
+        if (numer == null) return "";
+
+        String attrNr = numer.getAttribute("nr");
+        if (attrNr != null && !attrNr.isBlank()) return attrNr.trim();
+
+        String txt = numer.getTextContent();
+        if (txt != null && !txt.isBlank()) return txt.trim();
+
+        return "";
+    }
+
 
 }
 

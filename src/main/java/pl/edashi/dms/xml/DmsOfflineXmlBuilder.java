@@ -146,9 +146,11 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
             	Element poz = docXml.createElementNS(NS, "POZYCJA");
                 pozycje.appendChild(poz);
 
-                poz.appendChild(make(docXml, "KATEGORIA_POS", safe(p.getKanalKategoria())));
+                poz.appendChild(make(docXml, "KATEGORIA_POS", safe(p.getKategoria())));
                 // KATEGORIA_ID_POS – brak w modelu, więc na razie puste
                 poz.appendChild(make(docXml, "KATEGORIA_ID_POS", ""));
+                poz.appendChild(make(docXml, "KATEGORIA_POS_2", safe(p.getKanalKategoria())));
+                poz.appendChild(make(docXml, "KATEGORIA_ID_POS_2", safe(p.getKategoriaId())));
                 poz.appendChild(make(docXml, "STAWKA_VAT", safe(p.getStawkaVat())));
                 // STATUS_VAT – uproszczenie
                 poz.appendChild(make(docXml, "STATUS_VAT", safe(p.getStatusVat())));

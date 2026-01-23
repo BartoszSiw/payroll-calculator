@@ -3,11 +3,13 @@ package pl.edashi.dms.model;
 public class DmsPosition {
 	public String type = ""; 
     public String kategoria = "";
+    public String kategoria2;
     public String stawkaVat = "";
     public String statusVat = "";
     public String netto = "";
     public String vat = "";
     public String rodzajSprzedazy = "";
+    public String rodzajKoszty = "";
 	public String vin = "";
 	public String kanal = "";
 	public String kanalKategoria = "";
@@ -31,11 +33,13 @@ public class DmsPosition {
 		return type;
 	}
     public String getKategoria() { return kategoria; }
+    public String getKategoria2() { return kategoria2; }
     public String getStawkaVat() { return stawkaVat; }
     public String getStatusVat() { return statusVat; }
     public String getNetto() { return netto; }
     public String getVat() { return vat; }
     public String getRodzajSprzedazy() { return rodzajSprzedazy; }
+    public String getRodzajKoszty() { return rodzajKoszty; }
     public String getVin() { return vin; }
     public String getKanal() { return kanal; }
     public String getKanalKategoria() { return kanalKategoria; }
@@ -52,11 +56,13 @@ public class DmsPosition {
     // --- Settery (null-safe) ---
     public void setType(String type) { this.type = type != null ? type : ""; }
     public void setKategoria(String kategoria) { this.kategoria = kategoria != null ? kategoria : ""; }
+    public void setKategoria2(String kategoria2) { this.kategoria2 = kategoria2 != null ? kategoria2 : ""; }
     public void setStawkaVat(String stawkaVat) { this.stawkaVat = stawkaVat != null ? stawkaVat : ""; }
     public void setStatusVat(String statusVat) { this.stawkaVat = statusVat != null ? statusVat : ""; }
     public void setNetto(String netto) { this.netto = netto != null ? netto : ""; }
     public void setVat(String vat) { this.vat = vat != null ? vat : ""; }
     public void setRodzajSprzedazy(String rodzajSprzedazy) { this.rodzajSprzedazy = rodzajSprzedazy != null ? rodzajSprzedazy : ""; }
+    public void setRodzajKoszty(String rodzajKoszty) { this.rodzajKoszty = rodzajKoszty != null ? rodzajKoszty : ""; }
     public void setVin(String vin) { this.vin = vin != null ? vin : ""; }
     public void setKanal(String kanal) { this.kanal = kanal != null ? kanal : ""; }
     public void setKanalKategoria(String kanalKategoria) { this.kanalKategoria = kanalKategoria != null ? kanalKategoria : ""; }
@@ -75,6 +81,7 @@ public class DmsPosition {
         return "DmsPosition{" +
                 "type='" + type + '\'' +
                 ", kategoria='" + kategoria + '\'' +
+                ", kategoria2='" + kategoria2 + '\'' +
                 ", stawkaVat='" + stawkaVat + '\'' +
                 ", netto='" + netto + '\'' +
                 ", vat='" + vat + '\'' +

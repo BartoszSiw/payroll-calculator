@@ -24,6 +24,10 @@ public class DmsToDmsMapper {
         doc.setDocumentType(srcType);
         doc.setDocumentWewne(srcWewne);
         doc.setRejestr(src.getDaneRejestr());
+        if (doc.getRejestr() != null) {
+            String mapped = mapDaneRejestr(doc.getRejestr());
+            doc.setRejestr(mapped);
+        }
 
         // DATY - null-safe
         DocumentMetadata meta = src.getMetadata();
@@ -81,11 +85,13 @@ public class DmsToDmsMapper {
             for (DmsPosition p : positions) {
                 DmsOutputPosition outPos = new DmsOutputPosition();
                 outPos.setKategoria(safe(p.getKategoria()));
+                outPos.setKategoria2(safe(p.getKategoria2()));
                 outPos.setStawkaVat(safe(p.getStawkaVat()));
                 outPos.setStatusVat(safe(p.getStatusVat()));
                 outPos.setNetto(safe(p.getNetto()));
                 outPos.setVat(safe(p.getVat()));
                 outPos.setRodzajSprzedazy(safe(p.getRodzajSprzedazy()));
+                outPos.setRodzajKoszty(safe(p.getRodzajKoszty()));
                 outPos.setVin(safe(p.getVin()));
                 outPos.setKanal(safe(p.getKanal()));
                 outPos.setKanalKategoria(safe(p.getKanalKategoria()));
@@ -135,4 +141,14 @@ public class DmsToDmsMapper {
     private static String safe(String s) {
         return s == null ? "" : s;
     }
+    private String mapDaneRejestr(String wyr) {
+        return switch (wyr) {
+            case "EX" -> "ZK";
+            case "PA" -> "Z3";
+            case "CD", "CP", "CR" -> "Z1";
+            default -> wyr;
+        };
+    }
+
+    
 }

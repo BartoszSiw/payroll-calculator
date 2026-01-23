@@ -2,12 +2,14 @@ package pl.edashi.dms.model;
 
 public class DmsOutputPosition {
 
+    private String kategoria2 = "";
     private String kategoria = "";
     private String stawkaVat = "";
     private String netto = "";
     private String vat = "";
     private String vatZ = "";
     private String rodzajSprzedazy = "";
+    private String rodzajKoszty = "";
     private String vin = "";
     private String kanal = "";
     private String kanalKategoria = "";
@@ -17,6 +19,7 @@ public class DmsOutputPosition {
     public DmsOutputPosition() { }
 
     // --- Gettery ---
+    public String getKategoria2() { return kategoria2; }
     public String getKategoria() { return kategoria; }
     public String getStawkaVat() { return stawkaVat; }
 	public String getStatusVat() {return statusVat;	}
@@ -24,12 +27,14 @@ public class DmsOutputPosition {
     public String getVat() { return vat; }
     public String getVatZ() { return vatZ; }
     public String getRodzajSprzedazy() { return rodzajSprzedazy; }
+    public String getRodzajKoszty() { return rodzajKoszty; }
     public String getVin() { return vin; }
     public String getKanal() { return kanal; }
     public String getKanalKategoria() { return kanalKategoria; }
     public String getKierunek() { return kierunek; }
 
     // --- Settery (null-safe) ---
+    public void setKategoria2(String kategoria2) { this.kategoria2 = safe(kategoria2); }
     public void setKategoria(String kategoria) { this.kategoria = safe(kategoria); }
     public void setStawkaVat(String stawkaVat) { this.stawkaVat = safe(stawkaVat); }
     public void setStatusVat(String statusVat) { this.statusVat = safe(statusVat); }
@@ -37,6 +42,7 @@ public class DmsOutputPosition {
     public void setVat(String vat) { this.vat = safe(vat); }
     public void setVatZ(String vatZ) { this.vatZ = safe(vatZ); }
     public void setRodzajSprzedazy(String rodzajSprzedazy) { this.rodzajSprzedazy = safe(rodzajSprzedazy); }
+    public void setRodzajKoszty(String rodzajKoszty) { this.rodzajKoszty = safe(rodzajKoszty); }
     public void setVin(String vin) { this.vin = safe(vin); }
     public void setKanal(String kanal) { this.kanal = safe(kanal); }
     public void setKanalKategoria(String kanalKategoria) { this.kanalKategoria = safe(kanalKategoria); }
@@ -49,7 +55,7 @@ public class DmsOutputPosition {
     @Override
     public String toString() {
         return "DmsOutputPosition{" +
-                "kategoria='" + kategoria + '\'' +
+                "kategoria='" + kategoria2 + '\'' +
                 ", stawkaVat='" + stawkaVat + '\'' +
                 ", netto='" + netto + '\'' +
                 ", vat='" + vat + '\'' +
@@ -90,5 +96,6 @@ public class DmsOutputPosition {
 		// TODO Auto-generated method stub
 		return null;
 	}
+
 }
 

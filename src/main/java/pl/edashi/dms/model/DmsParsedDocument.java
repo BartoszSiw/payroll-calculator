@@ -1,12 +1,22 @@
 package pl.edashi.dms.model;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 public class DmsParsedDocument {
     private DocumentMetadata metadata;
     private Contractor contractor;
     private List<DmsPosition> positions = new ArrayList<>();
     private List<DmsPayment> payments = new ArrayList<>();
     private List<String> notes = new ArrayList<>();
+    private List<DmsVatEntry> vatEntries = new ArrayList<>();
+
+    public List<DmsVatEntry> getVatEntries() { return vatEntries; }
+    public void addVatEntry(DmsVatEntry e) { vatEntries.add(e); }
+    private Map<String, String> vatRates = new HashMap<>();
+    public Map<String, String> getVatRates() { return vatRates; }
+    public void setVatRates(Map<String, String> map) { this.vatRates = map; }
+
 
     private String vatRate = "";
     private String vatBase = "";
@@ -241,10 +251,11 @@ public class DmsParsedDocument {
     public void setNotes(List<String> notes) {
         this.notes = notes != null ? notes : new ArrayList<>();
     }
-
-
-
-
+    public static class DmsVatEntry {
+        public String stawka;
+        public String podstawa;
+        public String vat;
+    }
     /*public class DmsPositionDS {
         private String klasyfikacja;
         private String numer;
@@ -255,6 +266,4 @@ public class DmsParsedDocument {
         public String getNumer() { return numer; }
         public void setNumer(String n) { this.numer = n; }
     }*/
-
-
 }

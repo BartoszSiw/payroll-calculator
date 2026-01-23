@@ -23,6 +23,11 @@ Bo:
 4. DmsDocumentOut → NIE MA pola terminPlatnosci
 5. Builder → wywołuje p.getTerminPlatnosci() na obiekcie z DmsDocumentOut
 
+✔️ DmsFieldMapper → mapuje pola pozycji
+✔️ DmsToDmsParser → mapuje pola dokumentu
+✔️ DocumentOutPositions → generuje pozycje do XML
+✔️ Builder → generuje finalny XML
+
 ### 1. Input: DS XML
 Raw DS document received from external systems.
 

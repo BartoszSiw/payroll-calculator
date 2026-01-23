@@ -6,14 +6,17 @@ import org.w3c.dom.Node;
 import pl.edashi.common.logging.AppLogger;
 import pl.edashi.dms.model.Contractor;
 import pl.edashi.dms.model.DmsParsedDocument;
+import pl.edashi.dms.model.DmsParsedDocument.DmsVatEntry;
 import pl.edashi.dms.model.DmsPayment;
 import pl.edashi.dms.model.DmsPosition;
 import pl.edashi.dms.model.DocumentMetadata;
 import pl.edashi.dms.parser.util.DocumentNumberExtractor; // zakładam lokalizację helpera
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 public class DmsParserDZ {
@@ -22,6 +25,9 @@ public class DmsParserDZ {
         DmsParsedDocument out = new DmsParsedDocument();
         out.setSourceFileName(fileName);
         Element root = doc.getDocumentElement();
+        Element document = (Element) doc.getElementsByTagName("document").item(0);
+        Element numer = (Element) document.getElementsByTagName("numer").item(0);
+
         String genDocId = root.getAttribute("gen_doc_id");
         String id = root.getAttribute("id");
         String trans = root.getAttribute("trans");
@@ -31,13 +37,37 @@ public class DmsParserDZ {
             log.error("ParserDZ: brak root w pliku: " + fileName);
             return out;
         }*/
-        // 1) Numer dokumentu: najpierw gen_info (DocumentNumberExtractor), potem fallback na element <numer>
-        boolean found = DocumentNumberExtractor.extractFromGenInfo(root, out, fileName);
+        log.info("DEBUG dane element = " + numer);
+        log.info("DEBUG numer count = " + numer.getElementsByTagName("numer").getLength());
+
+     // 1) Najpierw numer z <numer nr="...">
+        String nrFromDane = DocumentNumberExtractor.extractNumberFromDane(numer);
+        boolean hasNumberInDane = nrFromDane != null && !nrFromDane.isBlank();
+        if (hasNumberInDane) {
+            out.setInvoiceNumber(nrFromDane);
+            out.setInvoiceShortNumber(DocumentNumberExtractor.normalizeNumber(nrFromDane));
+            if (out.getDocumentType() == null || out.getDocumentType().isBlank()) {
+                out.setDocumentType("DZ");
+            }
+        }
+        /*if (nrFromDane != null && !nrFromDane.isBlank()) {
+            out.setInvoiceNumber(nrFromDane);
+            out.setInvoiceShortNumber(DocumentNumberExtractor.normalizeNumber(nrFromDane));
+            // jeśli nadal brak typu – ustaw DZ jako domyślny
+            if (out.getDocumentType() == null || out.getDocumentType().isBlank()) {
+                out.setDocumentType("DZ");
+            }
+        }*/
+     // 2) Jeśli nadal brak → gen_info
+
+        boolean found = DocumentNumberExtractor.extractFromGenInfo(root, out, fileName,hasNumberInDane);
+        
         log.info("out.getInvoiceNumber() = " + out.getInvoiceNumber() + "out.getInvoiceShortNumber()"+ out.getInvoiceShortNumber());
         if (!found || (out.getInvoiceShortNumber() == null && out.getInvoiceNumber() == null)) {
             String main = DocumentNumberExtractor.extractMainNumberFromDmsElement(root);
             if (main != null && !main.isBlank()) {
             	log.info("out.getInvoiceNumber() = " + out.getInvoiceNumber() + "out.getInvoiceShortNumber()"+ out.getInvoiceShortNumber());
+            	
                 out.setInvoiceNumber(main);
                 out.setInvoiceShortNumber(DocumentNumberExtractor.normalizeNumber(main));
             }
@@ -45,6 +75,32 @@ public class DmsParserDZ {
             if (out.getDocumentType() == null || out.getDocumentType().isBlank()) {
                 out.setDocumentType("DZ");
             }
+        }
+        
+     // 3) Jeśli nadal brak → fallback
+        if (out.getInvoiceNumber() == null || out.getInvoiceNumber().isBlank()) {
+            String main = DocumentNumberExtractor.extractMainNumberFromDmsElement(root);
+            if (main != null && !main.isBlank()) {
+                out.setInvoiceNumber(main);
+                out.setInvoiceShortNumber(DocumentNumberExtractor.normalizeNumber(main));
+            }
+        }
+        try {
+            NodeList docList = doc.getElementsByTagName("document");
+            for (int i = 0; i < docList.getLength(); i++) {
+                Element docEl = (Element) docList.item(i);
+                if ("02".equals(docEl.getAttribute("typ"))) {
+                    // Pobierz klasyfikatory niezależnie od tego, gdzie DOM je umieścił
+                    Element klas = (Element) docEl.getElementsByTagName("klasyfikatory").item(0); 
+                    if (klas!= null && klas.hasAttribute("wyr")) {
+                        String wyrDoc = klas != null ? klas.getAttribute("wyr") : "";
+                        // wyrDoc = "EX"
+                        out.setDaneRejestr(wyrDoc);} // upewnij się, że DmsParsedDocument ma setter
+                    break; // zwykle tylko jeden rekord 02
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("ParserDS: nie udało się odczytać rejestru zakupu: " + ex.getMessage());
         }
         out.setMetadata(new DocumentMetadata(
                 genDocId,
@@ -78,7 +134,7 @@ public class DmsParserDZ {
         // ============================
         String defaultVatRate = out.getVatRate();
         if (defaultVatRate == null) defaultVatRate = "";
-        out.setPositions(extractPositionsDZ(doc, defaultVatRate));
+        out.setPositions(extractPositionsDZ(doc, out));
 
         /*log.info(String.format(Locale.US,
                 "ParserDZ: END file=%s type=%s nr=%s positions=%d",
@@ -93,47 +149,76 @@ public class DmsParserDZ {
     private void extractVat(Document doc, DmsParsedDocument out) {
         if (doc == null || out == null) return;
         NodeList list = doc.getElementsByTagName("document");
-
+        boolean foundVat = false;
         for (int i = 0; i < list.getLength(); i++) {
             Element el = (Element) list.item(i);
 
             if ("06".equals(el.getAttribute("typ"))) {
+            	NodeList daneList = el.getElementsByTagName("dane");
+            	Map<String, String> vatRates = new HashMap<>();
+                for (int j = 0; j < daneList.getLength(); j++) {
+                	Element dane = (Element) daneList.item(j);
+                    Element wart = firstElementByTag(dane, "wartosci");
 
-                Element dane = firstElementByTag(el, "dane");
-                if (dane == null) continue;
-                Element wart = firstElementByTag(dane, "wartosci");
+                    DmsVatEntry entry = new DmsVatEntry();
+                    entry.stawka = safeAttr(dane, "stawka");
+                    entry.podstawa = wart != null ? safeAttr(wart, "podstawa") : "";
+                    entry.vat = wart != null ? safeAttr(wart, "vat") : "";
+                    out.addVatEntry(entry);
+                    String kod = safeAttr(dane, "kod");      // 02, 22
+                    String stawka = safeAttr(dane, "stawka"); // 23.00, 8.00
+                    vatRates.put(kod, stawka);
+                    foundVat = true;
+                }    
+                // 🔥 Zapisz mapę VAT dla całego dokumentu
+                out.setVatRates(vatRates);
 
-                String stawka = safeAttr(dane, "stawka");
+                break; // typ 06 jest tylko jeden
+                /*String stawka = safeAttr(dane, "stawka");
                 String podstawa = wart != null ? safeAttr(wart, "podstawa") : "";
                 String vat = wart != null ? safeAttr(wart, "vat") : "";
 
                 out.setVatRate(normalizeVatRate(stawka));
                 out.setVatBase(podstawa);
                 out.setVatAmount(vat);
+                foundVat = true;
+                break;*/
             }
         }
+        out.setHasVatDocument(foundVat);
+        //return; // typ 06 jest tylko jeden
     }
 
-    private List<DmsPosition> extractPositionsDZ(Document doc, String defaultVatRate) {
+    private List<DmsPosition> extractPositionsDZ(Document doc, DmsParsedDocument out) {
         List<DmsPosition> listOut = new ArrayList<>();
         NodeList docs = doc.getElementsByTagName("document");
-
-        // przygotuj mnożnik VAT z defaultVatRate (np. "23.00" -> 0.23)
-        double vatMultiplier = 0.23;
-        try {
-            if (defaultVatRate != null && !defaultVatRate.isBlank()) {
-                String norm = defaultVatRate.contains(".") ? defaultVatRate.substring(0, defaultVatRate.indexOf('.')) : defaultVatRate;
-                vatMultiplier = Double.parseDouble(norm) / 100.0;
+     // 1) Najpierw sprawdzamy, czy w ogóle istnieje 03 lub 08
+        boolean has03or08 = false;
+        for (int i = 0; i < docs.getLength(); i++) {
+            Element docEl = (Element) docs.item(i);
+            String typ = docEl.getAttribute("typ");
+            if ("03".equals(typ)) { //|| "08".equals(typ)
+                has03or08 = true;
+                break;
             }
-        } catch (Exception ex) {
-            vatMultiplier = 0.23;
         }
 
+        // 2) Teraz właściwa pętla po dokumentach DZ
         for (int i = 0; i < docs.getLength(); i++) {
             Element document = (Element) docs.item(i);
-            String docTyp = safeAttr(document, "typ");
-            // interesują nas tylko blok 50 - pozycje dokumentu
-            if (!"50".equals(docTyp)) continue;
+            String docTyp = document.getAttribute("typ");
+
+            if (has03or08) {
+                // Jeśli są 03/08 → przetwarzamy tylko 03 i 08, pomijamy 50
+                if (!"03".equals(docTyp)) continue; //|| "08".equals(typ)
+            } else {
+                // Jeśli NIE ma 03/08 → przetwarzamy tylko 50
+                if (!"50".equals(docTyp)) continue;
+            }/*
+         // DZ: przetwarzamy 03 i 50
+            if (!"03".equals(docTyp) && !"50".equals(docTyp)) {
+                continue;
+            }*/
 
             NodeList daneList = document.getElementsByTagName("dane");
             for (int j = 0; j < daneList.getLength(); j++) {
@@ -162,10 +247,11 @@ public class DmsParserDZ {
                     listOut.add(ref);
                     //log.info("ParserDZ: ADDED POSITION PR=" + numer);
                 }
-
+                log.info("DOC TYP 1 = '" + docTyp + "'");
                 // budujemy pozycję DZ
                 DmsPosition p = new DmsPosition();
-                p.type = "DZ-POS";
+                p.kategoria2 = klas != null ? klas.getAttribute("kod") : "";
+                p.type = docTyp;
                 p.kodVat = kodVatAttr;
                 p.typDZ = typAttr;
                 p.jm = jm;
@@ -175,99 +261,139 @@ public class DmsParserDZ {
 
                 // ceny i netto: preferuj netto_prup, potem netto, potem cena_netto
                 String nettoStr = "";
+                String nettoRodzaj = "netto";
                 if (wart != null) {
-                    nettoStr = safeAttr(wart, "netto_prup");
+                	switch (docTyp) {
+                	case "03": nettoRodzaj = "netto_zakup" ; break;
+                	case "50": nettoRodzaj = "netto_prup"; break;
+                	default: nettoRodzaj = "netto";
+                	}
+                    nettoStr = safeAttr(wart, nettoRodzaj);
                     if (nettoStr.isBlank()) nettoStr = safeAttr(wart, "netto");
                     if (nettoStr.isBlank()) nettoStr = safeAttr(wart, "cena_netto");
+                	
                 }
                 p.netto = nettoStr;
                 p.cenaNetto = wart != null ? safeAttr(wart, "cena_netto") : "";
 
-                // stawka VAT: domyślnie z defaultVatRate, ale zachowaj kod_vat do przyszłego mapowania
-                p.stawkaVat = defaultVatRate != null ? defaultVatRate : "";
+                boolean hasVat = out.isHasVatDocument();
+                //String vatRate = out.getVatRate();
+                String kodVat = p.getKodVat(); // np. "02"
+                String stawka = out.getVatRates().get(kodVat);
 
-                // oblicz VAT i brutto
-                double nettoVal = 0.0;
-                double vatVal = 0.0;
-                double bruttoVal = 0.0;
-                if (p.netto != null && !p.netto.isEmpty()) {
-                    try {
-                        nettoVal = Double.parseDouble(p.netto);
-                        vatVal = nettoVal * vatMultiplier;
-                        bruttoVal = nettoVal + vatVal;
-                        p.vat = String.format(Locale.US, "%.2f", vatVal);
-                        p.brutto = String.format(Locale.US, "%.2f", bruttoVal);
-                    } catch (Exception ex) {
-                        p.vat = "0.00";
-                        p.brutto = "0.00";
-                    }
-                } else {
-                    p.vat = "0.00";
-                    p.brutto = "0.00";
+                if (stawka != null) {
+                    p.setStawkaVat(stawka);
                 }
 
+                //log.info(LogUtils.safeFormat("hasVat=%s, vatRate=%s", hasVat, vatRate));
+                if (!hasVat) {
+                	double nettoVal = 0.0;
+                    p.stawkaVat = "0";
+                    p.vat = "0.00";
+                    p.statusVat = "opodatkowana";
+                    if (p.netto != null && !p.netto.isBlank()) {
+                        nettoVal = Double.parseDouble(p.netto.replace(",", "."));
+                    }
+                    String bruttoStr = String.format(Locale.US, "%.2f", nettoVal);
+                    p.brutto = bruttoStr;
+                    //p.brutto = String.format(Locale.US, "%.2f", p.netto);
+                    //log.info(String.format("1 hasVat p.statusVat='%s': ", p.statusVat));
+                } else {
+                    p.stawkaVat = stawka != null ? stawka : "";
+                    p.statusVat = "opodatkowana";
+                    //log.info(String.format("2 hasVat p.statusVat='%s': ", p.statusVat));
+                    if (p.netto != null && !p.netto.isBlank()) {
+                        try {
+                            double netto = Double.parseDouble(p.netto);
+                            double vat = netto * (Double.parseDouble(stawka) / 100.0);
+                            double brutto = netto + vat;
+                            p.brutto = String.format(Locale.US, "%.2f", brutto);
+                            p.vat = String.format(Locale.US, "%.2f", vat);
+                            //log.info(String.format("3 hasVat p.statusVat='%s': ", p.statusVat));
+                        } catch (Exception ex) {
+                            p.vat = "0.00";
+                        }
+                    } else {
+                        p.vat = "0.00";
+                    }
+                }
+                switch (docTyp) {
+                case "03": p.rodzajKoszty = "Towary" ; p.kategoria = "MATERIAŁY"; break;
+                case "50": p.rodzajKoszty = "Inne";  break;
+                case "08": p.rodzajKoszty = "Inne"; break;// Opłaty: transportowa, ewidencyjna, kaucje, opakowania
+
+            }
                 listOut.add(p);
             }
         }
 
         // ===============================
-        // KOREKTA VAT i BRUTTO – zgodność z typem 06
+        // KOREKTA ZAOKROGLENIA
         // ===============================
-        // pobierz wartości z dokumentu typ 06
-        double vatFromDms = 0.0;
-        double bruttoFromDms = 0.0;
-        boolean found06 = false;
-        NodeList allDocs = doc.getElementsByTagName("document");
-        for (int i = 0; i < allDocs.getLength(); i++) {
-            Element el = (Element) allDocs.item(i);
-            if ("06".equals(el.getAttribute("typ"))) {
-                Element daneVat = firstElementByTag(el, "dane");
-                Element wartVat = firstElementByTag(daneVat, "wartosci");
-                if (wartVat != null) {
-                    vatFromDms = parseDoubleSafe(safeAttr(wartVat, "vat"));
-                    // brutto może być w nagłówku <wartosci brutto="..."> — spróbuj pobrać z root->document->dane->wartosci
-                    // jeśli brak, zostaw 0.0
-                    bruttoFromDms = parseDoubleSafe(safeAttr(wartVat, "brutto"));
-                    found06 = true;
-                }
-                break;
-            }
+        double baseFromDms = parseDoubleSafe(out.getVatBase()); //vat podstawa
+        double vatFromDms = parseDoubleSafe(out.getVatAmount());
+        double nettoFromPositions = listOut.stream()
+                .mapToDouble(p -> parseDoubleSafe(p.netto)).sum();
+
+        double bruttoFromPositions = listOut.stream()
+                .mapToDouble(p -> parseDoubleSafe(p.brutto)).sum();
+
+
+        // Suma VAT z pozycji
+        double vatFromPositions = listOut.stream()
+                .mapToDouble(p -> Double.parseDouble(p.vat))
+                .sum();
+        //log.info(String.format("1 extractPositions: baseFromDms='%s':, vatFromDms='%s':, nettoFromPositions='%s': ,vatFromPositions='%s':,bruttoFromPositions='%s': ",baseFromDms, vatFromDms, nettoFromPositions, vatFromPositions, bruttoFromPositions));
+
+        double advanceNet = parseDoubleSafe(out.getAdvanceNet());
+        double advanceVat = parseDoubleSafe(out.getAdvanceVat());
+        double advanceBrutto = advanceNet; //+ advanceVat
+        double diffBruttoPosAdv = bruttoFromPositions - (baseFromDms + vatFromDms + advanceBrutto);
+        //log.info(String.format("2 extractPositions: advanceNet='%s': ,advanceVat='%s': ,advanceBrutto='%s':  ,diffBruttoPosAdv='%s': ", advanceNet, advanceVat, advanceBrutto, diffBruttoPosAdv));
+        if (Math.abs(advanceNet) > 0) {//<= 0.10) {
+            DmsPosition last = listOut.get(listOut.size() - 1);
+
+            double netto = parseDoubleSafe(last.netto) - advanceNet;
+            double vat   = parseDoubleSafe(last.vat) - advanceVat ;//
+            //log.info(String.format("2a extractPositions: netto='%s': ,vat='%s': ", netto, vat));
+            last.netto = String.format(Locale.US, "%.2f", netto);
+            last.vat   = String.format(Locale.US, "%.2f", vat);
         }
 
-        if (found06 && !listOut.isEmpty()) {
-            double vatFromPositions = listOut.stream()
-                    .filter(p -> p.getKlasyfikacja() == null || !"PR".equalsIgnoreCase(p.getKlasyfikacja()))
-                    .mapToDouble(p -> parseDoubleSafe(p.vat)).sum();
+        double nettoAfterAdvance = listOut.stream()
+                .mapToDouble(p -> parseDoubleSafe(p.netto))
+                .sum();
 
-            double bruttoFromPositions = listOut.stream()
-                    .filter(p -> p.getKlasyfikacja() == null || !"PR".equalsIgnoreCase(p.getKlasyfikacja()))
-                    .mapToDouble(p -> parseDoubleSafe(p.brutto)).sum();
+        double vatAfterAdvance = listOut.stream()
+                .mapToDouble(p -> parseDoubleSafe(p.vat))
+                .sum();
+        //log.info(String.format("3 extractPositions: nettoAfterAdvance='%s': ,vatAfterAdvance='%s': ", nettoAfterAdvance, vatAfterAdvance));
+        // Różnica
+        double diffVat = vatFromDms - vatAfterAdvance;//
+        double diffNetto = baseFromDms - nettoAfterAdvance;//
+        //log.info(String.format("4 extractPositions: diffVat='%s': ,diffNetto='%s': ", diffVat, diffNetto));
+        // Jeśli różnica jest minimalna (0.01 lub -0.01)
+        boolean hasSmallDiff =
+                (Math.abs(diffVat) > 0.0001 && Math.abs(diffVat) <= 0.10) ||
+                (Math.abs(diffNetto) > 0.0001 && Math.abs(diffNetto) <= 0.10);
 
-            double diffVat = vatFromDms - vatFromPositions;
-            double diffBrutto = bruttoFromDms - bruttoFromPositions;
+        //if (!listOut.isEmpty() && (Math.abs(diffVat) <= 0.10 || Math.abs(diffNetto) <= 0.10)) {
+        if (!listOut.isEmpty() && hasSmallDiff) {
+            DmsPosition last = listOut.get(listOut.size() - 1);
 
-            if ((Math.abs(diffVat) <= 0.10 || Math.abs(diffBrutto) <= 0.10)) {
-                int idx = -1;
-                for (int k = listOut.size() - 1; k >= 0; k--) {
-                    DmsPosition cand = listOut.get(k);
-                    if (cand.getKlasyfikacja() == null || !"PR".equalsIgnoreCase(cand.getKlasyfikacja())) {
-                        idx = k;
-                        break;
-                    }
-                }
-                if (idx != -1) {
-                    DmsPosition last = listOut.get(idx);
-                    last.vat = String.format(Locale.US, "%.2f", parseDoubleSafe(last.vat) + diffVat);
-                    last.brutto = String.format(Locale.US, "%.2f", parseDoubleSafe(last.brutto) + diffBrutto);
-                    /*log.info(String.format(Locale.US,
-                            "ParserDZ: KOREKTA: diffVat=%.2f diffBrutto=%.2f applied to last pos idx=%d file=%s",
-                            diffVat, diffBrutto, idx, safeAttr(doc.getDocumentElement(), "gen_doc_id")));*/
-                }
-            }
-        }
+            double vat = Double.parseDouble(last.vat);
+            double net = Double.parseDouble(last.netto);
+
+            vat += diffVat;
+            net += diffNetto;
+
+            last.vat = String.format(Locale.US, "%.2f", vat);
+            last.netto = String.format(Locale.US, "%.2f", net);
+}
 
         return listOut;
     }
+    
     // ------------------------------
     // PŁATNOŚCI (typ 40 + 43)
     // ------------------------------
@@ -472,4 +598,5 @@ public class DmsParserDZ {
         try { return s != null && !s.isBlank() ? Double.parseDouble(s) : 0.0; }
         catch (Exception e) { return 0.0; }
     }
+    
 }

@@ -51,7 +51,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         rz.appendChild(makeCdata(docXml, "ID_ZRODLA", safe(doc.getIdZrodla())));
         rz.appendChild(makeCdata(docXml, "MODUL", safe(doc.getModul() != null ? doc.getModul() : "Rejestr Vat")));
         rz.appendChild(makeCdata(docXml, "TYP", "Rejestr zakupu"));
-        rz.appendChild(makeCdata(docXml, "REJESTR", "ZAKUP"));
+        rz.appendChild(makeCdata(docXml, "REJESTR", safe(doc.getRejestr())));
 
         rz.appendChild(makeCdata(docXml, "DATA_WYSTAWIENIA", safe(doc.getDataWystawienia())));
         rz.appendChild(makeCdata(docXml, "DATA_ZAKUPU", safe(doc.getDataSprzedazy())));
@@ -137,9 +137,10 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
                 poz.appendChild(makeCdata(docXml, "LP", String.valueOf(lp++)));
 
                 // KATEGORIA_POS / KATEGORIA_ID_POS
-                poz.appendChild(makeCdata(docXml, "KATEGORIA_POS", safe(p.getKanalKategoria())));
-                poz.appendChild(makeCdata(docXml, "KATEGORIA_ID_POS", safe(p.getKategoriaId())));
-
+                poz.appendChild(makeCdata(docXml, "KATEGORIA_POS", safe(p.getKategoria())));
+                poz.appendChild(makeCdata(docXml, "KATEGORIA_ID_POS", ""));
+                poz.appendChild(makeCdata(docXml, "KATEGORIA_POS_2", safe(p.getKanalKategoria())));
+                poz.appendChild(makeCdata(docXml, "KATEGORIA_ID_POS_2", safe(p.getKategoriaId())));
                 // STAWKA_VAT normalized (e.g. "23")
                 poz.appendChild(makeCdata(docXml, "STAWKA_VAT", normalizeVatRate(safe(p.getStawkaVat()))));
                 poz.appendChild(makeCdata(docXml, "STATUS_VAT", safe(p.getStatusVat() != null ? p.getStatusVat() : "opodatkowana")));
@@ -153,7 +154,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
                 poz.appendChild(makeCdata(docXml, "VAT_SYS2", formatAmount(p.getVat())));
 
                 // RODZAJ_ZAKUPU, ODLICZENIA_VAT, KOLUMNA_KPR, KOLUMNA_RYCZALT
-                poz.appendChild(makeCdata(docXml, "RODZAJ_ZAKUPU", safe(p.getRodzajSprzedazy())));
+                poz.appendChild(makeCdata(docXml, "RODZAJ_ZAKUPU", safe(p.getRodzajKoszty())));
                 poz.appendChild(makeCdata(docXml, "ODLICZENIA_VAT", safe(p.getOdliczeniaVat() != null ? p.getOdliczeniaVat() : "tak")));
                 poz.appendChild(makeCdata(docXml, "KOLUMNA_KPR", safe(p.getKolumnaKpr() != null ? p.getKolumnaKpr() : "Nie księgować")));
                 poz.appendChild(makeCdata(docXml, "KOLUMNA_RYCZALT", safe(p.getKolumnaRyczalt())));

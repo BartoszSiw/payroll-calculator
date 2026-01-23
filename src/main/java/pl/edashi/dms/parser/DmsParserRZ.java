@@ -38,7 +38,7 @@ public class DmsParserRZ {
         Element warto = (Element) doc.getElementsByTagName("wartosci").item(0);
      // preferowana, centralna metoda ekstrakcji dla parsera DS
         
-        boolean found = DocumentNumberExtractor.extractFromGenInfo(root, out, fileName);
+        boolean found = DocumentNumberExtractor.extractFromGenInfo(root, out, fileName, false);
      // 2) Jeśli gen_info NIC nie ustawiło – fallback
         if (!found || (out.getInvoiceShortNumber() == null && out.getInvoiceNumber() == null)) {
 

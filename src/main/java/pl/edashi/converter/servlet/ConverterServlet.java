@@ -182,6 +182,8 @@ public class ConverterServlet extends HttpServlet {
            // ============================
  		    if (DZ_TYPES.contains(docType)) {
  		        try {
+ 		        	//dodatek mapujący rejestr zakupu VAT
+ 		        	//DmsFieldMapper.normalize(docOut);
  		            // używamy dedykowanego buildera zakupowego
  		            root.addSection(new DmsOfflinePurchaseBuilder(docOut));
  		            results.add("Dodano DZ: " + invoice);

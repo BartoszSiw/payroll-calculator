@@ -42,7 +42,7 @@ public class DmsParserDK {
 
         if (!found) {
             // fallback: jeśli nie znaleziono, spróbuj z get_info
-        	DocumentNumberExtractor.extractFromGenInfo(root, out, fileName);
+        	DocumentNumberExtractor.extractFromGenInfo(root, out, fileName,false);
         }
 
         // ============================
