@@ -61,7 +61,7 @@ public class ConverterService {
             //log.info("case DS");
             return new DmsParserDS().parse(doc, sourceFile);
         case "DZ":
-        	//log.info("case DZ");
+        	log.info("case DZ");
             return new DmsParserDZ().parse(doc, sourceFile);
 
         case "KO":

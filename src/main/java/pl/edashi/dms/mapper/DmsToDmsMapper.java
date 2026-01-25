@@ -1,23 +1,18 @@
 package pl.edashi.dms.mapper;
 import pl.edashi.common.logging.AppLogger;
 import pl.edashi.dms.model.*;
+import pl.edashi.dms.model.DmsParsedDocument.DmsVatEntry;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 public class DmsToDmsMapper {
 	private final AppLogger log = new AppLogger("DmsToDmsMapper");
     public DmsDocumentOut map(DmsParsedDocument src) {
         DmsDocumentOut doc = new DmsDocumentOut();
-        // META
-       //log.info(String.format("[Mapper] BEFORE mapping: src.documentType='%s', src.invoiceShort='%s'",
-                //src.getDocumentType(), src.getInvoiceShortNumber()));
         doc.setIdZrodla(UUID.randomUUID().toString());
         doc.setModul("Rejestr Vat");
-     // zamiast doc.setTyp("DS");
-        //String srcType = src.getDocumentType();
-        //doc.setTyp(srcType != null && !srcType.isBlank() ? srcType.trim().toUpperCase() : "DS");
-        //doc.setTyp("DS"); // bo to jest parser DS
-        //doc.setDocumentType(safe(src.getDocumentType()));
         String srcType = safe(src.getDocumentType()).toUpperCase();
         String srcWewne = safe(src.getDocumentWewne());
         doc.setTyp(srcType);
@@ -28,7 +23,6 @@ public class DmsToDmsMapper {
             String mapped = mapDaneRejestr(doc.getRejestr());
             doc.setRejestr(mapped);
         }
-
         // DATY - null-safe
         DocumentMetadata meta = src.getMetadata();
         String date = meta != null ? safe(meta.getDate()) : "";
@@ -42,19 +36,9 @@ public class DmsToDmsMapper {
         doc.setDataObowiazkuPodatkowego(date);
         doc.setDataPrawaOdliczenia(date);
         doc.setWaluta(walutaWarto);
-        
-        // WARTO
-        
-
         // NUMER
         doc.setInvoiceNumber(safe(src.getInvoiceNumber()));
         doc.setInvoiceShortNumber(safe(src.getInvoiceShortNumber()));
-        //doc.setDocumentType(safe(src.getDocumentType())); // zostaw, ale upewnij się, że DmsDocumentOut ma getter
-        //log.info(String.format("Mapper: src.documentType='%s' -> doc.typ='%s' file=%s InvoiceNumber=%s InvoiceShortNumber=%s ",
-                //src.getDocumentType(), doc.getTyp(), src.getSourceFileName(), src.getInvoiceNumber(), src.getInvoiceShortNumber()));
-
-        //doc.numer = src.invoiceShortNumber;
-        // PODMIOT (null-safe, używamy getterów)
         Contractor c = src.getContractor();
         if (c != null) {
             doc.setPodmiotId(safe(c.getId()));
@@ -77,7 +61,6 @@ public class DmsToDmsMapper {
         doc.setDokumentDetaliczny(safe(src.getDokumentDetaliczny()));
         doc.setKorekta(safe(src.getKorekta()));
         doc.setKorektaNumer(safe(src.getKorektaNumer()));
-
      // POZYCJE - inicjalizacja listy i mapowanie pozycji
         doc.setPozycje(new ArrayList<>());
         List<DmsPosition> positions = src.getPositions();
@@ -97,44 +80,54 @@ public class DmsToDmsMapper {
                 outPos.setKanalKategoria(safe(p.getKanalKategoria()));
                 outPos.setKierunek(safe(p.getKierunek()));
                 doc.getPozycje().add(outPos);
-                
-                //log.info(String.format("[CHECK VAT] Mapping: netto='%s', getVat='%s', getVatZ='%s'",
-                		//outPos.getNetto(),outPos.getVat()));
             }
         }
-
      // VAT (typ 06)
-        doc.setVatRate(safe(src.getVatRate()));
-        doc.setVatBase(safe(src.getVatBase()));
-        doc.setVatAmount(safe(src.getVatAmount()));
-        //doc.setVatZ(safe(src.getVatZ())); // odkomentuj jeśli masz pole vatZ i getter w src
+     // ===============================
+     // VAT — DS vs DZ
+     // ===============================
+     if ("DZ".equals(srcType) || "FVZ".equals(srcType)) {
+    	 log.info(String.format( "[MAPPER][DZ] file='%s' vatEntries=%d vatBase='%s' vatAmount='%s' vatRate='%s'", safe(src.getSourceFileName()), src.getVatEntries() == null ? -1 : src.getVatEntries().size(), doc.getVatBase(), doc.getVatAmount(), doc.getVatRate() ));
+         // DZ → VAT liczymy z vatEntries (typ 06)
+         double base = 0.0;
+         double vat = 0.0;
 
+         for (DmsVatEntry e : src.getVatEntries()) {
+             base += parseDoubleSafe(e.podstawa);
+             vat  += parseDoubleSafe(e.vat);
+         }
+
+         doc.setVatBase(String.format(Locale.US, "%.2f", base));
+         doc.setVatAmount(String.format(Locale.US, "%.2f", vat));
+         for (DmsOutputPosition op : doc.getPozycje()) {
+        	    log.info(String.format(
+        	        "[MAPPER][POS] netto=%s vat=%s stawka=%s",
+        	        op.getNetto(), op.getVat(), op.getStawkaVat()
+        	    ));
+        	}
+
+         // DZ może mieć wiele stawek → Optima wymaga jednej → MIX
+         doc.setVatRate("MIX");
+
+     } else {
+         // DS → używamy starych pól
+         doc.setVatRate(safe(src.getVatRate()));
+         doc.setVatBase(safe(src.getVatBase()));
+         doc.setVatAmount(safe(src.getVatAmount()));
+     }
         // PŁATNOŚCI (typ 40)
         doc.setPlatnosci(new ArrayList<>());
         List<DmsPayment> payments = src.getPayments();
         if (payments != null && !payments.isEmpty()) {
-            // jeśli DmsPayment jest zgodny z doc.platnosci, kopiujemy bezpośrednio
-        	//doc.setTerminPlatnosci(safe(src.getTerminPlatnosci()));
             doc.getPlatnosci().addAll(payments);
-            
-            // jeśli trzeba mapować pola DmsPayment -> inny typ, zrób mapowanie tutaj
         }
-        
-
         // FAKTURA
         doc.setNumer(safe(src.getInvoiceNumber()));
         doc.setRozszerzone(safe(src.getInvoiceShortNumber()));
-
         // UWAGI (typ 98)
         doc.setUwagi(src.getNotes() != null ? new ArrayList<>(src.getNotes()) : new ArrayList<>());
-
         // DODATKOWY OPIS
         doc.setDodatkowyOpis(safe(src.getFiscalNumber()));
-        //log.info(String.format("[Mapper] AFTER mapping: doc.typ='%s', doc.documentType='%s'",
-                //doc.getTyp(), doc.getDocumentType()));
-        //log.info(String.format("[CHECK] Mapping: type='%s', docType='%s', netto={}, brutto={}, vat={}",
-        	    //doc.getTyp(),src.getDocumentType()));
-
         return doc;
     }
     // Null-safe helper
@@ -149,6 +142,13 @@ public class DmsToDmsMapper {
             default -> wyr;
         };
     }
+    private double parseDoubleSafe(String s) {
+        if (s == null || s.isBlank()) return 0.0;
+        try {
+            return Double.parseDouble(s.replace(",", "."));
+        } catch (Exception e) {
+            return 0.0;
+        }
+    }
 
-    
 }

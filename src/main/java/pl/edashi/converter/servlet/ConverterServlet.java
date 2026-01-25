@@ -11,6 +11,7 @@ import pl.edashi.dms.mapper.DmsToDmsMapper;
 import pl.edashi.dms.model.DmsDocumentOut;
 import pl.edashi.dms.model.DmsParsedContractorList;
 import pl.edashi.dms.model.DmsParsedDocument;
+import pl.edashi.dms.model.DmsPosition;
 import pl.edashi.dms.xml.DmsOfflinePurchaseBuilder;
 import pl.edashi.dms.xml.DmsOfflineXmlBuilder;
 import pl.edashi.dms.xml.RootXmlBuilder;
@@ -71,9 +72,9 @@ public class ConverterServlet extends HttpServlet {
         List<FileItem> items;
         try {
             items = upload.parseRequest(req);
-            //log.info("Upload: items count = " + (items == null ? 0 : items.size()));
+            log.info("Upload: items count = " + (items == null ? 0 : items.size()));
             for (FileItem it : items) {
-                //log.info(" - fieldName=" + it.getFieldName() + " name=" + it.getName() + " size=" + it.getSize());
+                log.info(" - fieldName=" + it.getFieldName() + " name=" + it.getName() + " size=" + it.getSize());
             }
 
         } catch (Exception e) {
@@ -96,7 +97,7 @@ public class ConverterServlet extends HttpServlet {
         for (FileItem item : items) {
             if (item.isFormField() && "rejestr".equals(item.getFieldName())) {
                 filtrRejestru = item.getString().trim();
-        		String finfo = String.format(filtrRejestru, " filtrRejestru='%s'");
+        		//String finfo = String.format(filtrRejestru, " filtrRejestru='%s'");
         		//log.info(finfo);
             }
         }
@@ -113,11 +114,16 @@ public class ConverterServlet extends HttpServlet {
             }
         // Wczytaj zawartość XML
         String xml = Files.readString(savedFile);
+        
+		//String ffinfo = String.format(fileName, " fileName='%s'");
+		//log.info(ffinfo);
         try {
         	//log.info(outputName);
             // 1. Parsowanie dokumentu DMS (DS, KO, DK, SL WZ...)
             //DmsParsedDocument parsed = converterService.processSingleDocument(xml, fileName);
         	Object parsed = converterService.processSingleDocument(xml, fileName);
+        	log.info("parsed class = " + (parsed == null ? "null" : parsed.getClass().getName()));
+
         	if (parsed instanceof DmsParsedDocument d) {
         		String t = d.getDocumentType();
         		if (t != null) {
@@ -168,7 +174,7 @@ public class ConverterServlet extends HttpServlet {
         	// bezpieczne pobranie i normalizacja typu dokumentu
         	 String rawDocType = d.getDocumentType();
         	 String docType = rawDocType != null ? rawDocType.trim().toUpperCase() : "";
-        	 // debug log — pokaże co dokładnie mamy przed warunkami
+        	 // debug log — pokaże co dokładnie mamy przed warunkamiDZ01250033458
         	 String msg = String.format("Processing: file=%s, rawDocType='%s', docType='%s', invoice='%s'",
                      fileName, rawDocType, docType, invoice);
         	 //log.info(msg);
@@ -180,11 +186,14 @@ public class ConverterServlet extends HttpServlet {
            // ============================
            // ŚCIEŻKA DZ (zakup)
            // ============================
+
  		    if (DZ_TYPES.contains(docType)) {
  		        try {
  		        	//dodatek mapujący rejestr zakupu VAT
  		        	//DmsFieldMapper.normalize(docOut);
  		            // używamy dedykowanego buildera zakupowego
+ 		        	log.info("DZ positions for " + fileName + ":");
+ 		        	
  		            root.addSection(new DmsOfflinePurchaseBuilder(docOut));
  		            results.add("Dodano DZ: " + invoice);
  		            //log.info("Added DZ: file=" + fileName + " invoice=" + invoice);
@@ -224,6 +233,7 @@ public class ConverterServlet extends HttpServlet {
             //DmsXmlValidator.validate(finalXml, "xsd/optima_offline.xsd");
         	
         } catch (Exception e) {
+        	log.error("EXCEPTION in processSingleDocument for file " + fileName, e);
         	results.add("Błąd w pliku " + fileName + ": " + e.getMessage());
         	//try { String snippet = xml == null ? "<null>" : xml.length() > 20000 ? xml.substring(0,20000) : xml; log.error("XML snippet for " + fileName + ":\n" + snippet); } catch (Exception ignored) {} results.add("Błąd w pliku " + fileName + ": " + e.getMessage());
         }

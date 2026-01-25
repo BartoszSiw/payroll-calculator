@@ -7,6 +7,7 @@ public class DmsPosition {
     public String stawkaVat = "";
     public String statusVat = "";
     public String netto = "";
+    public String nettoZakup = "";
     public String vat = "";
     public String rodzajSprzedazy = "";
     public String rodzajKoszty = "";
@@ -25,6 +26,7 @@ public class DmsPosition {
 	public String cenaNetto = "";
 	public String brutto = "";
 	public String kierunek = "";
+	public String lp;
     public DmsPosition() { }
 
     // --- Gettery ---
@@ -37,6 +39,8 @@ public class DmsPosition {
     public String getStawkaVat() { return stawkaVat; }
     public String getStatusVat() { return statusVat; }
     public String getNetto() { return netto; }
+    public String getBrutto() { return brutto; }
+    public String getNettoZakup() { return nettoZakup; }
     public String getVat() { return vat; }
     public String getRodzajSprzedazy() { return rodzajSprzedazy; }
     public String getRodzajKoszty() { return rodzajKoszty; }
@@ -53,6 +57,7 @@ public class DmsPosition {
 	public String getJmSymb() { return jmSymb; }
 	public String getOpis1() { return opis1; };
 	public String getKierunek() { return kierunek; }
+	public String getLp() { return lp; }
     // --- Settery (null-safe) ---
     public void setType(String type) { this.type = type != null ? type : ""; }
     public void setKategoria(String kategoria) { this.kategoria = kategoria != null ? kategoria : ""; }
@@ -60,6 +65,8 @@ public class DmsPosition {
     public void setStawkaVat(String stawkaVat) { this.stawkaVat = stawkaVat != null ? stawkaVat : ""; }
     public void setStatusVat(String statusVat) { this.stawkaVat = statusVat != null ? statusVat : ""; }
     public void setNetto(String netto) { this.netto = netto != null ? netto : ""; }
+    public void setBrutto(String brutto) { this.brutto = brutto != null ? brutto : ""; }
+    public void setNettoZakup(String nettoZakup) { this.nettoZakup = nettoZakup != null ? nettoZakup : ""; }
     public void setVat(String vat) { this.vat = vat != null ? vat : ""; }
     public void setRodzajSprzedazy(String rodzajSprzedazy) { this.rodzajSprzedazy = rodzajSprzedazy != null ? rodzajSprzedazy : ""; }
     public void setRodzajKoszty(String rodzajKoszty) { this.rodzajKoszty = rodzajKoszty != null ? rodzajKoszty : ""; }
@@ -76,6 +83,7 @@ public class DmsPosition {
 	public void setJmSymb(String jmSymb) { this.jmSymb = jmSymb != null ? jmSymb:""; }
 	public void setOpis1(String opis1) { this.opis1 = opis1 != null ? opis1: "";}
 	public void setKierunek(String kierunek) { this.kierunek = kierunek != null ? kierunek : ""; }
+	public void setLp(String lp) { this.lp = lp != null ? lp : ""; }
     @Override
     public String toString() {
         return "DmsPosition{" +
@@ -84,6 +92,8 @@ public class DmsPosition {
                 ", kategoria2='" + kategoria2 + '\'' +
                 ", stawkaVat='" + stawkaVat + '\'' +
                 ", netto='" + netto + '\'' +
+                ", btutto='" + brutto + '\'' +
+                ", nettoZakup='" + nettoZakup + '\'' +
                 ", vat='" + vat + '\'' +
                 ", rodzajSprzedazy='" + rodzajSprzedazy + '\'' +
                 ", vin='" + vin + '\'' +
