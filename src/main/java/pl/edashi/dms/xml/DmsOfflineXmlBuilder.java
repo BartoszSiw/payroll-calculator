@@ -145,7 +145,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
             for (DmsOutputPosition p : doc.getPozycje()) {
             	Element poz = docXml.createElementNS(NS, "POZYCJA");
                 pozycje.appendChild(poz);
-
+               
                 poz.appendChild(make(docXml, "KATEGORIA_POS", safe(p.getKategoria())));
                 // KATEGORIA_ID_POS – brak w modelu, więc na razie puste
                 poz.appendChild(make(docXml, "KATEGORIA_ID_POS", ""));
@@ -161,6 +161,8 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
                 poz.appendChild(make(docXml, "VAT_SYS", safe(p.getVat())));
                 poz.appendChild(make(docXml, "NETTO_SYS2", safe(p.getNetto())));
                 poz.appendChild(make(docXml, "VAT_SYS2", safe(p.getVat())));
+            	//poz.appendChild(make(docXml, "KONTO_WN", "")); 
+            	//poz.appendChild(make(docXml, "KONTO_MA", safe(p.getKontoMa()))); 
                 //System.out.println("[BUILDER] netto=" + safe(p.getNetto()));
                 //System.out.println("[BUILDER] vat=" + safe(p.getVat()));
                 //System.out.println("[BUILDER] vatZ=" + safe(p.getVatZ()));
@@ -168,6 +170,19 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
                 poz.appendChild(make(docXml, "RODZAJ_SPRZEDAZY", safe(p.getRodzajSprzedazy())));
                 // UWZ_W_PROPORCJI – na razie "Tak"
                 poz.appendChild(make(docXml, "UWZ_W_PROPORCJI", safe(doc.getUwzgProp())));
+                poz.appendChild(make(docXml, "OPIS_POZ", ""));//safe(p.getVin())
+                Element kwotyDod = docXml.createElementNS(NS, "KWOTY_DODATKOWE"); 
+                pozycje.appendChild(kwotyDod);
+                Double ntZak = parseDoubleSafe(p.getNettoZakup()) ;
+                if (ntZak>0) { 
+                	Element pozKd = docXml.createElementNS(NS, "POZYCJA_KD"); 
+                	kwotyDod.appendChild(pozKd); 
+                	pozKd.appendChild(make(docXml, "KATEGORIA_KD", safe(p.getKategoria()))); 
+                	pozKd.appendChild(make(docXml, "KWOTA_KD", safe(p.getNettoZakup()))); 
+                	pozKd.appendChild(make(docXml, "KWOTA_KD_SYS", safe(p.getNettoZakup()))); 
+                	pozKd.appendChild(make(docXml, "KONTO_WN", safe(p.getKontoWn()))); 
+                	pozKd.appendChild(make(docXml, "KONTO_MA", safe(p.getKontoMa()))); 
+                	}
             }
         }
 
@@ -263,6 +278,10 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
     }
     private static String safe(String s) {
         return s == null ? "" : s;
+    }
+    private double parseDoubleSafe(String s) {
+        try { return s != null && !s.isBlank() ? Double.parseDouble(s) : 0.0; }
+        catch (Exception e) { return 0.0; }
     }
 
 }

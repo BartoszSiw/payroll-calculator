@@ -229,73 +229,51 @@ public class DmsParserDZ {
         }
     }
 
-  private void applyCorrections(DmsParsedDocument out, List<DmsPosition> list) {
-    	double baseFromDms = parseDoubleSafe(out.getVatBase()); //vat podstawa
-        double vatFromDms = parseDoubleSafe(out.getVatAmount());
-        double nettoFromPositions = list.stream()
-                .mapToDouble(p -> parseDoubleSafe(p.netto)).sum();
+private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
 
-        double bruttoFromPositions = list.stream()
-                .mapToDouble(p -> parseDoubleSafe(p.brutto)).sum();
+    double vatFromDms = out.getVatEntries().stream()
+            .mapToDouble(e -> parseDoubleSafe(e.vat))
+            .sum();
 
+    double vatFromPositions = list.stream()
+            .mapToDouble(p -> parseDoubleSafe(p.getVat()))
+            .sum();
 
-        // Suma VAT z pozycji
-        double vatFromPositions = list.stream()
-                .mapToDouble(p -> parseDoubleSafe(p.vat))
-                .sum();
-        //log.info(String.format("1 extractPositions: baseFromDms='%s':, vatFromDms='%s':, nettoFromPositions='%s': ,vatFromPositions='%s':,bruttoFromPositions='%s': ",baseFromDms, vatFromDms, nettoFromPositions, vatFromPositions, bruttoFromPositions));
+    double diffVat = vatFromDms - vatFromPositions;
 
-        double advanceNet = parseDoubleSafe(out.getAdvanceNet());
-        double advanceVat = parseDoubleSafe(out.getAdvanceVat());
-        double advanceBrutto = advanceNet; //+ advanceVat
-        double diffBruttoPosAdv = bruttoFromPositions - (baseFromDms + vatFromDms + advanceBrutto);
-        log.info(String.format("2 extractPositions: advanceNet='%s': ,advanceVat='%s': ,advanceBrutto='%s':  ,diffBruttoPosAdv='%s': ", advanceNet, advanceVat, advanceBrutto, diffBruttoPosAdv));
-        if (Math.abs(advanceNet) > 0) {//<= 0.10) {
-            DmsPosition last = list.get(list.size() - 1);
+    // tylko groszowe różnice
+    if (Math.abs(diffVat) > 0.0001 && Math.abs(diffVat) <= 0.10) {
 
-            double netto = parseDoubleSafe(last.netto) - advanceNet;
-            double vat   = parseDoubleSafe(last.vat) - advanceVat ;//
-            log.info(String.format("2a extractPositions: netto='%s': ,vat='%s': ", netto, vat));
-            last.netto = String.format(Locale.US, "%.2f", netto);
-            last.vat   = String.format(Locale.US, "%.2f", vat);
-        }
+        DmsPosition last = list.get(list.size() - 1);
 
-        double nettoAfterAdvance = list.stream()
-                .mapToDouble(p -> parseDoubleSafe(p.netto))
-                .sum();
+        double vat = parseDoubleSafe(last.getVat()) + diffVat;
+        double brutto = parseDoubleSafe(last.getBrutto()) + diffVat;
 
-        double vatAfterAdvance = list.stream()
-                .mapToDouble(p -> parseDoubleSafe(p.vat))
-                .sum();
-        log.info(String.format("3 extractPositions: nettoAfterAdvance='%s': ,vatAfterAdvance='%s': ", nettoAfterAdvance, vatAfterAdvance));
-        // Różnica
-        double diffVat = vatFromDms - vatAfterAdvance;//
-        double diffNetto = baseFromDms - nettoAfterAdvance;//
-        log.info(String.format("4 extractPositions: diffVat='%s': ,diffNetto='%s': ", diffVat, diffNetto));
-        // Jeśli różnica jest minimalna (0.01 lub -0.01)
-        boolean hasSmallDiff =
-                (Math.abs(diffVat) > 0.0001 && Math.abs(diffVat) <= 0.10) ||
-                (Math.abs(diffNetto) > 0.0001 && Math.abs(diffNetto) <= 0.10);
-
-        //if (!listOut.isEmpty() && (Math.abs(diffVat) <= 0.10 || Math.abs(diffNetto) <= 0.10)) {
-        if (!list.isEmpty() && hasSmallDiff) {
-            DmsPosition last = list.get(list.size() - 1);
-
-            double vat = parseDoubleSafe(last.vat);
-            double net = parseDoubleSafe(last.netto);
-
-            vat += diffVat;
-            net += diffNetto;
-
-            last.vat = String.format(Locale.US, "%.2f", vat);
-            last.netto = String.format(Locale.US, "%.2f", net);
-}
+        last.setVat(String.format(Locale.US, "%.2f", vat));
+        last.setBrutto(String.format(Locale.US, "%.2f", brutto));
     }
+}
+
 
     private List<DmsPosition> extractPositionsDZ(Document doc, DmsParsedDocument out) {
 
     	    // 1) Pozycje z typ="50"
     	    List<DmsPosition> list = extractPositions50(doc);
+    	 // sprawdź, czy istnieje document typ=03
+    	    boolean has03 = false;
+    	    NodeList allDocs = doc.getElementsByTagName("document");
+    	    for (int i = 0; i < allDocs.getLength(); i++) {
+    	        Element el = (Element) allDocs.item(i);
+    	        if ("03".equals(el.getAttribute("typ"))) {
+    	            has03 = true;
+    	            break;
+    	        }
+    	    }
+
+    	    // jeśli brak 03 i brak 50 → twórz pozycje z VAT 06
+    	    if (!has03 && list.isEmpty()) {
+    	        list = createPositionsFromVat06(doc);
+    	    }
 
     	    // 2) Uzupełnienie z typ="03"
     	    apply03ToPositions(doc, list);
@@ -304,7 +282,7 @@ public class DmsParserDZ {
     	    applyVatToPositions(out, list);
 
     	    // 4) Korekty
-    	    applyCorrections(out, list);
+    	    applyCorrectionsDZ(out, list);
 
     	    return list;
     	}
@@ -332,35 +310,303 @@ public class DmsParserDZ {
                 p.jmSymb = safeAttr(dane, "jm_symb");
                 p.netto = wart != null ? safeAttr(wart, "netto_prup") : "";
                 p.cenaNetto = wart != null ? safeAttr(wart, "cena_netto") : "";
-                p.opis1 = rozs != null ? safeAttr(rozs, "opis1") : "";
-
+                p.opis = rozs != null ? safeAttr(rozs, "opis1") : "";
+                p.nrKonta = rozs != null ? safeAttr(rozs, "nr_konta") : "";
                 list.add(p);
             }
         }
 
         return list;
     }
-    private void apply03ToPositions(Document doc, List<DmsPosition> list) {
+    private List<DmsPosition> createPositionsFromVat06(Document doc) {
+        List<DmsPosition> list = new ArrayList<>();
 
-        NodeList docs = doc.getElementsByTagName("document");
+        // znajdź document typ="06"
+        Element doc06 = null;
+        NodeList allDocs = doc.getElementsByTagName("document");
+        for (int i = 0; i < allDocs.getLength(); i++) {
+            Element el = (Element) allDocs.item(i);
+            if ("06".equals(el.getAttribute("typ"))) {
+                doc06 = el;
+                break;
+            }
+        }
+        if (doc06 == null) {
+            return list; // brak rejestru VAT
+        }
+
+        // każdy <dane> w typ=06 = jedna pozycja
+        NodeList daneList = doc06.getElementsByTagName("dane");
+        for (int i = 0; i < daneList.getLength(); i++) {
+            Element dane = (Element) daneList.item(i);
+
+            DmsPosition p = new DmsPosition();
+            p.lp = dane.getAttribute("lp");
+            if (p.lp == null || p.lp.isBlank()) {
+                p.lp = String.valueOf(i + 1);
+            }
+
+            // kod VAT i stawka z <dane>
+            p.kodVat = dane.getAttribute("kod");      // np. 41
+            p.stawkaVat = dane.getAttribute("stawka"); // np. 0.00, 23.00, 8.00
+
+            // <wartosci podstawa="..." vat="..."/>
+            Element wart = null;
+            NodeList wartList = dane.getElementsByTagName("wartosci");
+            if (wartList.getLength() > 0) {
+                wart = (Element) wartList.item(0);
+            }
+
+            String podstawa = wart != null ? wart.getAttribute("podstawa") : "0.00";
+            String vat = wart != null ? wart.getAttribute("vat") : "0.00";
+
+            // netto = podstawa, brutto = podstawa + vat
+            double nettoVal = parseDoubleSafe(podstawa);
+            double vatVal = parseDoubleSafe(vat);
+            double bruttoVal = nettoVal + vatVal;
+
+            p.netto = String.format(Locale.US, "%.2f", nettoVal);
+            p.vat = String.format(Locale.US, "%.2f", vatVal);
+            p.brutto = String.format(Locale.US, "%.2f", bruttoVal);
+
+            p.podstawaVat = p.netto; // jeśli masz takie pole
+            p.opis = "Pozycja z rejestru VAT (typ 06)";
+
+            p.kategoria2 = "";
+            p.rodzajKoszty = "Inne";
+
+            list.add(p);
+        }
+
+        return list;
+    }
+
+    /*private List<DmsPosition> createPositionFromVat(Document doc) {
+
+    List<DmsPosition> list = new ArrayList<>();
+
+    // znajdź document typ=06
+    Element doc06 = null;
+    NodeList allDocs = doc.getElementsByTagName("document");
+    for (int i = 0; i < allDocs.getLength(); i++) {
+        Element el = (Element) allDocs.item(i);
+        if ("06".equals(el.getAttribute("typ"))) {
+            doc06 = el;
+            break;
+        }
+    }
+    if (doc06 == null) return list;
+
+    // pobierz dane VAT
+    NodeList daneList = doc06.getElementsByTagName("dane");
+    if (daneList.getLength() == 0) return list;
+
+    Element dane = (Element) daneList.item(0);
+
+    Element wart = null;
+    NodeList wartList = dane.getElementsByTagName("wartosci");
+    if (wartList.getLength() > 0) {
+        wart = (Element) wartList.item(0);
+    }
+
+    // utwórz pozycję
+    DmsPosition p = new DmsPosition();
+    p.lp = "1";
+    p.opis = "Pozycja zbiorcza z rejestru VAT";
+
+    // netto — używamy Twojego pola p.netto (bo applyVatToPositions tego wymaga)
+    if (wart != null) {
+        p.netto = wart.getAttribute("netto");
+        p.kodVat = wart.getAttribute("kod_vat"); // ważne dla applyVatToPositions
+    }
+
+    // domyślne wartości
+    p.kategoria2 = "";
+    p.rodzajKoszty = "Inne";
+
+    list.add(p);
+    return list;
+}*/
+
+
+    private void apply03ToPositions(Document doc, List<DmsPosition> list) {
+        // 1) Znajdź <document typ="02"> gdziekolwiek w drzewie
+        Element doc02 = null;
+        NodeList allDocs = doc.getElementsByTagName("document");
+        for (int i = 0; i < allDocs.getLength(); i++) {
+            Element el = (Element) allDocs.item(i);
+            if ("02".equals(el.getAttribute("typ"))) {
+                doc02 = el;
+                break;
+            }
+        }
+        if (doc02 == null) {
+            log.info("[DZ][POS] document typ=02 NOT FOUND");
+            return;
+        }
+     // 2) Pobierz PIERWSZE <dane> pod document typ=02 (to jest nagłówek)
+        NodeList daneList = doc02.getElementsByTagName("dane");
+        if (daneList.getLength() == 0) {
+            log.info("[DZ][POS] no <dane> under document typ=02");
+            return;
+        }
+        Element daneRoot = (Element) daneList.item(0);
+        // 3) Pobierz PIERWSZE <rozszerzone> pod tym <dane>
+        NodeList rozsList = daneRoot.getElementsByTagName("rozszerzone");
+        if (rozsList.getLength() == 0) {
+            log.info("[DZ][POS] no <rozszerzone> under dane[0]");
+            return;
+        }
+        Element rozszerzone = (Element) rozsList.item(0);
+
+        log.info("[DZ][POS] rozszerzone FOUND");
+        // 4) Wewnątrz rozszerzone znajdź document typ="03"
+        Element doc03 = null;
+        NodeList docsInside = rozszerzone.getElementsByTagName("document");
+        for (int i = 0; i < docsInside.getLength(); i++) {
+            Element el = (Element) docsInside.item(i);
+            if ("03".equals(el.getAttribute("typ"))) {
+                doc03 = el;
+                break;
+            }
+        }
+        if (doc03 == null) {
+            log.info("[DZ][POS] document typ=03 NOT FOUND inside rozszerzone");
+            return;
+        }
+
+        // 5) Pobierz dane z typ=03
+        NodeList dane03 = doc03.getElementsByTagName("dane");
+     // 6) Mapowanie indeksowe: dane03[j] → list[j]
+        for (int j = 0; j < dane03.getLength(); j++) {
+
+            if (j >= list.size()) continue;
+
+            DmsPosition p = list.get(j);
+            Element dane = (Element) dane03.item(j);
+
+            Element klas = null;
+            NodeList kl = dane.getElementsByTagName("klasyfikatory");
+            if (kl.getLength() > 0) klas = (Element) kl.item(0);
+
+            Element wart = null;
+            NodeList wa = dane.getElementsByTagName("wartosci");
+            if (wa.getLength() > 0) wart = (Element) wa.item(0);
+
+            // klasyfikacja
+            String rawK = klas != null ? klas.getAttribute("klasyfikacja") : "";
+            p.kategoria2 = rawK;
+            String category = p.kategoria2;
+            if(p.kategoria2.isBlank()) {category="MATERIAŁY";}
+            switch (category) {
+            case "KAWA/HERBATA": p.rodzajKoszty = "Inne";break; 
+            case "MATERIAŁY": p.rodzajKoszty = "Towary";p.kategoria2="MATERIAŁY";break;//Wartości: Materiały handlowe tutaj w typ 03
+        }
+            log.info("[DZ][POS] idx=" + j + " rawKategoria2=" + rawK);
+
+            /*if (!rawK.isBlank()) {
+                p.kategoria2 = "MATERIAŁY";
+                p.rodzajKoszty = "Towary";
+            }*/
+
+            // netto_zakup
+            if (wart != null) {
+                p.nettoZakup = wart.getAttribute("netto_zakup");
+            }
+        }
+        //--------------------------------------------------------------------------
+        // 1) Pobierz <dane> bezpośrednio pod <DMS>
+        //Element rootDane = null;
+        /*NodeList rootChildren = doc.getDocumentElement().getChildNodes();
+        for (int i = 0; i < rootChildren.getLength(); i++) {
+            Node n = rootChildren.item(i);
+            if (n instanceof Element && "dane".equals(n.getNodeName())) {
+                rootDane = (Element) n;
+                break;
+            }
+        }
+        if (rootDane == null) {
+            log.info("[DZ][POS] rootDane not found");
+            return;
+        }
+        
+        // 2) W tym <dane> znajdź <document typ="02">
+        Element rootDoc = null;
+        NodeList docs = rootDane.getElementsByTagName("document");
+        for (int i = 0; i < docs.getLength(); i++) {
+            Element el = (Element) docs.item(i);
+            if ("02".equals(el.getAttribute("typ"))) {
+                rootDoc = el;
+                break;
+            }
+        }
+        if (rootDoc == null) {
+            log.info("[DZ][POS] document typ=02 not found under rootDane");
+            return;
+        }
+        // 3) Pobierz <dane> pod document typ=02
+        //Element daneRoot = null;
+        NodeList children = rootDoc.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node n = children.item(i);
+            if (n instanceof Element && "dane".equals(n.getNodeName())) {
+                daneRoot = (Element) n;
+                break;
+            }
+        }
+        if (daneRoot == null) {
+            log.info("[DZ][POS] dane under typ=02 not found");
+            return;
+        }
+
+        // 4) Pobierz <rozszerzone> pod tym <dane>
+        //Element rozszerzone = null;
+        NodeList rz = daneRoot.getChildNodes();
+        for (int i = 0; i < rz.getLength(); i++) {
+            Node n = rz.item(i);
+            if (n instanceof Element && "rozszerzone".equals(n.getNodeName())) {
+                rozszerzone = (Element) n;
+                break;
+            }
+        }
+        log.info("[DZ][POS] rozszerzone=" + rozszerzone);
+        if (rozszerzone == null) return;
+        //NodeList docs = rootDane.getElementsByTagName("document");
         for (int i = 0; i < docs.getLength(); i++) {
             Element el = (Element) docs.item(i);
             if (!"03".equals(el.getAttribute("typ"))) continue;
 
-            NodeList daneList = el.getElementsByTagName("dane");
+            //NodeList daneList = el.getElementsByTagName("dane");
             for (int j = 0; j < daneList.getLength(); j++) {
+                // Powiązanie po indeksie, nie po LP
+                if (j >= list.size()) continue;
+                DmsPosition p = list.get(j);
                 Element dane = (Element) daneList.item(j);
                 Element wart = firstElementByTag(dane, "wartosci");
                 Element klas = firstElementByTag(dane, "klasyfikatory");
 
-                String lp = safeAttr(dane, "lp");
-                DmsPosition p = findByLp(list, lp);
-                if (p == null) continue;
-
-                p.kategoria2 = klas != null ? safeAttr(klas, "kod") : "";
+                //String lp = safeAttr(dane, "lp");
+                //DmsPosition p = findByLp(list, lp);
+                //if (p == null) continue;
+                //p.rodzajKoszty = "towary"; 
+                p.kategoria2 = klas != null ? safeAttr(klas, "klasyfikacja") : "";
+                String category = p.kategoria2;
+                log.info(String.format(
+                	    "[DZ][POS] kategoria2=%s ",
+                	    p.kategoria2
+                	));
+                if(!p.kategoria2.isBlank()) {category="MATERIAŁY";}
+                switch (category) {
+                case "KAWA/HERBATA": p.rodzajKoszty = "Inne";break; 
+                case "MATERIAŁY": p.rodzajKoszty = "Towary";p.kategoria2="MATERIAŁY";break;//Wartości: Materiały handlowe tutaj w typ 03
+            }
+                log.info(String.format(
+                	    "[DZ][POS] kategoria2=%s rodzajKoszty=%s",
+                	    p.kategoria2, p.rodzajKoszty
+                	));
                 p.nettoZakup = wart != null ? safeAttr(wart, "netto_zakup") : "";
             }
-        }
+        }*/
     }
     private DmsPosition findByLp(List<DmsPosition> list, String lp) {
         if (lp == null || lp.isBlank()) return null;
@@ -533,6 +779,26 @@ public class DmsParserDZ {
     // -----------------------
     // Helper methods
     // -----------------------
+    private Element firstDirectChildByTag(Element parent, String tag) {
+        if (parent == null) return null;
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node n = children.item(i);
+            if (n instanceof Element && tag.equals(n.getNodeName())) {
+                return (Element) n;
+            }
+        }
+        return null;
+    }
+
+    private Element findDocumentByType(Document doc, String typ) {
+        NodeList allDocs = doc.getElementsByTagName("document");
+        for (int i = 0; i < allDocs.getLength(); i++) {
+            Element el = (Element) allDocs.item(i);
+            if (typ.equals(el.getAttribute("typ"))) return el;
+        }
+        return null;
+    }
 
     private Element firstElementByTag(Element parent, String tag) {
         if (parent == null) return null;

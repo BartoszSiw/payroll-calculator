@@ -129,8 +129,8 @@ public class DmsParserDS {
         // ============================
         // 5. POZYCJE (typ 03)
         // ============================
-        String defaultVatRate = out.getVatRate();
-        if (defaultVatRate == null) defaultVatRate = "";
+        //String defaultVatRate = out.getVatRate();
+        //if (defaultVatRate == null) defaultVatRate = "";
         out.setPositions(extractPositions(doc, out));
 
         // ============================
@@ -226,7 +226,7 @@ public class DmsParserDS {
         for (int i = 0; i < list.getLength(); i++) {
             Element document = (Element) list.item(i);
             String typ = document.getAttribute("typ");
-            if (!"03".equals(typ) && !"04".equals(typ) && !"05".equals(typ)) continue;
+            if (!"03".equals(typ) && !"04".equals(typ) && !"05".equals(typ) && !"66".equals(typ)) continue;
 
             NodeList daneList = document.getElementsByTagName("dane");
             for (int j = 0; j < daneList.getLength(); j++) {
@@ -258,9 +258,13 @@ public class DmsParserDS {
                 p.vin = rozs != null ? rozs.getAttribute("vin") : "";
 
                 p.netto = wart != null ? wart.getAttribute("netto_sprzed") : "";
+                p.nettoZakup = wart != null ? wart.getAttribute("netto_zakup") : "";
+                p.nettoRob = wart != null ? wart.getAttribute("netto_rob") : "";
+                p.nettoDlRob = wart != null ? wart.getAttribute("netto_dlr_rob") : "";
+                p.nettoKoMat = wart != null ? wart.getAttribute("netto_koszt_mat") : "";
+                p.nettoGwMat = wart != null ? wart.getAttribute("netto_gwar_mat") : "";
                 if (p.netto == null) p.netto = "";
-                //log.info(String.format("extractPositions p.netto='%s': ", p.netto));
-
+                //log.info(String.format("extractPositions p.vin='%s': ", p.vin));
                 boolean hasVat = out.isHasVatDocument();
                 String vatRate = out.getVatRate();
                 //log.info(LogUtils.safeFormat("hasVat=%s, vatRate=%s", hasVat, vatRate));
@@ -295,13 +299,61 @@ public class DmsParserDS {
                         p.vat = "0.00";
                     }
                 }
+                p.kategoria = "PRZYCHODY";
+                String readRejestr = out.getDaneRejestr();
+             // 1) Rodzaj sprzedaży wg typ
+             switch (typ) {
+                 case "03": p.rodzajSprzedazy = "Towary"; break;
+                 case "04": p.rodzajSprzedazy = "Usługi"; break;
+                 case "05": p.rodzajSprzedazy = "Środki transportu"; break;
+             }
 
-                switch (typ) {
-                    case "03": p.rodzajSprzedazy = "towary"; p.kategoria = "MATERIAŁY";break; //Wartości: Materiały handlowe 
-                    case "04": p.rodzajSprzedazy = "uslugi"; p.kategoria = "Robocizna i usługi"; break;
-                    case "05": p.rodzajSprzedazy = "uslugi_obce"; break;
+             // 2) Grupy rejestrów
+             boolean isRejSerwis = readRejestr.equals("100") || readRejestr.equals("101") || readRejestr.equals("102");
+             boolean isRejBlacharka = readRejestr.equals("110");
+             boolean isRejCzesci = readRejestr.equals("120") || readRejestr.equals("121");
+
+             // 3) Kategoria zależna od typ + rejestr
+             if (isRejSerwis) {
+                 switch (typ) {
+                     case "03": p.kategoria = "CZĘŚCI-SERWIS"; break; //p.kontoWn = "502-101";p.kontoMa = "490"; 
+                     case "04": p.kategoria = "ROBOCIZNA-SERWIS"; break;
+                     case "05": p.kategoria = "USŁUGI OBCE-SERWIS"; break;
+                 }
+             }
+
+             if (isRejBlacharka) {
+                 p.kategoria = "ROBOCIZNA-BLACHARSKA";
+             }
+
+             if (isRejCzesci) {
+                 switch (typ) {
+                 case "66": p.kategoria = "SPRZEDAŻ MATERIAŁÓW"; break;
+                 case "04": p.kategoria = "ROBOCIZNA-SERWIS"; break;
+                 case "05": p.kategoria = "USŁUGI OBCE-SERWIS"; break;
+             }
+            	//SPRZEDAŻ MATERIAŁÓW netto_koszt_mat="334.81"
+            	 //705-1-11 netto_gwar_mat="635.07"
+            	 //705-1-18 netto_dlr_rob="425.00" netto_dlr_usl="0.00" netto_dlr_mat="495.48" netto_gwar="1060.07" netto_gwar_rob="425.00"
+                 //p.kategoria = "CZĘŚCI-SERWIS";
+             }
+
+              //log.info("readRejestr=%s " + readRejestr);
+                /*switch (typ) {
+                    case "03": p.rodzajSprzedazy = "Towary"; break;  //Wartości: Materiały handlowe 
+                    case "04": p.rodzajSprzedazy = "Usługi";  break;
+                    case "05": p.rodzajSprzedazy = "Inne"; break;
                 }
-                //log.info(p.rodzajSprzedazy);
+                switch (readRejestr) {
+                case "100": p.kategoria = "ROBOCIZNA-SERWIS"; break;
+                case "101": p.kategoria = "ROBOCIZNA-SERWIS"; break;
+                case "102": p.kategoria = "ROBOCIZNA-SERWIS"; break;
+                case "110": p.kategoria = "ROBOCIZNA-BLACHARSKA"; break;
+                case "120": p.kategoria = "CZĘŚCI-SERWIS"; break;
+                case "121": p.kategoria = "CZĘŚCI-SERWIS"; break;
+                
+                }*/
+                
                 listOut.add(p);
             }
         }

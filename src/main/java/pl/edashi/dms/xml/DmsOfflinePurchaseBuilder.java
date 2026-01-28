@@ -137,7 +137,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
                 poz.appendChild(makeCdata(docXml, "LP", String.valueOf(lp++)));
 
                 // KATEGORIA_POS / KATEGORIA_ID_POS
-                poz.appendChild(makeCdata(docXml, "KATEGORIA_POS", safe(p.getKategoria())));
+                poz.appendChild(makeCdata(docXml, "KATEGORIA_POS", safe(p.getKategoria2())));
                 poz.appendChild(makeCdata(docXml, "KATEGORIA_ID_POS", ""));
                 poz.appendChild(makeCdata(docXml, "KATEGORIA_POS_2", safe(p.getKanalKategoria())));
                 poz.appendChild(makeCdata(docXml, "KATEGORIA_ID_POS_2", safe(p.getKategoriaId())));
@@ -160,7 +160,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
                 poz.appendChild(makeCdata(docXml, "KOLUMNA_RYCZALT", safe(p.getKolumnaRyczalt())));
 
                 // OPIS_POZ / OPIS_POZ_2
-                poz.appendChild(makeCdata(docXml, "OPIS_POZ", safe(p.getOpis1())));
+                poz.appendChild(makeCdata(docXml, "OPIS_POZ", safe(p.getOpis())));
                 poz.appendChild(makeCdata(docXml, "OPIS_POZ_2", safe(p.getOpis2())));
             }
         }

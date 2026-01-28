@@ -8,16 +8,17 @@ public class DmsPosition {
     public String statusVat = "";
     public String netto = "";
     public String nettoZakup = "";
+    public String nettoRob;
     public String vat = "";
     public String rodzajSprzedazy = "";
     public String rodzajKoszty = "";
 	public String vin = "";
 	public String kanal = "";
 	public String kanalKategoria = "";
-    private String description = "";
-    private String opis = "";
-    private String klasyfikacja = "";
-    private String numer = "";
+	public String description = "";
+	public String opis = "";
+	public String klasyfikacja = "";
+	public String numer = "";
 	public String kodVat = "";
 	public String typDZ = "";
 	public String jm = "";
@@ -27,6 +28,13 @@ public class DmsPosition {
 	public String brutto = "";
 	public String kierunek = "";
 	public String lp;
+	public String nrKonta;
+	public String podstawaVat;
+	public String kontoMa;
+	public String kontoWn;
+	public String nettoDlRob;
+	public String nettoKoMat;
+	public String nettoGwMat;
     public DmsPosition() { }
 
     // --- Gettery ---
@@ -39,6 +47,7 @@ public class DmsPosition {
     public String getStawkaVat() { return stawkaVat; }
     public String getStatusVat() { return statusVat; }
     public String getNetto() { return netto; }
+    public String getNettoRob() { return nettoRob; }
     public String getBrutto() { return brutto; }
     public String getNettoZakup() { return nettoZakup; }
     public String getVat() { return vat; }
@@ -56,8 +65,15 @@ public class DmsPosition {
 	public String getJm() { return jm; }
 	public String getJmSymb() { return jmSymb; }
 	public String getOpis1() { return opis1; };
+	public String getNrKonta() { return nrKonta; };
 	public String getKierunek() { return kierunek; }
 	public String getLp() { return lp; }
+	public String getPodstawaVat() { return podstawaVat; }
+	public String getKontoMa() { return kontoMa; }
+	public String getKontoWn() { return kontoWn; }
+	public String getNettoDlRob() { return nettoDlRob; }
+	public String getNettoKoMat() { return nettoKoMat; }
+	public String getNettoGwMat() { return nettoGwMat; }
     // --- Settery (null-safe) ---
     public void setType(String type) { this.type = type != null ? type : ""; }
     public void setKategoria(String kategoria) { this.kategoria = kategoria != null ? kategoria : ""; }
@@ -65,6 +81,7 @@ public class DmsPosition {
     public void setStawkaVat(String stawkaVat) { this.stawkaVat = stawkaVat != null ? stawkaVat : ""; }
     public void setStatusVat(String statusVat) { this.stawkaVat = statusVat != null ? statusVat : ""; }
     public void setNetto(String netto) { this.netto = netto != null ? netto : ""; }
+    public void setNettoRob(String nettoRob) { this.nettoRob = nettoRob != null ? nettoRob : ""; }
     public void setBrutto(String brutto) { this.brutto = brutto != null ? brutto : ""; }
     public void setNettoZakup(String nettoZakup) { this.nettoZakup = nettoZakup != null ? nettoZakup : ""; }
     public void setVat(String vat) { this.vat = vat != null ? vat : ""; }
@@ -82,8 +99,15 @@ public class DmsPosition {
 	public void setJm(String jm) { this.jm = jm != null ? jm: "";}
 	public void setJmSymb(String jmSymb) { this.jmSymb = jmSymb != null ? jmSymb:""; }
 	public void setOpis1(String opis1) { this.opis1 = opis1 != null ? opis1: "";}
+	public void setNrKonta(String nrKonta) { this.nrKonta = nrKonta != null ? nrKonta: "";}
 	public void setKierunek(String kierunek) { this.kierunek = kierunek != null ? kierunek : ""; }
 	public void setLp(String lp) { this.lp = lp != null ? lp : ""; }
+	public void setPodstawaVat(String lp) { this.podstawaVat = podstawaVat != null ? podstawaVat : ""; }
+	public void setKontoMa(String kontoMa) { this.kontoMa = kontoMa != null ? kontoMa : ""; }
+	public void setKontoWn(String kontoWn) { this.kontoWn = kontoWn != null ? kontoWn : ""; }
+	public void setNettoDlRob(String nettoDlRob) { this.nettoDlRob = nettoDlRob != null ? nettoDlRob : "";}
+	public void setNettoKoMat(String nettoKoMat) { this.nettoKoMat = nettoKoMat != null ? nettoKoMat : "";}
+	public void setNettoGwMat(String nettoGwMat) { this.nettoGwMat = nettoGwMat != null ? nettoGwMat : "";}
     @Override
     public String toString() {
         return "DmsPosition{" +
@@ -101,6 +125,7 @@ public class DmsPosition {
                 ", kanalKategoria='" + kanalKategoria + '\'' +
                 ", description='" + description + '\'' +
                 ", opis='" + opis + '\'' +
+                ", nrKonta='" + nrKonta + '\'' +
                 ", kierunek='" + kierunek + '\'' +
                 '}';
     }

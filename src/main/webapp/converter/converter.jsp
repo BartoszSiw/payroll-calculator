@@ -27,6 +27,8 @@
             <option value="101">Rejestr 101</option>
             <option value="102">Rejestr 102</option>
             <option value="110">Rejestr 110</option>
+            <option value="120">Rejestr 120</option>
+            <option value="121">Rejestr 121</option>
             <option value="141">Rejestr 141</option>
             <option value="143">Rejestr 143</option>
             <option value="191">Rejestr 191</option>

@@ -6,6 +6,8 @@ public class DmsOutputPosition {
     private String kategoria = "";
     private String stawkaVat = "";
     private String netto = "";
+    private String nettoRob = "";
+    private String nettoZakup = "";
     private String vat = "";
     private String vatZ = "";
     private String rodzajSprzedazy = "";
@@ -15,6 +17,14 @@ public class DmsOutputPosition {
     private String kanalKategoria = "";
     private String kierunek = "";
     private String statusVat= "";
+    private String opis="";
+    private String opis1="";
+    private String nrKonta="";
+    private String kontoMa="";
+    private String kontoWn="";
+    private String nettoDlRob;
+    private String nettoKoMat;
+    private String nettoGwMat;
 
     public DmsOutputPosition() { }
 
@@ -24,6 +34,8 @@ public class DmsOutputPosition {
     public String getStawkaVat() { return stawkaVat; }
 	public String getStatusVat() {return statusVat;	}
     public String getNetto() { return netto; }
+    public String getNettoRob() { return nettoRob; }
+    public String getNettoZakup() { return nettoZakup; }
     public String getVat() { return vat; }
     public String getVatZ() { return vatZ; }
     public String getRodzajSprzedazy() { return rodzajSprzedazy; }
@@ -32,6 +44,14 @@ public class DmsOutputPosition {
     public String getKanal() { return kanal; }
     public String getKanalKategoria() { return kanalKategoria; }
     public String getKierunek() { return kierunek; }
+    public String getOpis() { return opis; }
+    public String getOpis1() { return opis1; }
+    public String getNrKonta() { return nrKonta; }
+	public String getKontoMa() { return kontoMa;}
+	public String getKontoWn() { return kontoWn;}
+	public String getNettoDlRob() { return nettoDlRob; }
+	public String getNettoKoMat() { return nettoKoMat; }
+	public String getNettoGwMat() { return nettoGwMat; }
 
     // --- Settery (null-safe) ---
     public void setKategoria2(String kategoria2) { this.kategoria2 = safe(kategoria2); }
@@ -39,6 +59,8 @@ public class DmsOutputPosition {
     public void setStawkaVat(String stawkaVat) { this.stawkaVat = safe(stawkaVat); }
     public void setStatusVat(String statusVat) { this.statusVat = safe(statusVat); }
     public void setNetto(String netto) { this.netto = safe(netto); }
+    public void setNettoRob(String nettoRob) { this.nettoRob = safe(nettoRob); }
+    public void setNettoZakup(String nettoZakup) { this.nettoZakup = safe(nettoZakup); }
     public void setVat(String vat) { this.vat = safe(vat); }
     public void setVatZ(String vatZ) { this.vatZ = safe(vatZ); }
     public void setRodzajSprzedazy(String rodzajSprzedazy) { this.rodzajSprzedazy = safe(rodzajSprzedazy); }
@@ -47,6 +69,14 @@ public class DmsOutputPosition {
     public void setKanal(String kanal) { this.kanal = safe(kanal); }
     public void setKanalKategoria(String kanalKategoria) { this.kanalKategoria = safe(kanalKategoria); }
     public void setKierunek(String kierunek) { this.kierunek = kierunek != null ? kierunek : ""; }
+    public void setOpis(String opis) { this.opis = safe(opis); }
+    public void setOpis1(String opis1) { this.opis1 = safe(opis1); }
+    public void setNrKonta(String nrKonta) { this.nrKonta = safe(nrKonta); }
+	public void setKontoMa(String kontoMa) {this.kontoMa = safe(kontoMa);}
+	public void setKontoWn(String kontoWn) {this.kontoWn = safe(kontoWn);}
+	public void setNettoDlRob(String nettoDlRob) { this.nettoDlRob = nettoDlRob != null ? nettoDlRob : "";}
+	public void setNettoKoMat(String nettoKoMat) { this.nettoKoMat = nettoKoMat != null ? nettoKoMat : "";}
+	public void setNettoGwMat(String nettoGwMat) { this.nettoGwMat = nettoGwMat != null ? nettoGwMat : "";}
     // --- Helper ---
     private static String safe(String s) {
         return s == null ? "" : s;
@@ -87,15 +117,9 @@ public class DmsOutputPosition {
 		return null;
 	}
 
-	public String getOpis1() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
 	public String getOpis2() {
 		// TODO Auto-generated method stub
 		return null;
 	}
-
 }
 

@@ -72,6 +72,7 @@ public class DmsToDmsMapper {
                 outPos.setStawkaVat(safe(p.getStawkaVat()));
                 outPos.setStatusVat(safe(p.getStatusVat()));
                 outPos.setNetto(safe(p.getNetto()));
+                outPos.setNettoZakup(safe(p.getNettoZakup()));
                 outPos.setVat(safe(p.getVat()));
                 outPos.setRodzajSprzedazy(safe(p.getRodzajSprzedazy()));
                 outPos.setRodzajKoszty(safe(p.getRodzajKoszty()));
@@ -79,6 +80,12 @@ public class DmsToDmsMapper {
                 outPos.setKanal(safe(p.getKanal()));
                 outPos.setKanalKategoria(safe(p.getKanalKategoria()));
                 outPos.setKierunek(safe(p.getKierunek()));
+                outPos.setOpis(safe(p.getOpis()));
+                outPos.setKontoMa(safe(p.getKontoMa()));
+                outPos.setKontoWn(safe(p.getKontoWn()));
+                outPos.setNettoDlRob(safe(p.getNettoDlRob()));
+                outPos.setNettoGwMat(safe(p.getNettoGwMat()));
+                outPos.setNettoKoMat(safe(p.getNettoKoMat()));
                 doc.getPozycje().add(outPos);
             }
         }
@@ -139,6 +146,7 @@ public class DmsToDmsMapper {
             case "EX" -> "ZK";
             case "PA" -> "Z3";
             case "CD", "CP", "CR" -> "Z1";
+            case "CC" -> "ZAKUP";
             default -> wyr;
         };
     }

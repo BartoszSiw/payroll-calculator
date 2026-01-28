@@ -94,9 +94,11 @@ public class ConverterServlet extends HttpServlet {
         // List for analyzer
         List<DmsParsedDocument> allParsedDocs = new ArrayList<>();
         String filtrRejestru = null;
+        String filtrOddzial = "01";
         for (FileItem item : items) {
             if (item.isFormField() && "rejestr".equals(item.getFieldName())) {
                 filtrRejestru = item.getString().trim();
+                filtrOddzial = "01";
         		//String finfo = String.format(filtrRejestru, " filtrRejestru='%s'");
         		//log.info(finfo);
             }
@@ -122,18 +124,17 @@ public class ConverterServlet extends HttpServlet {
             // 1. Parsowanie dokumentu DMS (DS, KO, DK, SL WZ...)
             //DmsParsedDocument parsed = converterService.processSingleDocument(xml, fileName);
         	Object parsed = converterService.processSingleDocument(xml, fileName);
-        	log.info("parsed class = " + (parsed == null ? "null" : parsed.getClass().getName()));
-
+        	//log.info("parsed class = " + (parsed == null ? "null" : parsed.getClass().getName()));
         	if (parsed instanceof DmsParsedDocument d) {
         		String t = d.getDocumentType();
         		if (t != null) {
         		    d.setDocumentType(t.trim().toUpperCase());
         		}
-        		String tinfo = String.format(t, " t='%s'",filtrRejestru, " filtrRejestru='%s'");
-        		//log.info(tinfo);
+        		String tinfo = String.format("filtrRejestru='%s ' filtrOddzial='%s ' d.getOddzial()='%s'", filtrRejestru, filtrOddzial, d.getOddzial());
+        		log.info(tinfo);
         		   // 🔥 FILTR REJESTRU — NAJLEPSZE MIEJSCE
         		if (filtrRejestru != null && !filtrRejestru.isBlank()) {
-        		    if (!filtrRejestru.equals(d.getDaneRejestr())) {
+        		    if (!filtrRejestru.equals(d.getDaneRejestr()) || !filtrOddzial.equals(d.getOddzial())) {
         		        //log.info("Pomijam dokument (rejestr=" + d.getDaneRejestr() + ")");
         		        continue;
         		    }

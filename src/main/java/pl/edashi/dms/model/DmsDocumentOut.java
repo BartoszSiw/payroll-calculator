@@ -71,6 +71,7 @@ public class DmsDocumentOut {
     private String akcyzaKolumnaKpr = "";
     private String mpp = "Nie";
     private String nrKsef = "";
+	private String vin ="";
     public DmsDocumentOut() { }
     // --- Gettery i settery dla list ---
     public List<DmsOutputPosition> getPozycje() {
@@ -238,6 +239,9 @@ public class DmsDocumentOut {
 
     public String getOpis() { return dodatkowyOpis; } // alias
     public void setOpis(String opis) { this.dodatkowyOpis = safe(opis); }
+    
+    public String getVin() { return vin; } // alias
+    public void setVin(String vin) { this.vin = safe(vin); }
 
     // --- Księgowe / importowe pola pomocnicze ---
     public String getFormaPlatnosciId() { return formaPlatnosciId; }
