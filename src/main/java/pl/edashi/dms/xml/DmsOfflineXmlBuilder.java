@@ -3,6 +3,8 @@ package pl.edashi.dms.xml;
 import pl.edashi.dms.model.DmsDocumentOut;
 import pl.edashi.dms.model.DmsOutputPosition;
 import pl.edashi.dms.model.DmsPayment;
+import pl.edashi.dms.parser.DmsParserDS.DmsKwotaDodatkowa;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -50,7 +52,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         rejSekcja.appendChild(rs);
 
         // META
-        rs.appendChild(make(docXml, "ID_ZRODLA", safe(doc.getIdZrodla())));
+        rs.appendChild(make(docXml, "ID_ZRODLA", ""));//safe(doc.getIdZrodla())
         rs.appendChild(make(docXml, "MODUL", safe(doc.getModul())));               // np. "Handel"
         rs.appendChild(make(docXml, "TYP", safe(doc.getDocumentType())));       // tutaj możesz w przyszłości zmapować typ → opis
         rs.appendChild(make(docXml, "REJESTR", safe(doc.getRejestr())));
@@ -58,6 +60,8 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         rs.appendChild(make(docXml, "DATA_WYSTAWIENIA", safe(doc.getDataWystawienia())));
         rs.appendChild(make(docXml, "DATA_SPRZEDAZY", safe(doc.getDataSprzedazy())));
         rs.appendChild(make(docXml, "TERMIN",safe(doc.getTermin())));
+        rs.appendChild(make(docXml, "DATA_DATAOBOWIAZKUPODATKOWEGO", safe(doc.getDataSprzedazy())));
+        rs.appendChild(make(docXml, "DATA_DATAPRAWAODLICZENIA", safe(doc.getDataSprzedazy())));
         rs.appendChild(make(docXml, "NUMER", safe(doc.getDocumentType()) + "_" + safe(doc.getInvoiceNumber())));
 
         // Pola flagowe – na razie stałe wartości (można potem zmapować z doc)
@@ -140,12 +144,12 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         // POZYCJE
         Element pozycje = docXml.createElementNS(NS, "POZYCJE");
         rs.appendChild(pozycje);
-        
+        //System.out.println("[1 BUILDER] getPozycje=" + doc.getPozycje());
         if (doc.getPozycje() != null) {
             for (DmsOutputPosition p : doc.getPozycje()) {
             	Element poz = docXml.createElementNS(NS, "POZYCJA");
                 pozycje.appendChild(poz);
-               
+                //System.out.println("[2 BUILDER] poz=" + poz);
                 poz.appendChild(make(docXml, "KATEGORIA_POS", safe(p.getKategoria())));
                 // KATEGORIA_ID_POS – brak w modelu, więc na razie puste
                 poz.appendChild(make(docXml, "KATEGORIA_ID_POS", ""));
@@ -170,19 +174,25 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
                 poz.appendChild(make(docXml, "RODZAJ_SPRZEDAZY", safe(p.getRodzajSprzedazy())));
                 // UWZ_W_PROPORCJI – na razie "Tak"
                 poz.appendChild(make(docXml, "UWZ_W_PROPORCJI", safe(doc.getUwzgProp())));
-                poz.appendChild(make(docXml, "OPIS_POZ", ""));//safe(p.getVin())
+                poz.appendChild(make(docXml, "OPIS_POZ", safe(p.getVin())));
                 Element kwotyDod = docXml.createElementNS(NS, "KWOTY_DODATKOWE"); 
                 pozycje.appendChild(kwotyDod);
                 Double ntZak = parseDoubleSafe(p.getNettoZakup()) ;
-                if (ntZak>0) { 
+                Double ntKoMat = parseDoubleSafe(p.getNettoKoMat());
+                if (p.getKwotyDodatkowe() != null && !p.getKwotyDodatkowe().isEmpty()) {
+                	for (DmsKwotaDodatkowa x : p.getKwotyDodatkowe()) {
                 	Element pozKd = docXml.createElementNS(NS, "POZYCJA_KD"); 
                 	kwotyDod.appendChild(pozKd); 
-                	pozKd.appendChild(make(docXml, "KATEGORIA_KD", safe(p.getKategoria()))); 
-                	pozKd.appendChild(make(docXml, "KWOTA_KD", safe(p.getNettoZakup()))); 
-                	pozKd.appendChild(make(docXml, "KWOTA_KD_SYS", safe(p.getNettoZakup()))); 
-                	pozKd.appendChild(make(docXml, "KONTO_WN", safe(p.getKontoWn()))); 
-                	pozKd.appendChild(make(docXml, "KONTO_MA", safe(p.getKontoMa()))); 
+                	pozKd.appendChild(make(docXml, "KATEGORIA_KD", safe(x.kategoria))); 
+                	pozKd.appendChild(make(docXml, "OPIS_KD", safe(x.opis)));
+                	pozKd.appendChild(make(docXml, "KWOTA_KD", safe(x.kwota))); 
+                	pozKd.appendChild(make(docXml, "KWOTA_KD_SYS", safe(x.kwota))); 
+                	pozKd.appendChild(make(docXml, "KONTO_WN", safe(x.kontoWn))); 
+                	pozKd.appendChild(make(docXml, "KONTO_MA", safe(x.kontoMa))); 
+                	pozKd.appendChild(make(docXml, "KATEGORIA_KD_2", safe(x.kategoria2))); 
+                	pozKd.appendChild(make(docXml, "OPIS_KD_2", safe(x.opis1)));
                 	}
+                }
             }
         }
 

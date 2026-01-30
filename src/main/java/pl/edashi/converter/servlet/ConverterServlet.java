@@ -55,7 +55,7 @@ public class ConverterServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-    	//log.info("1 Odebrano żądanie konwersji wielu plików XML");
+    	log.info("1 Odebrano żądanie konwersji wielu plików XML");
         // ============================
         // 1. KONFIGURACJA UPLOADU
         // ============================
@@ -74,7 +74,7 @@ public class ConverterServlet extends HttpServlet {
             items = upload.parseRequest(req);
             log.info("Upload: items count = " + (items == null ? 0 : items.size()));
             for (FileItem it : items) {
-                log.info(" - fieldName=" + it.getFieldName() + " name=" + it.getName() + " size=" + it.getSize());
+                //log.info(" - fieldName=" + it.getFieldName() + " name=" + it.getName() + " size=" + it.getSize());
             }
 
         } catch (Exception e) {
@@ -99,8 +99,8 @@ public class ConverterServlet extends HttpServlet {
             if (item.isFormField() && "rejestr".equals(item.getFieldName())) {
                 filtrRejestru = item.getString().trim();
                 filtrOddzial = "01";
-        		//String finfo = String.format(filtrRejestru, " filtrRejestru='%s'");
-        		//log.info(finfo);
+        		String finfo = String.format(filtrRejestru, " filtrRejestru='%s'");
+        		log.info(finfo);
             }
         }
         for (FileItem item : items) {
@@ -117,8 +117,8 @@ public class ConverterServlet extends HttpServlet {
         // Wczytaj zawartość XML
         String xml = Files.readString(savedFile);
         
-		//String ffinfo = String.format(fileName, " fileName='%s'");
-		//log.info(ffinfo);
+		String ffinfo = String.format(fileName, " fileName='%s'");
+		log.info(ffinfo);
         try {
         	//log.info(outputName);
             // 1. Parsowanie dokumentu DMS (DS, KO, DK, SL WZ...)
@@ -131,7 +131,7 @@ public class ConverterServlet extends HttpServlet {
         		    d.setDocumentType(t.trim().toUpperCase());
         		}
         		String tinfo = String.format("filtrRejestru='%s ' filtrOddzial='%s ' d.getOddzial()='%s'", filtrRejestru, filtrOddzial, d.getOddzial());
-        		log.info(tinfo);
+        		//log.info(tinfo);
         		   // 🔥 FILTR REJESTRU — NAJLEPSZE MIEJSCE
         		if (filtrRejestru != null && !filtrRejestru.isBlank()) {
         		    if (!filtrRejestru.equals(d.getDaneRejestr()) || !filtrOddzial.equals(d.getOddzial())) {
@@ -181,7 +181,7 @@ public class ConverterServlet extends HttpServlet {
         	 //log.info(msg);
         	 Set<String> DS_TYPES = Set.of("DS", "FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG");
  		    Set<String> DK_TYPES = Set.of("DK"); //"02"
- 		   Set<String> DZ_TYPES = Set.of("DZ", "FVZ");
+ 		   Set<String> DZ_TYPES = Set.of("DZ","FVZK","FVZk", "FZK");//DZ", "FVZ","FVZk", "FS", "FK", "FVZK
  		   //log.info("SERVLET POSITIONS COUNT: " + d.getPositions().size() 
  			         //+ " file=" + d.getSourceFileName());
            // ============================

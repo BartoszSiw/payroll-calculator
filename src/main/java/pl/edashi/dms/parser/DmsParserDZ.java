@@ -230,28 +230,69 @@ public class DmsParserDZ {
     }
 
 private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
-
+    double baseFromDms = out.getVatEntries().stream()
+            .mapToDouble(c -> parseDoubleSafe(c.podstawa)).sum();
+    
     double vatFromDms = out.getVatEntries().stream()
             .mapToDouble(e -> parseDoubleSafe(e.vat))
             .sum();
+    
+    double bruttoFromPositions = list.stream()
+            .mapToDouble(b -> parseDoubleSafe(b.brutto)).sum();
+    
+    double nettoFromPositions = list.stream()
+            .mapToDouble(n -> parseDoubleSafe(n.netto)).sum();
 
     double vatFromPositions = list.stream()
             .mapToDouble(p -> parseDoubleSafe(p.getVat()))
             .sum();
+    log.info(String.format("1 extract DZ: baseFromDms='%s':, vatFromDms='%s':, nettoFromPositions='%s': ,vatFromPositions='%s':,bruttoFromPositions='%s': ",baseFromDms, vatFromDms, nettoFromPositions, vatFromPositions, bruttoFromPositions));
+    double advanceNet = parseDoubleSafe(out.getAdvanceNet());
+    double advanceVat = parseDoubleSafe(out.getAdvanceVat());
+    double advanceBrutto = advanceNet; //+ advanceVat
+    double diffBruttoPosAdv = bruttoFromPositions - (baseFromDms + vatFromDms + advanceBrutto);
+    log.info(String.format("2 extract DZ: advanceNet='%s': ,advanceVat='%s': ,advanceBrutto='%s':  ,diffBruttoPosAdv='%s': ", advanceNet, advanceVat, advanceBrutto, diffBruttoPosAdv));
+    if (Math.abs(advanceNet) > 0) {//<= 0.10) {
+        DmsPosition last = list.get(list.size() - 1);
 
-    double diffVat = vatFromDms - vatFromPositions;
+        double netto = parseDoubleSafe(last.netto) - advanceNet;
+        double vat   = parseDoubleSafe(last.vat) - advanceVat ;//
+        //log.info(String.format("2a extractPositions: netto='%s': ,vat='%s': ", netto, vat));
+        last.netto = String.format(Locale.US, "%.2f", netto);
+        last.vat   = String.format(Locale.US, "%.2f", vat);
+        log.info(String.format("2a extract DZ: netto='%s': ,vat='%s': ", netto, vat));
+    }
+    double nettoAfterAdvance = list.stream()
+            .mapToDouble(p -> parseDoubleSafe(p.netto))
+            .sum();
 
+    double vatAfterAdvance = list.stream()
+            .mapToDouble(p -> parseDoubleSafe(p.vat))
+            .sum();
+    log.info(String.format("3 extract DZ: nettoAfterAdvance='%s': ,vatAfterAdvance='%s': ", nettoAfterAdvance, vatAfterAdvance));
+    double diffVat = vatFromDms - vatAfterAdvance;
+    double diffNetto = baseFromDms - nettoAfterAdvance;
+    log.info(String.format("4 extract DZ: diffVat='%s': ,diffNetto='%s': ", diffVat, diffNetto));
+    boolean hasSmallDiff =
+            (Math.abs(diffVat) > 0.0001 && Math.abs(diffVat) <= 0.10) ||
+            (Math.abs(diffNetto) > 0.0001 && Math.abs(diffNetto) <= 0.10);
     // tylko groszowe różnice
-    if (Math.abs(diffVat) > 0.0001 && Math.abs(diffVat) <= 0.10) {
-
+    //if (Math.abs(diffVat) > 0.0001 && Math.abs(diffVat) <= 0.10) {
+    	if (!list.isEmpty() && hasSmallDiff) {
         DmsPosition last = list.get(list.size() - 1);
 
         double vat = parseDoubleSafe(last.getVat()) + diffVat;
         double brutto = parseDoubleSafe(last.getBrutto()) + diffVat;
-
+        double net = Double.parseDouble(last.netto);
+        vat += diffVat;
+        net += diffNetto;
+        
         last.setVat(String.format(Locale.US, "%.2f", vat));
+        last.netto = String.format(Locale.US, "%.2f", net);
         last.setBrutto(String.format(Locale.US, "%.2f", brutto));
+      log.info(String.format("5 extract DZ: correctedVat='{}', correctedNet='{}', correctedBru='{}'", vat, net, brutto));
     }
+
 }
 
 
@@ -312,6 +353,19 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
                 p.cenaNetto = wart != null ? safeAttr(wart, "cena_netto") : "";
                 p.opis = rozs != null ? safeAttr(rozs, "opis1") : "";
                 p.nrKonta = rozs != null ? safeAttr(rozs, "nr_konta") : "";
+
+                Element klas = null;
+                NodeList kl = dane.getElementsByTagName("klasyfikatory");
+                if (kl.getLength() > 0) klas = (Element) kl.item(0);
+                // klasyfikacja
+                String rawK = klas != null ? klas.getAttribute("klasyfikacja") : "";
+                p.kategoria2 = rawK;
+                String category = p.kategoria2;
+                if(p.kategoria2.isBlank()) {category="INNE USŁUGI 550";}
+                switch (category) {
+                case "KAWA/HERBATA": p.rodzajKoszty = "Inne";break; 
+                case "INNE USŁUGI 550": p.rodzajKoszty = "Usługi";p.kategoria2="INNE USŁUGI 550";break;}
+
                 list.add(p);
             }
         }
@@ -320,7 +374,7 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
     }
     private List<DmsPosition> createPositionsFromVat06(Document doc) {
         List<DmsPosition> list = new ArrayList<>();
-
+log.info("1 doc in positions From VAT doc='%s '"+ doc);
         // znajdź document typ="06"
         Element doc06 = null;
         NodeList allDocs = doc.getElementsByTagName("document");
@@ -331,6 +385,7 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
                 break;
             }
         }
+        log.info("2 doc in positions From VAT doc='%s '"+ doc);
         if (doc06 == null) {
             return list; // brak rejestru VAT
         }
@@ -371,10 +426,19 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
 
             p.podstawaVat = p.netto; // jeśli masz takie pole
             p.opis = "Pozycja z rejestru VAT (typ 06)";
-
-            p.kategoria2 = "";
-            p.rodzajKoszty = "Inne";
-
+            Element klas = null;
+            NodeList kl = dane.getElementsByTagName("klasyfikatory");
+            if (kl.getLength() > 0) klas = (Element) kl.item(0);
+            // klasyfikacja
+            String rawK = klas != null ? klas.getAttribute("klasyfikacja") : "";
+            p.kategoria2 = rawK;
+            String category = p.kategoria2;
+            if(p.kategoria2.isBlank()) {category="MATERIAŁY";}
+            switch (category) {
+            case "KAWA/HERBATA": p.rodzajKoszty = "Inne";break; 
+            case "MATERIAŁY": p.rodzajKoszty = "Towary";p.kategoria2="MATERIAŁY";break;
+        }
+            log.info("[DZ][POS] idx=" + i + " rawKategoria2=" + rawK);
             list.add(p);
         }
 
@@ -497,10 +561,10 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
             String rawK = klas != null ? klas.getAttribute("klasyfikacja") : "";
             p.kategoria2 = rawK;
             String category = p.kategoria2;
-            if(p.kategoria2.isBlank()) {category="MATERIAŁY";}
+            if(p.kategoria2.isBlank()) {category="INNE USŁUGI 550";}
             switch (category) {
             case "KAWA/HERBATA": p.rodzajKoszty = "Inne";break; 
-            case "MATERIAŁY": p.rodzajKoszty = "Towary";p.kategoria2="MATERIAŁY";break;//Wartości: Materiały handlowe tutaj w typ 03
+            case "INNE USŁUGI 550": p.rodzajKoszty = "Usługi";p.kategoria2="INNE USŁUGI 550";break;//Wartości: Materiały handlowe tutaj w typ 03
         }
             log.info("[DZ][POS] idx=" + j + " rawKategoria2=" + rawK);
 

@@ -1,5 +1,6 @@
 package pl.edashi.dms.model;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,13 +11,19 @@ public class DmsParsedDocument {
     private List<DmsPayment> payments = new ArrayList<>();
     private List<String> notes = new ArrayList<>();
     private List<DmsVatEntry> vatEntries = new ArrayList<>();
+	public List<DmsNetBruEntry> netBruEntries = new ArrayList<>();
 
     public List<DmsVatEntry> getVatEntries() { return vatEntries; }
     public void addVatEntry(DmsVatEntry e) { vatEntries.add(e); }
     private Map<String, String> vatRates = new HashMap<>();
     public Map<String, String> getVatRates() { return vatRates; }
     public void setVatRates(Map<String, String> map) { this.vatRates = map; }
-
+    
+    public List<DmsNetBruEntry> getNetBruEntries() { return netBruEntries; }
+    public void addNetBruEntry(DmsNetBruEntry e) { netBruEntries.add(e); }
+    private Map<String, String> netBruRates = new HashMap<>();
+    public Map<String, String> getNetBruRates() { return netBruRates; }
+    public void setNetBruRates(Map<String, String> map) { this.netBruRates = map; }
 
     private String vatRate = "";
     private String vatBase = "";
@@ -258,6 +265,11 @@ public class DmsParsedDocument {
         public String stawka;
         public String podstawa;
         public String vat;
+    }
+    public static class DmsNetBruEntry{
+    	public String base;
+        public String netto;
+        public String brutto;
     }
     /*public class DmsPositionDS {
         private String klasyfikacja;

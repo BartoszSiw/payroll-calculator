@@ -1,6 +1,12 @@
 package pl.edashi.dms.model;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import pl.edashi.dms.parser.DmsParserDS.DmsKwotaDodatkowa;
+
 public class DmsPosition {
+	private List<DmsKwotaDodatkowa> kwotyDodatkowe = new ArrayList<>();
 	public String type = ""; 
     public String kategoria = "";
     public String kategoria2;
@@ -30,11 +36,13 @@ public class DmsPosition {
 	public String lp;
 	public String nrKonta;
 	public String podstawaVat;
+	public String kwota;
 	public String kontoMa;
 	public String kontoWn;
 	public String nettoDlRob;
 	public String nettoKoMat;
 	public String nettoGwMat;
+	public String nettoKoszt;
     public DmsPosition() { }
 
     // --- Gettery ---
@@ -69,11 +77,14 @@ public class DmsPosition {
 	public String getKierunek() { return kierunek; }
 	public String getLp() { return lp; }
 	public String getPodstawaVat() { return podstawaVat; }
+	public String getKwota() { return kwota; }
 	public String getKontoMa() { return kontoMa; }
 	public String getKontoWn() { return kontoWn; }
 	public String getNettoDlRob() { return nettoDlRob; }
 	public String getNettoKoMat() { return nettoKoMat; }
+	public String getNettoKoszt() { return nettoKoszt; }
 	public String getNettoGwMat() { return nettoGwMat; }
+	public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {return kwotyDodatkowe;}
     // --- Settery (null-safe) ---
     public void setType(String type) { this.type = type != null ? type : ""; }
     public void setKategoria(String kategoria) { this.kategoria = kategoria != null ? kategoria : ""; }
@@ -103,11 +114,15 @@ public class DmsPosition {
 	public void setKierunek(String kierunek) { this.kierunek = kierunek != null ? kierunek : ""; }
 	public void setLp(String lp) { this.lp = lp != null ? lp : ""; }
 	public void setPodstawaVat(String lp) { this.podstawaVat = podstawaVat != null ? podstawaVat : ""; }
+	public void setKwota(String kwota) { this.kwota = kwota != null ? kwota : ""; }
 	public void setKontoMa(String kontoMa) { this.kontoMa = kontoMa != null ? kontoMa : ""; }
 	public void setKontoWn(String kontoWn) { this.kontoWn = kontoWn != null ? kontoWn : ""; }
 	public void setNettoDlRob(String nettoDlRob) { this.nettoDlRob = nettoDlRob != null ? nettoDlRob : "";}
 	public void setNettoKoMat(String nettoKoMat) { this.nettoKoMat = nettoKoMat != null ? nettoKoMat : "";}
 	public void setNettoGwMat(String nettoGwMat) { this.nettoGwMat = nettoGwMat != null ? nettoGwMat : "";}
+	public void setNettoKoszt(String nettoKoszt) { this.nettoKoszt = nettoKoszt!= null ? nettoKoszt : "";}
+	public void setKwotyDodatkowe(List<DmsKwotaDodatkowa> list) {this.kwotyDodatkowe = list;}
+
     @Override
     public String toString() {
         return "DmsPosition{" +
@@ -129,5 +144,4 @@ public class DmsPosition {
                 ", kierunek='" + kierunek + '\'' +
                 '}';
     }
-
 }

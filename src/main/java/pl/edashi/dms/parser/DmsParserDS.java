@@ -131,7 +131,9 @@ public class DmsParserDS {
         // ============================
         //String defaultVatRate = out.getVatRate();
         //if (defaultVatRate == null) defaultVatRate = "";
-        out.setPositions(extractPositions(doc, out));
+        List<DmsKwotaDodatkowa> kwoty66 = extractKwoty66(doc);
+        List<DmsPosition> positions = extractPositions(doc, out, kwoty66);
+        out.setPositions(positions);
 
         // ============================
         // 5. PŁATNOŚCI (typ 40 + 43)
@@ -166,7 +168,6 @@ public class DmsParserDS {
     // ------------------------------
     private Contractor extractContractor(Document doc) {
         NodeList list = doc.getElementsByTagName("document");
-       
         boolean hasContractor = false;
         for (int i = 0; i < list.getLength(); i++) {
             Element el = (Element) list.item(i);
@@ -214,11 +215,41 @@ public class DmsParserDS {
     }
 
     // ------------------------------
-    // POZYCJE (typ 03)
+    // POZYCJE 
     // ------------------------------
-    private List<DmsPosition> extractPositions(Document doc, DmsParsedDocument out) {
-        //final BigDecimal TOLERANCE_SUM = BigDecimal.valueOf(0.01);
-        //final BigDecimal TOLERANCE_CORRECT = BigDecimal.valueOf(0.10);
+    private List<DmsKwotaDodatkowa> extractKwoty66(Document doc) {
+        List<DmsKwotaDodatkowa> kwoty66 = new ArrayList<>();
+        NodeList allDocs = doc.getElementsByTagName("document");
+        for (int k = 0; k < allDocs.getLength(); k++) {
+    	    Element el = (Element) allDocs.item(k);
+    	    //log.info("DS: document[" + k + "] typ=" + el.getAttribute("typ"));
+    	    if ("66".equals(el.getAttribute("typ"))) {
+    	        NodeList daneList66 = el.getElementsByTagName("dane");
+    	        //log.info("DS: typ 66, daneList length = " + daneList66.getLength());
+    	        for (int j = 0; j < daneList66.getLength(); j++) { 
+    	        	Element dane = (Element) daneList66.item(j); 
+    	        	Element wart = (Element) dane.getElementsByTagName("wartosci").item(0); 
+    	        	Element rozs = (Element) dane.getElementsByTagName("rozszerzone").item(0);
+    	        	//log.info("DS: typ 66, wart node = " + (wart != null));
+	        	if (wart == null) continue;
+	        	//log.info("DS: typ 66, netto_koszt='" + wart.getAttribute("netto_koszt_mat") + "'");
+	            //addIfPositive(kwoty66, wart.getAttribute("netto_koszt"),"KOSZT","KOSZT", "", "737-01",rozs.getAttribute("vin"),"");
+	            //addIfPositive(kwoty66, wart.getAttribute("netto_koszt_rob"), "KOSZT_ROB", "KOSZT_ROB", "","737-02",rozs.getAttribute("vin"),"");
+	            //addIfPositive(kwoty66, wart.getAttribute("netto_koszt_usl"), "KOSZT_USL","KOSZT_USL","","737-03",rozs.getAttribute("vin"),"");
+	            addIfPositive(kwoty66, wart.getAttribute("netto_koszt_mat"), "SPRZEDAŻ MATERIAŁÓW","","401-01","310-1",rozs.getAttribute("vin"),"");
+	            //addIfPositive(kwoty66, wart.getAttribute("netto_dlr_rob"), "ROBOCIZNA-GWARANCJA","","","705-1-18",rozs.getAttribute("vin"),"");
+	            addIfPositive(kwoty66, wart.getAttribute("netto_gwar_rob"), "ROBOCIZNA-GWARANCJA","","","705-1-18",rozs.getAttribute("vin"),"");
+	            //addIfPositive(kwoty66, wart.getAttribute("netto_dlr_mat"), "DLR_MAT", "", "401-01","310-1",rozs.getAttribute("vin"),"");
+	            addIfPositive(kwoty66, wart.getAttribute("netto_gwar_mat"), "CZĘŚCI-SERWIS-GWARAN", "", "","705-1-11",rozs.getAttribute("vin"),"");
+            }
+        } }
+        log.info("DS: extractKwoty66 -> size=" + kwoty66.size());
+        return kwoty66;
+    }
+
+    private List<DmsPosition> extractPositions(Document doc, DmsParsedDocument out, List<DmsKwotaDodatkowa> kwoty66){
+    	boolean hasType66 = !kwoty66.isEmpty();
+    	log.info(String.format("1 kwoty66 p.getKwotyDodatkowe()='%s': ", kwoty66));
         List<DmsPosition> listOut = new ArrayList<>();
         //if (doc == null || out == null) return listOut;
         NodeList list = doc.getElementsByTagName("document");
@@ -226,8 +257,8 @@ public class DmsParserDS {
         for (int i = 0; i < list.getLength(); i++) {
             Element document = (Element) list.item(i);
             String typ = document.getAttribute("typ");
-            if (!"03".equals(typ) && !"04".equals(typ) && !"05".equals(typ) && !"66".equals(typ)) continue;
-
+            if (!"03".equals(typ) && !"04".equals(typ) && !"05".equals(typ) ) continue;
+            log.info(String.format("1 kwoty66 p.getKwotyDodatkowe()='%s': typ='%s '", kwoty66, typ));
             NodeList daneList = document.getElementsByTagName("dane");
             for (int j = 0; j < daneList.getLength(); j++) {
                 Element dane = (Element) daneList.item(j);
@@ -251,20 +282,18 @@ public class DmsParserDS {
                 }
 
                 DmsPosition p = new DmsPosition();
+                p.setKwotyDodatkowe(kwoty66);
+                log.info(String.format("1 kwoty66 p.getKwotyDodatkowe()='%s': typ='%s '", p.getKwotyDodatkowe(), typ));
                 p.type = typ;
                 p.kategoria2 = klas != null ? klas.getAttribute("kod") : "";
                 p.kanal = klas != null ? klas.getAttribute("kanal") : "";
-                p.kanalKategoria = (p.kategoria2 != null && !p.kategoria2.isBlank()) ? p.kanal + "-" + p.kategoria2 : "";
+                p.kanalKategoria = (p.kategoria2 != null && !p.kategoria2.isBlank()) ? p.kanal + "-" + p.kategoria2 : "";            
                 p.vin = rozs != null ? rozs.getAttribute("vin") : "";
-
                 p.netto = wart != null ? wart.getAttribute("netto_sprzed") : "";
                 p.nettoZakup = wart != null ? wart.getAttribute("netto_zakup") : "";
                 p.nettoRob = wart != null ? wart.getAttribute("netto_rob") : "";
-                p.nettoDlRob = wart != null ? wart.getAttribute("netto_dlr_rob") : "";
-                p.nettoKoMat = wart != null ? wart.getAttribute("netto_koszt_mat") : "";
-                p.nettoGwMat = wart != null ? wart.getAttribute("netto_gwar_mat") : "";
                 if (p.netto == null) p.netto = "";
-                //log.info(String.format("extractPositions p.vin='%s': ", p.vin));
+                log.info(String.format("extractPositions p.vin='%s ': p.netto='%s ' p.nettoKoMat='%s ' p.nettoGwMar='%s ' typ='%s '", p.vin, p.netto, p.nettoKoMat, p.nettoGwMat, typ));
                 boolean hasVat = out.isHasVatDocument();
                 String vatRate = out.getVatRate();
                 //log.info(LogUtils.safeFormat("hasVat=%s, vatRate=%s", hasVat, vatRate));
@@ -291,7 +320,7 @@ public class DmsParserDS {
                             double brutto = netto + vat;
                             p.brutto = String.format(Locale.US, "%.2f", brutto);
                             p.vat = String.format(Locale.US, "%.2f", vat);
-                            //log.info(String.format("3 hasVat p.statusVat='%s': ", p.statusVat));
+                            log.info(String.format("3 hasVat p.statusVat='%s': ", p.statusVat));
                         } catch (Exception ex) {
                             p.vat = "0.00";
                         }
@@ -325,21 +354,25 @@ public class DmsParserDS {
              if (isRejBlacharka) {
                  p.kategoria = "ROBOCIZNA-BLACHARSKA";
              }
-
-             if (isRejCzesci) {
+             log.info(String.format("4 kategoria='%s': ", p.kategoria));
+             if(hasType66 && isRejCzesci) {
+             //p.kategoria = "SPRZEDAŻ MATERIAŁÓW";
+             } else if (isRejCzesci){
                  switch (typ) {
                  case "66": p.kategoria = "SPRZEDAŻ MATERIAŁÓW"; break;
                  case "04": p.kategoria = "ROBOCIZNA-SERWIS"; break;
                  case "05": p.kategoria = "USŁUGI OBCE-SERWIS"; break;
              }
-            	//SPRZEDAŻ MATERIAŁÓW netto_koszt_mat="334.81"
+             }
+             log.info(String.format("5kategoria='%s': ", p.kategoria));
+            	/*SPRZEDAŻ MATERIAŁÓW netto_koszt_mat="334.81"
             	 //705-1-11 netto_gwar_mat="635.07"
             	 //705-1-18 netto_dlr_rob="425.00" netto_dlr_usl="0.00" netto_dlr_mat="495.48" netto_gwar="1060.07" netto_gwar_rob="425.00"
                  //p.kategoria = "CZĘŚCI-SERWIS";
              }
 
               //log.info("readRejestr=%s " + readRejestr);
-                /*switch (typ) {
+                switch (typ) {
                     case "03": p.rodzajSprzedazy = "Towary"; break;  //Wartości: Materiały handlowe 
                     case "04": p.rodzajSprzedazy = "Usługi";  break;
                     case "05": p.rodzajSprzedazy = "Inne"; break;
@@ -797,6 +830,61 @@ public class DmsParserDS {
         if (c.name3 != null && !c.name3.isBlank()) sb.append(" ").append(c.name3.trim());
         return sb.toString().trim();
     }
+    private String f2(double d) {
+        return String.format(Locale.US, "%.2f", d);
+    }
+    private void addIfPositive(List<DmsKwotaDodatkowa> list, String valueStr, String category,  String category2, String kontoWn, String kontoMa, String opis, String opis1) {
+        double val = parseDoubleSafe(valueStr);
+        if (val > 0) {
+            DmsKwotaDodatkowa kd = new DmsKwotaDodatkowa();
+            kd.kwota = f2(val);
+            kd.kategoria = category;
+            kd.kategoria2 = category2;
+            kd.kontoWn = kontoWn;
+            kd.kontoMa = kontoMa;
+            kd.opis = opis;
+            kd.opis1 = opis1;
+            list.add(kd);
+        }
+    }
+
+
+    public class DmsKwotaDodatkowa {
+        public String kwota;       // jedna kwota KD
+        public String kategoria;   // KATEGORIA_KD
+        public String kategoria2;  // opcjonalnie
+        public String kontoMa;
+        public String kontoWn;
+        public String opis;
+        public String opis1;
+
+        public DmsKwotaDodatkowa() {
+        }
+    }
+
+   /* public class DmsKwotaDodatkowa {
+    	public String nettoDlRob;
+    	public String nettoKoMat;
+    	public String nettoGwMat;
+    	public String nettoKoszt;
+    	public String nettoZakup;
+        public String kategoria;
+        public String kategoria2;
+    	public String kontoMa;
+    	public String kontoWn;
+
+        public DmsKwotaDodatkowa(String nettoDlRob, String nettoKoMat,String nettoGwMat,String nettoKoszt, String nettoZakup, String kategoria, String kategoria2,String kontoWn, String kontoMa) {
+        	this.nettoDlRob = nettoDlRob;
+        	this.nettoKoMat = nettoKoMat;
+        	this.nettoGwMat = nettoGwMat;
+        	this.nettoKoszt = nettoKoszt;
+        	this.nettoZakup = nettoZakup;
+            this.kategoria = kategoria;
+            this.kategoria2 = kategoria2;
+            this.kontoWn = kontoWn;
+            this.kontoMa = kontoMa;
+        }
+    }*/
 
 
 

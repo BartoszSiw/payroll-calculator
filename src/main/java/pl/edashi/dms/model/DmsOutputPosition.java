@@ -1,5 +1,10 @@
 package pl.edashi.dms.model;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import pl.edashi.dms.parser.DmsParserDS.DmsKwotaDodatkowa;
+
 public class DmsOutputPosition {
 
     private String kategoria2 = "";
@@ -25,6 +30,7 @@ public class DmsOutputPosition {
     private String nettoDlRob;
     private String nettoKoMat;
     private String nettoGwMat;
+	private List<DmsKwotaDodatkowa> kwotyDodatkowe = new ArrayList<>();
 
     public DmsOutputPosition() { }
 
@@ -52,6 +58,10 @@ public class DmsOutputPosition {
 	public String getNettoDlRob() { return nettoDlRob; }
 	public String getNettoKoMat() { return nettoKoMat; }
 	public String getNettoGwMat() { return nettoGwMat; }
+	public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {
+	    return kwotyDodatkowe;
+	}
+
 
     // --- Settery (null-safe) ---
     public void setKategoria2(String kategoria2) { this.kategoria2 = safe(kategoria2); }
@@ -77,6 +87,9 @@ public class DmsOutputPosition {
 	public void setNettoDlRob(String nettoDlRob) { this.nettoDlRob = nettoDlRob != null ? nettoDlRob : "";}
 	public void setNettoKoMat(String nettoKoMat) { this.nettoKoMat = nettoKoMat != null ? nettoKoMat : "";}
 	public void setNettoGwMat(String nettoGwMat) { this.nettoGwMat = nettoGwMat != null ? nettoGwMat : "";}
+	public void setKwotyDodatkowe(List<DmsKwotaDodatkowa> kwotyDodatkowe) {
+	    this.kwotyDodatkowe = kwotyDodatkowe;
+	}
     // --- Helper ---
     private static String safe(String s) {
         return s == null ? "" : s;

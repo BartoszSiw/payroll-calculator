@@ -22,7 +22,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
 
     public DmsOfflinePurchaseBuilder(DmsDocumentOut doc) {
         if (doc == null) throw new IllegalArgumentException("DmsOfflinePurchaseBuilder: doc is null");
-        Set<String> PURCHASE_TYPES = Set.of("DZ", "FVZ", "FVZk", "FS", "FK");
+        Set<String> PURCHASE_TYPES = Set.of("DZ", "FVZ", "FVZk", "FS", "FK", "FVZK");
         if (!PURCHASE_TYPES.contains(doc.getTyp())) {
             throw new IllegalArgumentException("DmsOfflinePurchaseBuilder: obsługiwany jest tylko typ zakupowy, otrzymano: " + safe(doc.getTyp()));
         }
@@ -48,7 +48,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         rejSekcja.appendChild(rz);
 
         // META
-        rz.appendChild(makeCdata(docXml, "ID_ZRODLA", safe(doc.getIdZrodla())));
+        rz.appendChild(makeCdata(docXml, "ID_ZRODLA", ""));//safe(doc.getIdZrodla())
         rz.appendChild(makeCdata(docXml, "MODUL", safe(doc.getModul() != null ? doc.getModul() : "Rejestr Vat")));
         rz.appendChild(makeCdata(docXml, "TYP", "Rejestr zakupu"));
         rz.appendChild(makeCdata(docXml, "REJESTR", safe(doc.getRejestr())));

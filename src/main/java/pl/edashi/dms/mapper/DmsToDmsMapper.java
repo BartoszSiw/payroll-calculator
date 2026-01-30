@@ -27,11 +27,12 @@ public class DmsToDmsMapper {
         DocumentMetadata meta = src.getMetadata();
         String date = meta != null ? safe(meta.getDate()) : "";
         String dateSale = meta != null ? safe(meta.getDateSale()) : "";
+        String dateoOperation = meta != null ? safe(meta.getDateOperation()) : "";
         String walutaWarto = meta != null ? safe(meta.getWaluta()) : "";
         doc.setDataWystawienia(date);
         doc.setDataSprzedazy(dateSale);
         doc.setTermin(date);
-        doc.setDataOperacji(date);
+        doc.setDataOperacji(dateoOperation);
         doc.setDataWplywu(date);
         doc.setDataObowiazkuPodatkowego(date);
         doc.setDataPrawaOdliczenia(date);
@@ -86,6 +87,7 @@ public class DmsToDmsMapper {
                 outPos.setNettoDlRob(safe(p.getNettoDlRob()));
                 outPos.setNettoGwMat(safe(p.getNettoGwMat()));
                 outPos.setNettoKoMat(safe(p.getNettoKoMat()));
+                outPos.setKwotyDodatkowe(p.getKwotyDodatkowe());
                 doc.getPozycje().add(outPos);
             }
         }
