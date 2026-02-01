@@ -146,10 +146,29 @@ public class DmsToDmsMapper {
     private String mapDaneRejestr(String wyr) {
         return switch (wyr) {
             case "EX" -> "ZK";
-            case "PA" -> "Z3";
+            case "PA" -> "Z4";
             case "CD", "CP", "CR" -> "Z1";
             case "CC" -> "ZAKUP";
-            default -> wyr;
+            case "001" -> "001";
+            case "040" -> "040" ;
+            case "041" -> "041" ;
+            case "070" -> "070" ;
+            case "100" -> "100" ;
+            case "101" -> "101" ;
+            case "102" -> "102" ;
+            case "110" -> "110" ;
+            case "120" -> "120" ;
+            case "121" -> "121" ;
+            case "141" -> "141" ;
+            case "143" -> "143" ;
+            case "191" -> "191" ;
+            case "200" -> "200" ;
+            case "240" -> "240" ;
+            case "290" -> "290" ;
+            case "310" -> "310" ;
+            case "330" -> "330" ;
+            case "400" -> "400" ;
+            default -> "";
         };
     }
     private double parseDoubleSafe(String s) {

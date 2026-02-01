@@ -49,6 +49,8 @@ public class DmsParsedDocument {
     private String dokumentFiskalny = "";
     private String dokumentDetaliczny = "";
     private String terminPlatnosci = "";
+    private String kasa = "";
+    private String dzial = "";
     //private String vin = "";
 
     // dodatkowe pola pomocnicze
@@ -128,6 +130,8 @@ public class DmsParsedDocument {
 	public void setKorekta(String korekta) {this.korekta  = korekta ;}
 	public void setKorektaNumer(String korektaNumer) {this.korektaNumer = korektaNumer;	}
 	public void setTerminPlatnosci(String terminPlatnosci) { this.terminPlatnosci = terminPlatnosci;}
+	public void setKasa(String kasa) { this.kasa = kasa;}
+	public void setDzial(String dzial) { this.dzial = dzial;}
 	//public void setVin(String vin) {this.vin  = vin ;}
     // --- Gettery ---
     public DocumentMetadata getMetadata() {
@@ -215,6 +219,8 @@ public class DmsParsedDocument {
     public String getKorekta() {return korekta;}
     public String getKorektaNumer() {return korektaNumer;}
     public String getTerminPlatnosci() {return terminPlatnosci;}
+    public String getKasa() {return kasa;}
+    public String getDzial() {return dzial;}
     //public String getVin() {return vin;}
     // --- Utility ---
 

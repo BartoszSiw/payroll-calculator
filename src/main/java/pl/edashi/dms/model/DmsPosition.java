@@ -43,6 +43,7 @@ public class DmsPosition {
 	public String nettoKoMat;
 	public String nettoGwMat;
 	public String nettoKoszt;
+	public String kodKlasyfikatora;
     public DmsPosition() { }
 
     // --- Gettery ---
@@ -84,6 +85,7 @@ public class DmsPosition {
 	public String getNettoKoMat() { return nettoKoMat; }
 	public String getNettoKoszt() { return nettoKoszt; }
 	public String getNettoGwMat() { return nettoGwMat; }
+	public String getKodKlasyfikatora() { return kodKlasyfikatora; }
 	public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {return kwotyDodatkowe;}
     // --- Settery (null-safe) ---
     public void setType(String type) { this.type = type != null ? type : ""; }
@@ -121,6 +123,7 @@ public class DmsPosition {
 	public void setNettoKoMat(String nettoKoMat) { this.nettoKoMat = nettoKoMat != null ? nettoKoMat : "";}
 	public void setNettoGwMat(String nettoGwMat) { this.nettoGwMat = nettoGwMat != null ? nettoGwMat : "";}
 	public void setNettoKoszt(String nettoKoszt) { this.nettoKoszt = nettoKoszt!= null ? nettoKoszt : "";}
+	public void setKodKlasyfikatora(String kodKlasyfikatora) { this.kodKlasyfikatora = kodKlasyfikatora!= null ? kodKlasyfikatora : "";}
 	public void setKwotyDodatkowe(List<DmsKwotaDodatkowa> list) {this.kwotyDodatkowe = list;}
 
     @Override

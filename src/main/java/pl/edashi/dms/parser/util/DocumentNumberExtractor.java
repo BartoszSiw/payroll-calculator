@@ -235,6 +235,7 @@ public final class DocumentNumberExtractor {
             String opis1 = safeAttr(rozs, "opis1");
             if (opis1 != null && !opis1.isBlank()) {
                 String extracted = extractNumberFromText(opis1);
+                LOG.info("extractNumber extracted: " + extracted);
                 if (extracted != null && !extracted.isBlank()) return extracted;
             }
         }
@@ -243,8 +244,10 @@ public final class DocumentNumberExtractor {
         Element numer = firstElementByTag(dane, "numer");
         if (numer != null) {
             String attrNr = safeAttr(numer, "nr");
+            LOG.info("extractNumber attrNr: " + attrNr);
             if (attrNr != null && !attrNr.isBlank()) return attrNr.trim();
             String txt = numer.getTextContent();
+            LOG.info("extractNumber txt: " + txt);
             if (txt != null && !txt.isBlank()) return txt.trim();
         }
 
@@ -256,10 +259,12 @@ public final class DocumentNumberExtractor {
 
             // 🔥 najpierw atrybut nr=
             String attrNr = safeAttr(anyNum, "nr");
+            LOG.info("extractNumber AnyAttrNr: " + attrNr);
             if (attrNr != null && !attrNr.isBlank()) return attrNr.trim();
 
             // dopiero potem tekst
             String txt = anyNum.getTextContent();
+            LOG.info("extractNumber AnyTxt: " + txt);
             if (txt != null && !txt.isBlank()) return txt.trim();
         }
 

@@ -22,7 +22,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
 
     public DmsOfflinePurchaseBuilder(DmsDocumentOut doc) {
         if (doc == null) throw new IllegalArgumentException("DmsOfflinePurchaseBuilder: doc is null");
-        Set<String> PURCHASE_TYPES = Set.of("DZ", "FVZ", "FVZk", "FS", "FK", "FVZK");
+        Set<String> PURCHASE_TYPES = Set.of("DZ","FVZ","FVZK","FVZk", "FZK", "FZk","FS", "FK");
         if (!PURCHASE_TYPES.contains(doc.getTyp())) {
             throw new IllegalArgumentException("DmsOfflinePurchaseBuilder: obsługiwany jest tylko typ zakupowy, otrzymano: " + safe(doc.getTyp()));
         }

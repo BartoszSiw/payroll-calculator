@@ -37,8 +37,8 @@ public class DmsParserDZ {
             log.error("ParserDZ: brak root w pliku: " + fileName);
             return out;
         }*/
-        log.info("DEBUG dane element = " + numer);
-        log.info("DEBUG numer count = " + numer.getElementsByTagName("numer").getLength());
+        log.info("DEBUG dane element = " + numer.getElementsByTagName("numer"));
+        log.info("DEBUG numer count = " + numer.getAttribute("nr"));
 
      // 1) Najpierw numer z <numer nr="...">
         String nrFromDane = DocumentNumberExtractor.extractNumberFromDane(numer);
@@ -50,16 +50,6 @@ public class DmsParserDZ {
                 out.setDocumentType("DZ");
             }
         }
-        /*if (nrFromDane != null && !nrFromDane.isBlank()) {
-            out.setInvoiceNumber(nrFromDane);
-            out.setInvoiceShortNumber(DocumentNumberExtractor.normalizeNumber(nrFromDane));
-            // jeśli nadal brak typu – ustaw DZ jako domyślny
-            if (out.getDocumentType() == null || out.getDocumentType().isBlank()) {
-                out.setDocumentType("DZ");
-            }
-        }*/
-     // 2) Jeśli nadal brak → gen_info
-
         boolean found = DocumentNumberExtractor.extractFromGenInfo(root, out, fileName,hasNumberInDane);
         
         log.info("out.getInvoiceNumber() = " + out.getInvoiceNumber() + "out.getInvoiceShortNumber()"+ out.getInvoiceShortNumber());
@@ -91,11 +81,14 @@ public class DmsParserDZ {
                 Element docEl = (Element) docList.item(i);
                 if ("02".equals(docEl.getAttribute("typ"))) {
                     // Pobierz klasyfikatory niezależnie od tego, gdzie DOM je umieścił
+                	Element daneEl = firstElementByTag(docEl, "dane");
+                	String oddzial = daneEl.getAttribute("oddzial").trim();
                     Element klas = (Element) docEl.getElementsByTagName("klasyfikatory").item(0); 
                     if (klas!= null && klas.hasAttribute("wyr")) {
                         String wyrDoc = klas != null ? klas.getAttribute("wyr") : "";
                         // wyrDoc = "EX"
                         out.setDaneRejestr(wyrDoc);} // upewnij się, że DmsParsedDocument ma setter
+                    out.setOddzial(oddzial);
                     break; // zwykle tylko jeden rekord 02
                 }
             }
@@ -281,16 +274,22 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
     	if (!list.isEmpty() && hasSmallDiff) {
         DmsPosition last = list.get(list.size() - 1);
 
-        double vat = parseDoubleSafe(last.getVat()) + diffVat;
-        double brutto = parseDoubleSafe(last.getBrutto()) + diffVat;
-        double net = Double.parseDouble(last.netto);
-        vat += diffVat;
-        net += diffNetto;
-        
-        last.setVat(String.format(Locale.US, "%.2f", vat));
-        last.netto = String.format(Locale.US, "%.2f", net);
-        last.setBrutto(String.format(Locale.US, "%.2f", brutto));
-      log.info(String.format("5 extract DZ: correctedVat='{}', correctedNet='{}', correctedBru='{}'", vat, net, brutto));
+        double lastVat = parseDoubleSafe(last.getVat());
+        double lastNet = parseDoubleSafe(last.netto);
+        double lastBrutto = parseDoubleSafe(last.getBrutto());
+
+        double newVat = lastVat + diffVat;
+        double newNet = lastNet + diffNetto;
+        double newBrutto = newNet + newVat; // bezpieczne: brutto = net + vat
+
+        last.setVat(String.format(Locale.US, "%.2f", newVat));
+        last.netto = String.format(Locale.US, "%.2f", newNet);
+        last.setBrutto(String.format(Locale.US, "%.2f", newBrutto));
+
+        log.info(String.format("5 extract DZ: correctedVat='%s', correctedNet='%s', correctedBru='%s'",
+                String.format(Locale.US, "%.2f", newVat),
+                String.format(Locale.US, "%.2f", newNet),
+                String.format(Locale.US, "%.2f", newBrutto)));
     }
 
 }
