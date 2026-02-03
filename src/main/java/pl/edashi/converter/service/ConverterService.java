@@ -38,9 +38,8 @@ public class ConverterService {
         this.repository = repository;
         this.structureComparator = new XmlStructureComparator();
     }
-    /**
-     * Obsługa dokumentów DS, KO, DK, KZ, WZ
-     */
+
+
     public Object processSingleDocument(String xml, String sourceFile) throws Exception {
         // 1. parsowanie
         Document doc = load(xml);
@@ -56,12 +55,22 @@ public class ConverterService {
         if (type == null || type.isEmpty()) {
             throw new IllegalArgumentException("Brak atrybutu id w DMS root: " + sourceFile);
         }
+        // Sprawdź, czy parser dla tego typu jest włączony
+        ParserRegistry registry = ParserRegistry.getInstance();
+        String docType = type.trim().toUpperCase();
+        if (!registry.isEnabled(docType)) {
+            log.info(String.format("Pominięto plik %s: typ '%s' nie jest włączony do przetwarzania", sourceFile, docType));
+            // Zwracamy marker, servlet/wywołujący może to wykryć i pominąć dalej bez błędu
+            return new SkippedDocument(docType, "Parser disabled");
+        }
+
+        // Delegacja do parserów
         switch (type) {
         case "DS":
             //log.info("case DS");
             return new DmsParserDS().parse(doc, sourceFile);
         case "DZ":
-        	log.info("case DZ");
+        	//log.info("case DZ");
             return new DmsParserDZ().parse(doc, sourceFile);
 
         case "KO":

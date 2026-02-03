@@ -142,6 +142,73 @@ input { padding: 10px; margin: 10px; }
 		.table tr:nth-child(even) {
 		  background-color: #f9f9f9;
 		}
+		/* Formularz konwertera - dopasowanie wygladu */
+		.conv-form {
+		  max-width: 920px;
+		  margin: 20px auto;
+		  text-align: left;
+		  background: #f8f9fa;
+		  padding: 18px;
+		  border-radius: 10px;
+		  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+		}
+
+		/* Sekcja formularza */
+		.form-section {
+		  margin-bottom: 18px;
+		  display: flex;
+		  flex-direction: column;
+		  gap: 8px;
+		}
+
+		/* Etykieta nad polem */
+		.field-label {
+		  font-size: 16px;
+		  font-weight: 700;
+		  color: #2c3e50;
+		  margin-bottom: 6px;
+		}
+
+		/* Wieksza, bardziej "tabelkowa" lista wyboru */
+		.select-control {
+		  width: 100%;
+		  min-width: 360px;
+		  max-width: 100%;
+		  height: 220px;               /* wieksza wysokosc */
+		  padding: 10px;
+		  font-size: 15px;
+		  border: 1px solid #cfd8dc;
+		  border-radius: 6px;
+		  background: #ffffff;
+		  box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+		  overflow: auto;
+		}
+
+		/* Pomocniczy tekst pod polem */
+		.field-help {
+		  color: #6c757d;
+		  font-size: 13px;
+		}
+
+		/* Przyciski */
+		.form-actions {
+		  display: flex;
+		  gap: 10px;
+		  align-items: center;
+		}
+
+		/* Styl dla wyswietlanych plikow */
+		.selected-files {
+		  color: #333;
+		  font-size: 0.95em;
+		  margin-top: 6px;
+		}
+
+		/* Drobne poprawki responsywne */
+		@media (max-width: 640px) {
+		  .select-control { height: 180px; }
+		  .conv-form { padding: 12px; margin: 12px; }
+		}
 
 		/* Theme classes 
 		.table-green th { background-color: rgb(106, 191, 111); color: white; }

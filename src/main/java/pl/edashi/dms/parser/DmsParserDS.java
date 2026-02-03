@@ -134,7 +134,6 @@ public class DmsParserDS {
         List<DmsKwotaDodatkowa> kwoty66 = extractKwoty66(doc);
         List<DmsPosition> positions = extractPositions(doc, out, kwoty66);
         out.setPositions(positions);
-
         // ============================
         // 5. PŁATNOŚCI (typ 40 + 43)
         // ============================
@@ -282,7 +281,9 @@ public class DmsParserDS {
                 }
 
                 DmsPosition p = new DmsPosition();
-                p.setKwotyDodatkowe(kwoty66);
+             // każda pozycja dostaje własną kopię kwot dodatkowych
+                List<DmsKwotaDodatkowa> localKwoty = new ArrayList<>(kwoty66);
+                p.setKwotyDodatkowe(localKwoty);
                 log.info(String.format("1 kwoty66 p.getKwotyDodatkowe()='%s': typ='%s '", p.getKwotyDodatkowe(), typ));
                 p.type = typ;
                 p.kategoria2 = klas != null ? klas.getAttribute("kod") : "";
@@ -352,7 +353,14 @@ public class DmsParserDS {
              }
 
              if (isRejBlacharka) {
-                 p.kategoria = "ROBOCIZNA-BLACHARSKA";
+                 switch (typ) {
+                 case "03": addIfPositive(localKwoty, wart.getAttribute("netto_zakup"), "SPRZEDAŻ KOSZT","","401-01","310-1",rozs.getAttribute("vin"),""); 
+                 p.kategoria = "SPRZEDAŻ MATERIAŁÓW"; 
+                 p.rodzajSprzedazy = "Towary"; break;
+                 case "04": p.kategoria = "ROBOCIZNA-SERWIS"; p.rodzajSprzedazy = "Usługi"; break;
+                 case "05": p.kategoria = "USŁUGI OBCE-SERWIS"; p.rodzajSprzedazy = "Usługi"; break;
+             }
+                 
              }
              log.info(String.format("4 kategoria='%s': ", p.kategoria));
              if(hasType66 && isRejCzesci) {
@@ -409,22 +417,43 @@ public class DmsParserDS {
         double vatFromPositions = listOut.stream()
                 .mapToDouble(p -> Double.parseDouble(p.vat))
                 .sum();
-        //log.info(String.format("1 extractPositions: baseFromDms='%s':, vatFromDms='%s':, nettoFromPositions='%s': ,vatFromPositions='%s':,bruttoFromPositions='%s': ",baseFromDms, vatFromDms, nettoFromPositions, vatFromPositions, bruttoFromPositions));
+        log.info(String.format("1 extractPositions: baseFromDms='%s':, vatFromDms='%s':, nettoFromPositions='%s': ,vatFromPositions='%s':,bruttoFromPositions='%s': ",baseFromDms, vatFromDms, nettoFromPositions, vatFromPositions, bruttoFromPositions));
 
         double advanceNet = parseDoubleSafe(out.getAdvanceNet());
         double advanceVat = parseDoubleSafe(out.getAdvanceVat());
+        log.info(String.format(Locale.US, "DEBUG advance parsed: advanceNet=%.6f, advanceVat=%.6f", advanceNet, advanceVat));
+        //------------------------------------------------------------------
+     // Jeśli jest zaliczka — dodajemy ją jako osobną pozycję (typ 45)
+        if (Math.abs(advanceNet) > 0.0001 || Math.abs(advanceVat) > 0.0001) {
+            DmsPosition advPos = new DmsPosition();
+            advPos.setOpis("ZALICZKA");
+            // ustawiamy wartości ujemne, żeby odjąć od dokumentu
+            advPos.setNetto(String.format(Locale.US, "%.2f", -advanceNet));
+            advPos.setVat(String.format(Locale.US, "%.2f", -advanceVat));
+            advPos.setBrutto(String.format(Locale.US, "%.2f", -(advanceNet + advanceVat)));
+            // uzupełnij pola, których mapper oczekuje (kategoria/kanal/stawka itp.)
+            advPos.setKategoria("ZALICZKA"); // lub "" jeśli builder filtruje po kategoriach
+            advPos.setKanalKategoria("");
+            advPos.setStawkaVat(""); // jeśli znasz stawkę VAT, wpisz ją
+            try { advPos.setAdvance(true); } catch (Throwable ignored) {}
+            // Dodajemy zaliczkę na koniec listy pozycji
+            listOut.add(advPos);
+            log.info("extractPositions Zaliczka: appended DmsPosition advance -> netto=" + advPos.getNetto() + " vat=" + advPos.getVat() + " brutto=" + advPos.getBrutto());
+        }
+
+        //------------------------------------------------------------------
         double advanceBrutto = advanceNet; //+ advanceVat
         double diffBruttoPosAdv = bruttoFromPositions - (baseFromDms + vatFromDms + advanceBrutto);
-        //log.info(String.format("2 extractPositions: advanceNet='%s': ,advanceVat='%s': ,advanceBrutto='%s':  ,diffBruttoPosAdv='%s': ", advanceNet, advanceVat, advanceBrutto, diffBruttoPosAdv));
-        if (Math.abs(advanceNet) > 0) {//<= 0.10) {
+        log.info(String.format("2 extractPositions: advanceNet='%s': ,advanceVat='%s': ,advanceBrutto='%s':  ,diffBruttoPosAdv='%s': ", advanceNet, advanceVat, advanceBrutto, diffBruttoPosAdv));
+        /*if (Math.abs(advanceNet) > 0) {//<= 0.10) {
             DmsPosition last = listOut.get(listOut.size() - 1);
 
             double netto = parseDoubleSafe(last.netto) - advanceNet;
             double vat   = parseDoubleSafe(last.vat) - advanceVat ;//
-            //log.info(String.format("2a extractPositions: netto='%s': ,vat='%s': ", netto, vat));
+            log.info(String.format("2a extractPositions: netto='%s': ,vat='%s': ", netto, vat));
             last.netto = String.format(Locale.US, "%.2f", netto);
             last.vat   = String.format(Locale.US, "%.2f", vat);
-        }
+        }*/
 
         double nettoAfterAdvance = listOut.stream()
                 .mapToDouble(p -> parseDoubleSafe(p.netto))
@@ -433,11 +462,11 @@ public class DmsParserDS {
         double vatAfterAdvance = listOut.stream()
                 .mapToDouble(p -> parseDoubleSafe(p.vat))
                 .sum();
-        //log.info(String.format("3 extractPositions: nettoAfterAdvance='%s': ,vatAfterAdvance='%s': ", nettoAfterAdvance, vatAfterAdvance));
+        log.info(String.format("3 extractPositions: nettoAfterAdvance='%s': ,vatAfterAdvance='%s': ", nettoAfterAdvance, vatAfterAdvance));
         // Różnica
-        double diffVat = vatFromDms - vatAfterAdvance;//
-        double diffNetto = baseFromDms - nettoAfterAdvance;//
-        //log.info(String.format("4 extractPositions: diffVat='%s': ,diffNetto='%s': ", diffVat, diffNetto));
+        double diffVat = vatFromDms;// - vatAfterAdvance;
+        double diffNetto = baseFromDms;// - nettoAfterAdvance;
+        log.info(String.format("4 extractPositions: diffVat='%s': ,diffNetto='%s': ", diffVat, diffNetto));
         // Jeśli różnica jest minimalna (0.01 lub -0.01)
         boolean hasSmallDiff =
                 (Math.abs(diffVat) > 0.0001 && Math.abs(diffVat) <= 0.10) ||
@@ -456,7 +485,7 @@ public class DmsParserDS {
             last.vat = String.format(Locale.US, "%.2f", vat);
             last.netto = String.format(Locale.US, "%.2f", net);
 
-            //log.info(String.format("5 extractPositions: correctedVat='{}', correctedNet='{}'", vat, net));
+            log.info(String.format("5 extractPositions: correctedVat='{}', correctedNet='{}'", vat, net));
         }
 
         /*if (Math.abs(diffNetto) <= 0.10 && !listOut.isEmpty()) {
@@ -520,6 +549,8 @@ public class DmsParserDS {
 
         String terminPlatn = "";
         String terminPlatnosci = "";
+        double dSumAdvanceNet = 0.0;
+        double dSumAdvanceVat = 0.0;
         for (int i = 0; i < list.getLength(); i++) {
         	Element el = (Element) list.item(i);
             String typ = safeAttr(el, "typ");
@@ -622,8 +653,8 @@ public class DmsParserDS {
          // ZALICZKI (typ 45)
          // ------------------------------
             if ("45".equals(typ)) {
-            	double dSumAdvanceVat = 0;
-            	double dSumAdvanceNet = 0;
+            	//double dSumAdvanceVat = 0;
+            	//double dSumAdvanceNet = 0;
             	String sSumAdvanceVat = "";
             	String sSumAdvanceNet = "";
                 NodeList daneList45 = el.getElementsByTagName("dane");
@@ -639,16 +670,16 @@ public class DmsParserDS {
              String lp = safeAttr(dane, "lp");
              String bruttoStr = safeAttr(wart, "brutto");
              String nettoStr = safeAttr(wart, "netto");
-             //log.info(String.format("1 extractPayments: nettoStr='%s': ,lp='%s': ", nettoStr, lp));
+             log.info(String.format("1 extractPayments: nettoStr='%s': ,lp='%s': ", nettoStr, lp));
              double kw = parseDoubleSafe(bruttoStr);
              if (kw < 0) { out.setKierunek("rozchód"); } else { out.setKierunek("przychód"); }
              // zawsze dodatnia kwota płatności
              bruttoStr = String.format(Locale.US, "%.2f", Math.abs(kw));
-             //log.info(String.format("2 extractPayments: bruttoStr='%s': ,kw='%s': ", bruttoStr, kw));
+             log.info(String.format("2 extractPayments: bruttoStr='%s': ,kw='%s': ", bruttoStr, kw));
              p.setKwota(bruttoStr);
              double kwn = parseDoubleSafe(nettoStr);
              dSumAdvanceNet = dSumAdvanceNet + kwn;
-             //log.info(String.format("3 extractPayments: dSumAdvanceNet='%s': ,kwn='%s': ", dSumAdvanceNet, kwn));
+             log.info(String.format("3 extractPayments: dSumAdvanceNet='%s': ,kwn='%s': ", dSumAdvanceNet, kwn));
              nettoStr = String.format(Locale.US, "%.2f", Math.abs(kwn));
              sSumAdvanceNet = String.format(Locale.US, "%.2f", Math.abs(dSumAdvanceNet));
              String advanceNet = sSumAdvanceNet;
@@ -660,7 +691,7 @@ public class DmsParserDS {
                  double netto  = nettoStr != null && !nettoStr.isEmpty() ? Double.parseDouble(nettoStr) : 0.0;
                  double vatZaliczki = brutto - netto;
                  dSumAdvanceVat = dSumAdvanceVat + vatZaliczki;
-                 //log.info(String.format("3 extractPayments: dSumAdvanceVat='%s': ,vatZaliczki='%s': ", dSumAdvanceVat, vatZaliczki));
+                 log.info(String.format("3 extractPayments: dSumAdvanceVat='%s': ,vatZaliczki='%s': ", dSumAdvanceVat, vatZaliczki));
                  String vatZ = String.format(Locale.US, "%.2f", vatZaliczki);
                  p.setVatZ(vatZ);
                  out.setVatZ(vatZ);
@@ -678,14 +709,15 @@ public class DmsParserDS {
              p.setForma("przelew"); //nie ma kod jak wyżej, może inny dokument np. KZ da info o formie?
              p.setNrBank("");
              p.setKierunek(out.getKierunek());
+
              //log.info("2 extractPayment Kierunek: " + p.getKierunek());
             //listOut.add(p);
          }
             }
-            
         }
         return listOut;
     }
+
     // ------------------------------
     // FISKALIZACJA (typ 94)
     // ------------------------------

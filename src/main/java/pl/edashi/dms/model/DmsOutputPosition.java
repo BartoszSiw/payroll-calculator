@@ -30,6 +30,9 @@ public class DmsOutputPosition {
     private String nettoDlRob;
     private String nettoKoMat;
     private String nettoGwMat;
+    private String lp;
+    private String brutto;
+    private boolean advance = false;
 	private List<DmsKwotaDodatkowa> kwotyDodatkowe = new ArrayList<>();
 
     public DmsOutputPosition() { }
@@ -58,6 +61,9 @@ public class DmsOutputPosition {
 	public String getNettoDlRob() { return nettoDlRob; }
 	public String getNettoKoMat() { return nettoKoMat; }
 	public String getNettoGwMat() { return nettoGwMat; }
+	public String getLp() { return lp; }
+	public String getBrutto() { return brutto; }
+	public boolean isAdvance() { return advance; }
 	public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {
 	    return kwotyDodatkowe;
 	}
@@ -87,9 +93,10 @@ public class DmsOutputPosition {
 	public void setNettoDlRob(String nettoDlRob) { this.nettoDlRob = nettoDlRob != null ? nettoDlRob : "";}
 	public void setNettoKoMat(String nettoKoMat) { this.nettoKoMat = nettoKoMat != null ? nettoKoMat : "";}
 	public void setNettoGwMat(String nettoGwMat) { this.nettoGwMat = nettoGwMat != null ? nettoGwMat : "";}
-	public void setKwotyDodatkowe(List<DmsKwotaDodatkowa> kwotyDodatkowe) {
-	    this.kwotyDodatkowe = kwotyDodatkowe;
-	}
+	public void setKwotyDodatkowe(List<DmsKwotaDodatkowa> kwotyDodatkowe) {this.kwotyDodatkowe = kwotyDodatkowe;}
+	public void setBrutto(String brutto) { this.brutto = safe(brutto); }
+	public void setLp(String lp) { this.lp = safe(lp); }
+	public void setAdvance(boolean advance) { this.advance = advance; }
     // --- Helper ---
     private static String safe(String s) {
         return s == null ? "" : s;

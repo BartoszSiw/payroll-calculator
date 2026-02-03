@@ -65,9 +65,12 @@ public class DmsToDmsMapper {
      // POZYCJE - inicjalizacja listy i mapowanie pozycji
         doc.setPozycje(new ArrayList<>());
         List<DmsPosition> positions = src.getPositions();
-        if (positions != null && !positions.isEmpty()) {
+           if (positions != null && !positions.isEmpty()) {
             for (DmsPosition p : positions) {
                 DmsOutputPosition outPos = new DmsOutputPosition();
+                /*log.info("Mapper START: src.advanceNet=" + src.getAdvanceNet() 
+                + ", src.advanceVat=" + src.getAdvanceVat()
+                + ", src identity=" + System.identityHashCode(src));*/
                 outPos.setKategoria(safe(p.getKategoria()));
                 outPos.setKategoria2(safe(p.getKategoria2()));
                 outPos.setStawkaVat(safe(p.getStawkaVat()));
@@ -91,6 +94,40 @@ public class DmsToDmsMapper {
                 doc.getPozycje().add(outPos);
             }
         }
+     // po zmapowaniu wszystkich DmsPosition na DmsOutputPosition
+        /*log.info("Mapper: before advance mapping, doc.getPozycje().size=" + (doc.getPozycje() == null ? 0 : doc.getPozycje().size()));
+
+        double advNet = parseDoubleSafe(src.getAdvanceNet()); // src to DmsParsedDocument przekazywany do mappera
+        double advVat = parseDoubleSafe(src.getAdvanceVat());
+
+        if (Math.abs(advNet) > 0.0001 || Math.abs(advVat) > 0.0001) {
+            List<DmsOutputPosition> outPositions = doc.getPozycje();
+            if (outPositions == null) {
+                outPositions = new ArrayList<>();
+                doc.setPozycje(outPositions);
+            }
+
+            DmsOutputPosition advOut = new DmsOutputPosition();
+            advOut.setOpis("ZALICZKA");
+            advOut.setKategoria("");
+            advOut.setKanalKategoria("");
+            advOut.setStawkaVat("");
+            advOut.setStatusVat("");
+
+            advOut.setNetto(String.format(Locale.US, "%.2f", -advNet));
+            advOut.setVat(String.format(Locale.US, "%.2f", -advVat));
+            advOut.setBrutto(String.format(Locale.US, "%.2f", -(advNet + advVat)));
+
+            // jeśli builder numeruje lp sam, możesz pominąć setLp
+            advOut.setLp(String.valueOf(outPositions.size() + 1));
+
+            try { advOut.setAdvance(true); } catch (Throwable ignored) {}
+            outPositions.add(advOut);
+
+            log.info("Mapper: appended advance position -> netto=" + advOut.getNetto() + " vat=" + advOut.getVat());
+        }
+
+        log.info("Mapper: after advance mapping, doc.getPozycje().size=" + (doc.getPozycje() == null ? 0 : doc.getPozycje().size()));*/
      // VAT (typ 06)
      // ===============================
      // VAT — DS vs DZ

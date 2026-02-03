@@ -44,6 +44,7 @@ public class DmsPosition {
 	public String nettoGwMat;
 	public String nettoKoszt;
 	public String kodKlasyfikatora;
+	private boolean advance = false;
     public DmsPosition() { }
 
     // --- Gettery ---
@@ -86,6 +87,7 @@ public class DmsPosition {
 	public String getNettoKoszt() { return nettoKoszt; }
 	public String getNettoGwMat() { return nettoGwMat; }
 	public String getKodKlasyfikatora() { return kodKlasyfikatora; }
+	public boolean isAdvance() { return advance; }
 	public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {return kwotyDodatkowe;}
     // --- Settery (null-safe) ---
     public void setType(String type) { this.type = type != null ? type : ""; }
@@ -124,6 +126,8 @@ public class DmsPosition {
 	public void setNettoGwMat(String nettoGwMat) { this.nettoGwMat = nettoGwMat != null ? nettoGwMat : "";}
 	public void setNettoKoszt(String nettoKoszt) { this.nettoKoszt = nettoKoszt!= null ? nettoKoszt : "";}
 	public void setKodKlasyfikatora(String kodKlasyfikatora) { this.kodKlasyfikatora = kodKlasyfikatora!= null ? kodKlasyfikatora : "";}
+
+	public void setAdvance(boolean advance) { this.advance = advance; }
 	public void setKwotyDodatkowe(List<DmsKwotaDodatkowa> list) {this.kwotyDodatkowe = list;}
 
     @Override
@@ -147,4 +151,5 @@ public class DmsPosition {
                 ", kierunek='" + kierunek + '\'' +
                 '}';
     }
+
 }

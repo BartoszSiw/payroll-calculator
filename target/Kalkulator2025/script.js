@@ -145,6 +145,109 @@ function askiAI() {
 	       })
 	       .catch(err => console.error("AI error:", err));
 	   }
+	   
+	   // conv-form.js
+	   // Samodzielny skrypt obsługujący formularz konwertera.
+	   // Wymaga: elementy o id: convForm, xmlFile, selectedFiles, submitBtn.
+	   // Opcjonalnie: atrybut data-enabled na formularzu z CSV włączonych typów (np. "DS,DZ,DK,SL").
+
+	   (function () {
+	     'use strict';
+
+	     function parseEnabled(csv) {
+	       if (!csv) return [];
+	       return csv.split(',').map(s => s.trim()).filter(Boolean);
+	     }
+
+	     function isAnyEnabled(enabledArr, values) {
+	       if (!enabledArr || enabledArr.length === 0) return false;
+	       for (let v of values) {
+	         if (enabledArr.indexOf(v) !== -1) return true;
+	       }
+	       return false;
+	     }
+
+	     function updateFileList(fileInput, selectedFilesEl, submitBtn) {
+	       const files = fileInput.files;
+	       if (!files || files.length === 0) {
+	         selectedFilesEl.textContent = 'Brak wybranych plików.';
+	         submitBtn.disabled = true;
+	         return;
+	       }
+	       submitBtn.disabled = false;
+	       const list = Array.from(files).map(f => {
+	         const sizeKb = (f.size / 1024).toFixed(1);
+	         return `${f.name} (${sizeKb} KB)`;
+	       });
+	       selectedFilesEl.innerHTML = '<strong>Wybrane pliki:</strong><br>' + list.join('<br>');
+	     }
+
+	     function initForm(formId) {
+	       const form = document.getElementById(formId);
+	       if (!form) return;
+
+	       const enabledCsv = form.getAttribute('data-enabled') || '';
+	       const enabledArr = parseEnabled(enabledCsv);
+
+	       // jeśli chcesz dodatkowo ukrywać/wyłączać opcje rejestrów po stronie klienta,
+	       // możesz to zrobić tutaj. Przykład: zablokuj CD/CP/CR jeśli nie są enabled.
+	       const rejestrSelect = form.querySelector('#rejestr');
+	       if (rejestrSelect) {
+	         const need = ['CD', 'CP', 'CR'];
+	         if (!isAnyEnabled(enabledArr, need)) {
+	           // ustaw disabled na opcjach CD/CP/CR lub usuń je
+	           ['CD', 'CP', 'CR'].forEach(v => {
+	             const opt = rejestrSelect.querySelector(`option[value="${v}"]`);
+	             if (opt) opt.disabled = true;
+	           });
+	           // opcjonalnie dodaj informację
+	           const hint = document.createElement('div');
+	           hint.className = 'field-help';
+	           hint.textContent = 'Opcje Z1 tymczasowo wyłączone.';
+	           rejestrSelect.parentNode.appendChild(hint);
+	         }
+	       }
+
+	       const fileInput = form.querySelector('#xmlFile');
+	       const selectedFiles = form.querySelector('#selectedFiles');
+	       const submitBtn = form.querySelector('#submitBtn');
+
+	       if (!fileInput || !selectedFiles || !submitBtn) return;
+
+	       // inicjalizacja stanu
+	       updateFileList(fileInput, selectedFiles, submitBtn);
+
+	       fileInput.addEventListener('change', function () {
+	         updateFileList(fileInput, selectedFiles, submitBtn);
+	       });
+
+	       form.addEventListener('reset', function () {
+	         // po natywnym reset trzeba odczekać chwilę, żeby input się zresetował
+	         setTimeout(function () {
+	           selectedFiles.textContent = '';
+	           submitBtn.disabled = true;
+	         }, 0);
+	       });
+
+	       form.addEventListener('submit', function (e) {
+	         if (!fileInput.files || fileInput.files.length === 0) {
+	           e.preventDefault();
+	           alert('Wybierz przynajmniej jeden plik XML przed konwersją.');
+	         }
+	       });
+	     }
+
+	     // public API (jeśli chcesz inicjalizować ręcznie)
+	     window.ConvForm = {
+	       init: initForm
+	     };
+
+	     // automatyczna inicjalizacja dla id="convForm"
+	     document.addEventListener('DOMContentLoaded', function () {
+	       initForm('convForm');
+	     });
+	   })();
+
 	  /* not use for now: function saveAllEmployees() {
 	       let rows = document.querySelectorAll("#employeesTable tbody tr");
 	       let employees = [];

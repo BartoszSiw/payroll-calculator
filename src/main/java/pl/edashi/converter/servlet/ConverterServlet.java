@@ -7,6 +7,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import pl.edashi.converter.repository.DocumentRepository;
 import pl.edashi.converter.service.ConverterService;
+import pl.edashi.converter.service.ParserRegistry;
+import pl.edashi.converter.service.SkippedDocument;
 import pl.edashi.dms.mapper.DmsToDmsMapper;
 import pl.edashi.dms.model.DmsDocumentOut;
 import pl.edashi.dms.model.DmsParsedContractorList;
@@ -145,10 +147,11 @@ public class ConverterServlet extends HttpServlet {
         String xml = Files.readString(savedFile, StandardCharsets.UTF_8);
         log.info(String.format("fileName='%s'", fileName));
         try {
-        	//log.info(outputName);
-            // 1. Parsowanie dokumentu DMS (DS, KO, DK, SL WZ...)
-            //DmsParsedDocument parsed = converterService.processSingleDocument(xml, fileName);
         	Object parsed = converterService.processSingleDocument(xml, fileName);
+        	if (parsed instanceof SkippedDocument skipped) {
+        	    results.add("Pominięto: " + fileName + " (typ=" + skipped.getType() + ")");
+        	    continue; // przejdź do następnego pliku bez błędu
+        	}
         	//log.info("parsed class = " + (parsed == null ? "null" : parsed.getClass().getName()));
         	log.info(String.format("Parsed object type: %s, file: %s",
         	        parsed.getClass().getSimpleName(), fileName));
@@ -346,6 +349,15 @@ public class ConverterServlet extends HttpServlet {
 		}
 
 		// opcja A: przekazanie do JSP jako atrybut
+		// w servlet/init lub przed forwardem
+		ParserRegistry registry = ParserRegistry.getInstance();
+		Set<String> enabled = registry.enabledTypes(); // np. Set.of("DS","DZ","DK","SL")
+		req.setAttribute("enabledTypes", enabled);
+
+		// opcjonalnie: wygodny string do użycia w JSTL fn:contains
+		String enabledStr = String.join(",", enabled);
+		req.setAttribute("enabledStr", enabledStr);
+		
 		req.setAttribute("relationsHtml", relationsHtml);
         req.setAttribute("results", results);
         req.getRequestDispatcher("converter/converterResult.jsp").forward(req, resp);

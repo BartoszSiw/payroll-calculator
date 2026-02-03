@@ -287,4 +287,8 @@ public class DmsParsedDocument {
         public String getNumer() { return numer; }
         public void setNumer(String n) { this.numer = n; }
     }*/
+	/*public void setAdvancePosition(DmsPosition advancePos) {
+		// TODO Auto-generated method stub
+		
+	}*/
 }
