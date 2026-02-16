@@ -1,23 +1,28 @@
 package pl.edashi.dms.parser;
 
 import org.w3c.dom.*;
+
+import pl.edashi.common.logging.AppLogger;
 import pl.edashi.dms.model.*;
+import pl.edashi.dms.parser.util.DocumentNumberExtractor;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.util.ArrayList;
 import java.util.List;
 
 public class DmsParserKO {
-
+	private final AppLogger log = new AppLogger("Parser KO");
     public DmsParsedDocument parse(Document doc, String fileName) {
 
         DmsParsedDocument out = new DmsParsedDocument();
-
+        out.setDocumentType("KO");
+        out.setSourceFileName(fileName);
         // ============================
         // 1. METADATA
         // ============================
         Element root = doc.getDocumentElement();
-
+        Element document = (Element) doc.getElementsByTagName("document").item(0);
+        Element numer = (Element) document.getElementsByTagName("numer").item(0);
         String genDocId = root.getAttribute("gen_doc_id");
         String id = root.getAttribute("id");
         String trans = root.getAttribute("trans");
@@ -25,7 +30,35 @@ public class DmsParserKO {
         // KO ma tylko jedną sekcję <daty>
         Element daty = (Element) doc.getElementsByTagName("daty").item(0);
         Element warto = (Element) doc.getElementsByTagName("wartosci").item(0);
-
+        log.info("KO dane element = " + numer.getElementsByTagName("numer"));
+        log.info("KO numer count = " + numer.getAttribute("nr"));
+        String nrFromDane = DocumentNumberExtractor.extractNumberFromDane(numer);
+        boolean hasNumberInDane = nrFromDane != null && !nrFromDane.isBlank();
+        if (hasNumberInDane) {
+            out.setReportNumber(DocumentNumberExtractor.normalizeNumber(nrFromDane));
+            if (out.getDocumentType() == null || out.getDocumentType().isBlank()) {
+                out.setDocumentType("KO");
+            }
+        }
+        //boolean found = DocumentNumberExtractor.extractFromGenInfo(root, out, fileName,hasNumberInDane);
+        try {
+            NodeList docList = doc.getElementsByTagName("document");
+            for (int i = 0; i < docList.getLength(); i++) {
+                Element docEl = (Element) docList.item(i);
+                if ("02".equals(docEl.getAttribute("typ"))) {
+                    Element daneEl = firstElementByTag(docEl, "dane");
+                    if (daneEl != null && daneEl.hasAttribute("kasa")) {
+                        String kasa = daneEl.getAttribute("kasa").trim();
+                        String oddzial = daneEl.getAttribute("oddzial").trim();
+                        log.info(String.format("Parser KO kasa='%s ' oddzial='%s '  ", kasa, oddzial));
+                        out.setDaneRejestr(kasa); // upewnij się, że DmsParsedDocument ma setter
+                    	out.setOddzial(oddzial);}
+                    break; // zwykle tylko jeden rekord 02
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Parser KO: nie udało się odczytać kasa: " + ex.getMessage());
+        }
         out.setMetadata(new DocumentMetadata(
                 genDocId,
                 id,
@@ -51,7 +84,7 @@ public class DmsParserKO {
                 Element dane = (Element) el.getElementsByTagName("dane").item(0);
 
                 // numer dokumentu
-                Element numer = (Element) dane.getElementsByTagName("numer").item(0);
+                numer = (Element) dane.getElementsByTagName("numer").item(0);
                 String fullNumber = numer.getTextContent();
                 String nr = numer.getAttribute("nr");
                 String rok = numer.getAttribute("rok");
@@ -71,14 +104,10 @@ public class DmsParserKO {
                 String operatorCode = operator != null ? operator.getAttribute("kod_pracownika") : "";
 
                 // ZAPISUJEMY DO POL DMS (przez settery)
-                out.setAdditionalDescription("KO " + fullNumber);
-                out.setDocumentType("KO");
-                out.setInvoiceNumber("KO " + fullNumber); // jeśli chcesz trzymać w invoiceNumber
+                out.setAdditionalDescription("KO Description" + fullNumber);
+                out.setDocumentType("KO DocumentType");
+                //out.setInvoiceNumber("KO InvoiceNumber" + fullNumber); // jeśli chcesz trzymać w invoiceNumber
                 //out.setNumer(fullNumber);
-
-                // KO nie ma pozycji, VAT, płatności, kontrahenta
-                out.setPositions(new ArrayList<>()); 
-                out.setPayments(new ArrayList<>());
 
                 List<String> notes = new ArrayList<>();
                 if (!operatorName.isEmpty()) {
@@ -89,15 +118,22 @@ public class DmsParserKO {
                 }
                 out.setNotes(notes);
 
-                // VAT pola
-                out.setVatRate("");
-                out.setVatBase("");
-                out.setVatAmount("");
 
                 break;
             }
         }
 
         return out;
+    }
+    private static Element firstElementByTag(Node parent, String tagName) {
+        if (parent == null) return null;
+        NodeList list = null;
+        if (parent instanceof Document) {
+            list = ((Document) parent).getElementsByTagName(tagName);
+        } else if (parent instanceof Element) {
+            list = ((Element) parent).getElementsByTagName(tagName);
+        }
+        if (list == null || list.getLength() == 0) return null;
+        return (Element) list.item(0);
     }
 }

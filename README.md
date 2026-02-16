@@ -13,6 +13,7 @@ DS XML
 → **DmsDocumentOut**  
 → **Builder**  
 → **Optima‑compatible XML**
+Parser wypełnia DmsParsedDocument, mapper mapuje do DmsDocumentOut, builder czyta TYLKO DmsDocumentOut.
 
 🔥 DLACZEGO TERMIN_PLAT jest pusty?
 Bo:

@@ -8,9 +8,11 @@ import pl.edashi.dms.parser.DmsParserDS.DmsKwotaDodatkowa;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
+import java.io.StringWriter;
 import java.util.List;
 import java.util.Set;
 
+import javax.sql.rowset.spi.XmlWriter;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 public class DmsOfflineXmlBuilder implements XmlSectionBuilder {

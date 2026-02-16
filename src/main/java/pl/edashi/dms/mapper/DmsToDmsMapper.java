@@ -94,6 +94,17 @@ public class DmsToDmsMapper {
                 doc.getPozycje().add(outPos);
             }
         }
+           doc.setRapKasa(new ArrayList<>());
+           List<DmsRapKasa> rapKasa = src.getRapKasa();
+              if (rapKasa != null && !rapKasa.isEmpty()) {
+               for (DmsRapKasa k : rapKasa) {
+                   DmsOutputPosition outRk = new DmsOutputPosition();
+                   outRk.setReportNumber(k.getReportNumber());
+                   outRk.setNrRKB(k.getNrRKB());
+                   outRk.setKwota(k.getKwota());
+                   doc.getRapKasa().add(outRk);
+               }
+           }
      // po zmapowaniu wszystkich DmsPosition na DmsOutputPosition
         /*log.info("Mapper: before advance mapping, doc.getPozycje().size=" + (doc.getPozycje() == null ? 0 : doc.getPozycje().size()));
 

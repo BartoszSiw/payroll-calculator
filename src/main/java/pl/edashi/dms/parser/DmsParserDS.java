@@ -289,7 +289,7 @@ public class DmsParserDS {
                 p.kategoria2 = klas != null ? klas.getAttribute("kod") : "";
                 p.kanal = klas != null ? klas.getAttribute("kanal") : "";
                 p.kanalKategoria = (p.kategoria2 != null && !p.kategoria2.isBlank()) ? p.kanal + "-" + p.kategoria2 : "";            
-                p.vin = rozs != null ? rozs.getAttribute("vin") : "";
+                p.vin = rozs != null ? safeAttr(rozs, "vin") : "";
                 p.netto = wart != null ? wart.getAttribute("netto_sprzed") : "";
                 p.nettoZakup = wart != null ? wart.getAttribute("netto_zakup") : "";
                 p.nettoRob = wart != null ? wart.getAttribute("netto_rob") : "";
@@ -304,7 +304,7 @@ public class DmsParserDS {
                     p.vat = "0.00";
                     p.statusVat = "opodatkowana";
                     if (p.netto != null && !p.netto.isBlank()) {
-                        nettoVal = Double.parseDouble(p.netto.replace(",", "."));
+                        nettoVal = parseDoubleSafe(p.netto.replace(",", "."));
                     }
                     String bruttoStr = String.format(Locale.US, "%.2f", nettoVal);
                     p.brutto = bruttoStr;
@@ -316,8 +316,8 @@ public class DmsParserDS {
                     //log.info(String.format("2 hasVat p.statusVat='%s': ", p.statusVat));
                     if (p.netto != null && !p.netto.isBlank()) {
                         try {
-                            double netto = Double.parseDouble(p.netto);
-                            double vat = netto * (Double.parseDouble(vatRate) / 100.0);
+                            double netto = parseDoubleSafe(p.netto);
+                            double vat = netto * (parseDoubleSafe(vatRate) / 100.0);
                             double brutto = netto + vat;
                             p.brutto = String.format(Locale.US, "%.2f", brutto);
                             p.vat = String.format(Locale.US, "%.2f", vat);
@@ -342,11 +342,15 @@ public class DmsParserDS {
              boolean isRejSerwis = readRejestr.equals("100") || readRejestr.equals("101") || readRejestr.equals("102");
              boolean isRejBlacharka = readRejestr.equals("110");
              boolean isRejCzesci = readRejestr.equals("120") || readRejestr.equals("121");
+             boolean isRejCzesciSklep = readRejestr.equals("200");
+             boolean isRejSamochUzyw = readRejestr.equals("070");
+             boolean isRejSamochNowe = readRejestr.equals("001");
 
              // 3) Kategoria zależna od typ + rejestr
              if (isRejSerwis) {
                  switch (typ) {
-                     case "03": p.kategoria = "CZĘŚCI-SERWIS"; break; //p.kontoWn = "502-101";p.kontoMa = "490"; 
+                     case "03": addIfPositive(localKwoty, wart.getAttribute("netto_zakup"), "CZĘŚCI-SERWIS","","","",safeAttr(rozs, "vin"),""); 
+                     p.kategoria = "CZĘŚCI-SERWIS"; break;
                      case "04": p.kategoria = "ROBOCIZNA-SERWIS"; break;
                      case "05": p.kategoria = "USŁUGI OBCE-SERWIS"; break;
                  }
@@ -354,15 +358,46 @@ public class DmsParserDS {
 
              if (isRejBlacharka) {
                  switch (typ) {
-                 case "03": addIfPositive(localKwoty, wart.getAttribute("netto_zakup"), "SPRZEDAŻ KOSZT","","401-01","310-1",rozs.getAttribute("vin"),""); 
-                 p.kategoria = "SPRZEDAŻ MATERIAŁÓW"; 
+                 case "03": addIfPositive(localKwoty, wart.getAttribute("netto_zakup"), "CZĘSCI-BLACHARNIA","","","",safeAttr(rozs, "vin"),""); 
+                 p.kategoria = "CZĘSCI-BLACHARNIA"; 
                  p.rodzajSprzedazy = "Towary"; break;
-                 case "04": p.kategoria = "ROBOCIZNA-SERWIS"; p.rodzajSprzedazy = "Usługi"; break;
-                 case "05": p.kategoria = "USŁUGI OBCE-SERWIS"; p.rodzajSprzedazy = "Usługi"; break;
+                 case "04": p.kategoria = "ROBOCIZNA-BLACHARSKA"; p.rodzajSprzedazy = "Usługi"; break;
+                 case "05": p.kategoria = "USŁUGI OBCE-BLACHARN"; p.rodzajSprzedazy = "Usługi"; break;
              }
                  
              }
-             log.info(String.format("4 kategoria='%s': ", p.kategoria));
+             if (isRejCzesciSklep) {
+            	 log.info(String.format("22 kwoty66 netto_zakup='%s': isRejCzesciSklep='%s '", wart.getAttribute("netto_zakup"), isRejCzesciSklep));
+                 switch (typ) {
+                 case "03": addIfPositive(localKwoty, wart.getAttribute("netto_zakup"), "CZĘSCI-SKLEP","","","",safeAttr(rozs, "vin"),""); 
+                 p.kategoria = "CZĘSCI-SKLEP"; 
+                 p.rodzajSprzedazy = "Towary"; break;
+                 case "04": p.kategoria = "PRZYCHODY"; p.rodzajSprzedazy = "Usługi"; break;
+                 case "05": p.kategoria = "PRZYCHODY"; p.rodzajSprzedazy = "Usługi"; break;
+             }
+                 
+             }
+             if (isRejSamochNowe) {
+                 switch (typ) {
+                 case "03": addIfPositive(localKwoty, wart.getAttribute("netto_zakup"), "TOWARY-SAM.NOWE","","","",safeAttr(rozs, "vin"),""); 
+                 p.kategoria = "TOWARY-SAM.NOWE"; 
+                 p.rodzajSprzedazy = "Towary"; break;
+                 case "04": p.kategoria = "PRZYCHODY"; p.rodzajSprzedazy = "Usługi"; break;
+                 case "05": p.kategoria = "PRZYCHODY"; p.rodzajSprzedazy = "Usługi"; break;
+             }
+                 
+             }
+             if (isRejSamochUzyw) {
+                 switch (typ) {
+                 case "03": addIfPositive(localKwoty, wart.getAttribute("netto_zakup"), "TOWARY-SAM.UŻYWANE","","","",safeAttr(rozs, "vin"),""); 
+                 p.kategoria = "TOWARY-SAM.UŻYWANE"; 
+                 p.rodzajSprzedazy = "Towary"; break;
+                 case "04": p.kategoria = "PRZYCHODY"; p.rodzajSprzedazy = "Usługi"; break;
+                 case "05": p.kategoria = "PRZYCHODY"; p.rodzajSprzedazy = "Usługi"; break;
+             }
+                 
+             }
+             //log.info(String.format("4 kategoria='%s': ", p.kategoria));
              if(hasType66 && isRejCzesci) {
              //p.kategoria = "SPRZEDAŻ MATERIAŁÓW";
              } else if (isRejCzesci){
@@ -415,10 +450,9 @@ public class DmsParserDS {
 
         // Suma VAT z pozycji
         double vatFromPositions = listOut.stream()
-                .mapToDouble(p -> Double.parseDouble(p.vat))
+                .mapToDouble(p -> parseDoubleSafe(p.vat))
                 .sum();
         log.info(String.format("1 extractPositions: baseFromDms='%s':, vatFromDms='%s':, nettoFromPositions='%s': ,vatFromPositions='%s':,bruttoFromPositions='%s': ",baseFromDms, vatFromDms, nettoFromPositions, vatFromPositions, bruttoFromPositions));
-
         double advanceNet = parseDoubleSafe(out.getAdvanceNet());
         double advanceVat = parseDoubleSafe(out.getAdvanceVat());
         log.info(String.format(Locale.US, "DEBUG advance parsed: advanceNet=%.6f, advanceVat=%.6f", advanceNet, advanceVat));
@@ -432,9 +466,10 @@ public class DmsParserDS {
             advPos.setVat(String.format(Locale.US, "%.2f", -advanceVat));
             advPos.setBrutto(String.format(Locale.US, "%.2f", -(advanceNet + advanceVat)));
             // uzupełnij pola, których mapper oczekuje (kategoria/kanal/stawka itp.)
-            advPos.setKategoria("ZALICZKA"); // lub "" jeśli builder filtruje po kategoriach
+            advPos.setKategoria("SPRZEDAŻ ZALICZKA"); // lub "" jeśli builder filtruje po kategoriach
             advPos.setKanalKategoria("");
-            advPos.setStawkaVat(""); // jeśli znasz stawkę VAT, wpisz ją
+            advPos.statusVat = "opodatkowana";
+            advPos.setStawkaVat("23"); // jeśli znasz stawkę VAT, wpisz ją
             try { advPos.setAdvance(true); } catch (Throwable ignored) {}
             // Dodajemy zaliczkę na koniec listy pozycji
             listOut.add(advPos);
@@ -464,8 +499,8 @@ public class DmsParserDS {
                 .sum();
         log.info(String.format("3 extractPositions: nettoAfterAdvance='%s': ,vatAfterAdvance='%s': ", nettoAfterAdvance, vatAfterAdvance));
         // Różnica
-        double diffVat = vatFromDms;// - vatAfterAdvance;
-        double diffNetto = baseFromDms;// - nettoAfterAdvance;
+        double diffVat = vatFromDms - vatAfterAdvance;
+        double diffNetto = baseFromDms - nettoAfterAdvance;;
         log.info(String.format("4 extractPositions: diffVat='%s': ,diffNetto='%s': ", diffVat, diffNetto));
         // Jeśli różnica jest minimalna (0.01 lub -0.01)
         boolean hasSmallDiff =
@@ -476,8 +511,8 @@ public class DmsParserDS {
         if (!listOut.isEmpty() && hasSmallDiff) {
             DmsPosition last = listOut.get(listOut.size() - 1);
 
-            double vat = Double.parseDouble(last.vat);
-            double net = Double.parseDouble(last.netto);
+            double vat = parseDoubleSafe(last.vat);
+            double net = parseDoubleSafe(last.netto);
 
             vat += diffVat;
             net += diffNetto;
@@ -687,8 +722,8 @@ public class DmsParserDS {
 
              // VAT = brutto - netto
              try {
-                 double brutto = bruttoStr != null && !bruttoStr.isEmpty() ? Double.parseDouble(bruttoStr) : 0.0;
-                 double netto  = nettoStr != null && !nettoStr.isEmpty() ? Double.parseDouble(nettoStr) : 0.0;
+                 double brutto = bruttoStr != null && !bruttoStr.isEmpty() ? parseDoubleSafe(bruttoStr) : 0.0;
+                 double netto  = nettoStr != null && !nettoStr.isEmpty() ? parseDoubleSafe(nettoStr) : 0.0;
                  double vatZaliczki = brutto - netto;
                  dSumAdvanceVat = dSumAdvanceVat + vatZaliczki;
                  log.info(String.format("3 extractPayments: dSumAdvanceVat='%s': ,vatZaliczki='%s': ", dSumAdvanceVat, vatZaliczki));
@@ -867,7 +902,7 @@ public class DmsParserDS {
     }
     private void addIfPositive(List<DmsKwotaDodatkowa> list, String valueStr, String category,  String category2, String kontoWn, String kontoMa, String opis, String opis1) {
         double val = parseDoubleSafe(valueStr);
-        if (val > 0) {
+        if (val != 0) {
             DmsKwotaDodatkowa kd = new DmsKwotaDodatkowa();
             kd.kwota = f2(val);
             kd.kategoria = category;

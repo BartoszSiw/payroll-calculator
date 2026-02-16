@@ -99,7 +99,7 @@ public class DocumentRelationAnalyzer {
                 String raw = en.raw.trim();
                 if (!numberFilterPattern.matcher(raw).matches()) continue;
                 String normalized = normalizer.apply(raw);
-                DocumentIndex di = new DocumentIndex(normalized, raw, meta.getDocType(), meta.getSourceFile(), en.id != null ? en.id : meta.getDocumentId());
+                DocumentIndex di = new DocumentIndex(normalized, raw, meta.getDocType(), meta.getSourceFile(), en.id != null ? en.id : meta.getDocumentId(),meta.getTransId());
                 indexByNormalizedNumber.compute(normalized, (k, list) -> {
                     if (list == null) list = Collections.synchronizedList(new ArrayList<>());
                     list.add(di);
@@ -137,7 +137,13 @@ public class DocumentRelationAnalyzer {
           .append(".doclist{font-family:monospace;font-size:0.9em;color:#333}")
           .append("</style></head><body>");
         sb.append("<h2>Powiązania numerów dokumentów</h2>");
-        sb.append("<table><thead><tr><th>Numer (znormalizowany)</th><th>Wystąpienia</th><th>Typy dokumentów</th><th>Pliki / Id</th></tr></thead><tbody>");
+        sb.append("<table><thead><tr>")
+        .append("<th>Numer (znormalizowany)</th>")
+        .append("<th>Wystąpienia</th>")
+        .append("<th>Typy dokumentów</th>")
+        .append("<th>Pliki / Id</th>")
+        .append("<th>Trans</th>")
+        .append("</tr></thead><tbody>");
 
         snapshot.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
@@ -160,11 +166,18 @@ public class DocumentRelationAnalyzer {
                     String files = list.stream()
                             .map(di -> di.getDocType() + " : " + di.getSourceFile() + (di.getDocumentId() != null ? " [" + di.getDocumentId() + "]" : ""))
                             .collect(Collectors.joining("<br/>"));
+                    String transValues = list.stream()
+                            .map(DocumentIndex::getTransId)
+                            .filter(Objects::nonNull)
+                            .filter(s -> !s.isBlank())
+                            .distinct()
+                            .collect(Collectors.joining("<br/>"));
                     sb.append("<tr>");
                     sb.append("<td>").append(escapeHtml(displayNumber)).append("</td>");
                     sb.append("<td>").append(occurrences).append("</td>");
                     sb.append("<td>").append(escapeHtml(types)).append("</td>");
                     sb.append("<td class='doclist'>").append(files).append("</td>");
+                    sb.append("<td class='doclist'>").append(escapeHtml(transValues)).append("</td>");
                     sb.append("</tr>");
                 });
 
@@ -197,16 +210,19 @@ public class DocumentRelationAnalyzer {
         private final String docType;
         private final String sourceFile;
         private final String documentId;
+        private final String transId;
 
-        public DocumentMeta(String docType, String sourceFile, String documentId) {
+        public DocumentMeta(String docType, String sourceFile, String documentId, String transId) {
             this.docType = docType;
             this.sourceFile = sourceFile;
             this.documentId = documentId;
+            this.transId = transId;
         }
 
         public String getDocType() { return docType; }
         public String getSourceFile() { return sourceFile; }
         public String getDocumentId() { return documentId; }
+        public String getTransId() { return transId; }
         
     }
     // Prosty model indeksu (możesz przenieść do osobnego pliku)
@@ -216,13 +232,15 @@ public class DocumentRelationAnalyzer {
         private final String docType;
         private final String sourceFile;
         private final String documentId;
-
-        public DocumentIndex(String normalizedNumber, String rawNumber, String docType, String sourceFile, String documentId) {
+        private final String transId;
+        
+        public DocumentIndex(String normalizedNumber, String rawNumber, String docType, String sourceFile, String documentId, String transId) {
             this.normalizedNumber = normalizedNumber;
             this.rawNumber = rawNumber;
             this.docType = docType;
             this.sourceFile = sourceFile;
             this.documentId = documentId;
+            this.transId = transId;
         }
 
         public String getNormalizedNumber() { return normalizedNumber; }
@@ -230,6 +248,7 @@ public class DocumentRelationAnalyzer {
         public String getDocType() { return docType; }
         public String getSourceFile() { return sourceFile; }
         public String getDocumentId() { return documentId; }
+        public String getTransId() { return transId; }
     }
 }
 

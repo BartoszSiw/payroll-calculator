@@ -4,6 +4,7 @@ import java.util.List;
 import pl.edashi.common.logging.AppLogger;
 public class DmsDocumentOut {
 	private List<DmsOutputPosition> pozycje = new ArrayList<>();
+	private List<DmsOutputPosition> rapKasa = new ArrayList<>();
 	// META
     private String idZrodla = "";
     private String modul = "";
@@ -16,6 +17,8 @@ public class DmsDocumentOut {
     private String dataObowiazkuPodatkowego = "";
     private String dataPrawaOdliczenia = "";
     private String termin = "";
+    private String dataOtwarcia = "";
+    private String dataZamkniecia = "";
     //private String terminPlatnosci = "";
 	private String numer = "";
     private String korekta = "";
@@ -49,6 +52,8 @@ public class DmsDocumentOut {
     private String uwzgProp = "";
     private String dokumentFiskalny = "";
     private String dokumentDetaliczny = "";
+    private String reportNumber = "";
+    private String nrRKB = "";
     // POZYCJE - pozycje są w liście pozycje (DmsOutputPosition)
  
     // PŁATNOŚCI
@@ -97,6 +102,13 @@ public class DmsDocumentOut {
     public void setUwagi(List<String> uwagi) {
         this.uwagi = uwagi != null ? uwagi : new ArrayList<>();
     }
+    public List<DmsOutputPosition> getRapKasa() {
+        if (rapKasa == null) rapKasa = new ArrayList<>();
+        return rapKasa;
+    }
+    public void setRapKasa(List<DmsOutputPosition> rapKasa) {
+        this.rapKasa = rapKasa != null ? rapKasa : new ArrayList<>();
+    }
 
     // --- Gettery i settery dla pól prostych ---
     public String getIdZrodla() { return idZrodla; }
@@ -143,6 +155,13 @@ public class DmsDocumentOut {
 
     public String getKorektaNumer() { return korektaNumer; }
     public void setKorektaNumer(String korektaNumer) { this.korektaNumer = safe(korektaNumer); }
+    
+    public String getDataOtwarcia() { return dataOtwarcia; }
+    public void setDataOtwarcia(String dataOtwarcia) { this.dataOtwarcia = safe(dataOtwarcia); }
+    
+    public String getDataZamkniecia() { return dataZamkniecia; }
+    public void setDataZamkniecia(String dataZamkniecia) { this.dataZamkniecia = safe(dataZamkniecia); }
+    
     
     //public String getTerminPlatnosci() {return terminPlatnosci;}
 	//public void setTerminPlatnosci(String terminPlatnosci) {this.terminPlatnosci = terminPlatnosci;}
@@ -224,6 +243,12 @@ public class DmsDocumentOut {
 
     public String getDokumentDetaliczny() { return dokumentDetaliczny; }
     public void setDokumentDetaliczny(String dokumentDetaliczny) { this.dokumentDetaliczny = safe(dokumentDetaliczny); }
+    
+    public String getReportNumber() { return reportNumber; }
+    public void setReportNumber(String reportNumber) { this.reportNumber = safe(reportNumber); }
+    
+    public String getNrRKB() { return nrRKB; }
+    public void setNrRKB(String nrRKB) { this.nrRKB = safe(nrRKB); }
     // --- VAT ---
     public String getVatRate() { return vatRate; }
     public void setVatRate(String vatRate) { this.vatRate = safe(vatRate); }
@@ -289,6 +314,5 @@ public class DmsDocumentOut {
 		// TODO Auto-generated method stub
 		return null;
 	}
-
 }
 

@@ -25,7 +25,7 @@
     <div class="form-section">
         <label for="rejestr" class="field-label"><strong>Wybierz rejestry</strong></label>
         <select name="rejestr" id="rejestr" multiple size="8" class="select-control" aria-describedby="rejestrHelp">
-            <option value="">Wszystkie</option>
+            <option value="" selected>Wszystkie</option>
             <%-- <% if (en001) { --%>
                 <!-- <option value="001">001</option> -->
             <%-- <% } --%> 

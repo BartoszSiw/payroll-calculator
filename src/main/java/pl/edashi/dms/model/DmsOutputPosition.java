@@ -11,6 +11,8 @@ public class DmsOutputPosition {
     private String kategoria = "";
     private String stawkaVat = "";
     private String netto = "";
+    private String kwota = "";
+    private String kwotaRk = "";
     private String nettoRob = "";
     private String nettoZakup = "";
     private String vat = "";
@@ -32,6 +34,10 @@ public class DmsOutputPosition {
     private String nettoGwMat;
     private String lp;
     private String brutto;
+    private String nrRKB="";
+    private String numer = "";
+    private String reportDate = "";
+    private String reportNumber = "";
     private boolean advance = false;
 	private List<DmsKwotaDodatkowa> kwotyDodatkowe = new ArrayList<>();
 
@@ -43,6 +49,8 @@ public class DmsOutputPosition {
     public String getStawkaVat() { return stawkaVat; }
 	public String getStatusVat() {return statusVat;	}
     public String getNetto() { return netto; }
+    public String getKwota() { return kwota; }
+    public String getKwotaRk() { return kwotaRk; }
     public String getNettoRob() { return nettoRob; }
     public String getNettoZakup() { return nettoZakup; }
     public String getVat() { return vat; }
@@ -63,6 +71,10 @@ public class DmsOutputPosition {
 	public String getNettoGwMat() { return nettoGwMat; }
 	public String getLp() { return lp; }
 	public String getBrutto() { return brutto; }
+	public String getNrRKB() { return nrRKB; }
+    public String getNumer() { return numer; }
+    public String getReportDate() {return reportDate; }
+    public String getReportNumber() { return reportNumber; }
 	public boolean isAdvance() { return advance; }
 	public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {
 	    return kwotyDodatkowe;
@@ -75,6 +87,8 @@ public class DmsOutputPosition {
     public void setStawkaVat(String stawkaVat) { this.stawkaVat = safe(stawkaVat); }
     public void setStatusVat(String statusVat) { this.statusVat = safe(statusVat); }
     public void setNetto(String netto) { this.netto = safe(netto); }
+    public void setKwota(String kwota) { this.kwota = safe(kwota); }
+    public void setKwotaRk(String kwotaRk) { this.kwotaRk = safe(kwotaRk); }
     public void setNettoRob(String nettoRob) { this.nettoRob = safe(nettoRob); }
     public void setNettoZakup(String nettoZakup) { this.nettoZakup = safe(nettoZakup); }
     public void setVat(String vat) { this.vat = safe(vat); }
@@ -96,6 +110,10 @@ public class DmsOutputPosition {
 	public void setKwotyDodatkowe(List<DmsKwotaDodatkowa> kwotyDodatkowe) {this.kwotyDodatkowe = kwotyDodatkowe;}
 	public void setBrutto(String brutto) { this.brutto = safe(brutto); }
 	public void setLp(String lp) { this.lp = safe(lp); }
+	public void setNrRKB(String nrRKB) { this.nrRKB = safe(nrRKB); }
+    public void setNumer(String numer) { this.numer = safe(numer); }
+    public void setReportDate(String reportDate) {this.reportDate = safe(reportDate) ;}
+    public void setReportNumber(String reportNumber) { this.reportNumber = safe(reportNumber); }
 	public void setAdvance(boolean advance) { this.advance = advance; }
     // --- Helper ---
     private static String safe(String s) {

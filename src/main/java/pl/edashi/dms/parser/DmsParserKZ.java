@@ -1,28 +1,61 @@
 package pl.edashi.dms.parser;
 
 import org.w3c.dom.*;
+
+import pl.edashi.common.logging.AppLogger;
 import pl.edashi.dms.model.*;
+import pl.edashi.dms.parser.util.DocumentNumberExtractor;
 
 import java.util.ArrayList;
 
 public class DmsParserKZ {
-
+	private final AppLogger log = new AppLogger("Parser KZ");
     public DmsParsedDocument parse(Document doc, String fileName) {
 
         DmsParsedDocument out = new DmsParsedDocument();
-
+        out.setDocumentType("KZ");
+        out.setSourceFileName(fileName);
         // ============================
         // 1. METADATA
         // ============================
         Element root = doc.getDocumentElement();
-
+        Element document = (Element) doc.getElementsByTagName("document").item(0);
+        Element numer = (Element) document.getElementsByTagName("numer").item(0);
         String genDocId = root.getAttribute("gen_doc_id");
         String id = root.getAttribute("id");
         String trans = root.getAttribute("trans");
 
         Element daty = (Element) doc.getElementsByTagName("daty").item(0);
         Element warto = (Element) doc.getElementsByTagName("wartosci").item(0);
-
+        log.info("KZ dane element = " + numer.getElementsByTagName("numer"));
+        log.info("KZ numer count = " + numer.getAttribute("nr"));
+        String nrFromDane = DocumentNumberExtractor.extractNumberFromDane(numer);
+        boolean hasNumberInDane = nrFromDane != null && !nrFromDane.isBlank();
+        if (hasNumberInDane) {
+            out.setReportNumber(DocumentNumberExtractor.normalizeNumber(nrFromDane));
+            if (out.getDocumentType() == null || out.getDocumentType().isBlank()) {
+                out.setDocumentType("KZ");
+            }
+        }
+        boolean found = DocumentNumberExtractor.extractFromGenInfo(root, out, fileName,hasNumberInDane);
+        try {
+            NodeList docList = doc.getElementsByTagName("document");
+            for (int i = 0; i < docList.getLength(); i++) {
+                Element docEl = (Element) docList.item(i);
+                if ("02".equals(docEl.getAttribute("typ"))) {
+                    Element daneEl = firstElementByTag(docEl, "dane");
+                    if (daneEl != null && daneEl.hasAttribute("kasa")) {
+                        String kasa = daneEl.getAttribute("kasa").trim();
+                        String oddzial = daneEl.getAttribute("oddzial").trim();
+                        log.info(String.format("Parser KZ kasa='%s ' oddzial='%s '  ", kasa, oddzial));
+                        out.setDaneRejestr(kasa); // upewnij się, że DmsParsedDocument ma setter
+                    	out.setOddzial(oddzial);}
+                    break; // zwykle tylko jeden rekord 02
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Parser KZ: nie udało się odczytać kasa: " + ex.getMessage());
+        }
         out.setMetadata(new DocumentMetadata(
                 genDocId,
                 id,
@@ -43,8 +76,8 @@ public class DmsParserKZ {
         if (dane02 != null) {
 
             // numer dokumentu
-            Element numer = (Element) dane02.getElementsByTagName("numer").item(0);
-            String fullNumber = numer != null ? numer.getTextContent() : "";
+            //Element numer = (Element) dane02.getElementsByTagName("numer").item(0);
+            //String fullNumber = numer != null ? numer.getTextContent() : "";
 
             // operator
             Element operator = (Element) dane02.getElementsByTagName("operatorzy").item(0);
@@ -65,9 +98,9 @@ public class DmsParserKZ {
             }
 
             // dodatkowy opis
-            out.setAdditionalDescription("KZ " + fullNumber);
+            //out.setAdditionalDescription("KZ " + fullNumber);
             //out.setNumer(fullNumber);
-            out.setInvoiceNumber("KZ " + fullNumber); // jeśli chcesz trzymać w invoiceNumber
+            //out.setInvoiceNumber("KZ " + fullNumber); // jeśli chcesz trzymać w invoiceNumber
             out.setDocumentType("KZ");
         }
 
@@ -88,5 +121,16 @@ public class DmsParserKZ {
         out.setFiscalDate("");
 
         return out;
+    }
+    private static Element firstElementByTag(Node parent, String tagName) {
+        if (parent == null) return null;
+        NodeList list = null;
+        if (parent instanceof Document) {
+            list = ((Document) parent).getElementsByTagName(tagName);
+        } else if (parent instanceof Element) {
+            list = ((Element) parent).getElementsByTagName(tagName);
+        }
+        if (list == null || list.getLength() == 0) return null;
+        return (Element) list.item(0);
     }
 }

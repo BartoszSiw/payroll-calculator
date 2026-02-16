@@ -17,16 +17,18 @@ public class ParserRegistry {
         ready.put("SL", true);
 
         // Parsery w trakcie pracy / wyłączone
-        ready.put("DK", false);
+        ready.put("DK", true);
         ready.put("DM", false);
         ready.put("PO", false);
         ready.put("PZ", false);
-        ready.put("RD", false);
-        ready.put("RO", false);
+        ready.put("DW", true);
+        ready.put("RD", true);
+        ready.put("RO", true);
+        ready.put("RZ", true);
         ready.put("ZC", false);
         ready.put("WZ", false);
-        ready.put("KO", false);
-        ready.put("KZ", false);
+        ready.put("KO", true);
+        ready.put("KZ", true);
     }
 
     public static ParserRegistry getInstance() {

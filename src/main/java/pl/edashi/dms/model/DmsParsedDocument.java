@@ -9,6 +9,7 @@ public class DmsParsedDocument {
     private Contractor contractor;
     private List<DmsPosition> positions = new ArrayList<>();
     private List<DmsPayment> payments = new ArrayList<>();
+    private List<DmsRapKasa> rapKasa = new ArrayList<>();
     private List<String> notes = new ArrayList<>();
     private List<DmsVatEntry> vatEntries = new ArrayList<>();
 	public List<DmsNetBruEntry> netBruEntries = new ArrayList<>();
@@ -31,10 +32,15 @@ public class DmsParsedDocument {
     private String vatZ = "";
     private String advanceNet = "";
     private String advanceVat = "";
+    private String kwotaRk = "";
     
     private String fiscalNumber = "";
+    private String reportNumber = "";
     private String fiscalDevice = "";
     private String fiscalDate = "";
+    private String reportDate = "";
+    private String dataOtwarcia = "";
+    private String dataZamkniecia = "";
     private String additionalDescription = "";
     private String invoiceNumber = "";
     private String invoiceShortNumber = "";
@@ -51,6 +57,7 @@ public class DmsParsedDocument {
     private String terminPlatnosci = "";
     private String kasa = "";
     private String dzial = "";
+    private String transId = "";
     //private String vin = "";
 
     // dodatkowe pola pomocnicze
@@ -121,6 +128,8 @@ public class DmsParsedDocument {
 	public void setUwzglProp(String uwzglProp) {
         this.uwzglProp = uwzglProp;	
 	}
+	public void setReportDate(String reportDate) {this.reportDate = reportDate != null ? reportDate : "";}
+    public void setReportNumber(String reportNumber) {this.reportNumber = reportNumber; }
     public void setDaneRejestr(String daneRejestr) { this.daneRejestr = daneRejestr == null ? "" : daneRejestr.trim(); }
     public void setOddzial(String oddzial) { this.oddzial = oddzial == null ? "" : oddzial.trim(); }
     public void setHasVatDocument(boolean hasVatDocument) { this.hasVatDocument = hasVatDocument; }
@@ -131,7 +140,11 @@ public class DmsParsedDocument {
 	public void setKorektaNumer(String korektaNumer) {this.korektaNumer = korektaNumer;	}
 	public void setTerminPlatnosci(String terminPlatnosci) { this.terminPlatnosci = terminPlatnosci;}
 	public void setKasa(String kasa) { this.kasa = kasa;}
+	public void setKwotaRk(String kwotaRk) { this.kwotaRk = kwotaRk;}
 	public void setDzial(String dzial) { this.dzial = dzial;}
+	public void setTransId(String transId) { this.transId = transId;}
+    public void setDataOtwarcia(String dataOtwarcia) { this.dataOtwarcia = safe(dataOtwarcia); }
+    public void setDataZamkniecia(String dataZamkniecia) { this.dataZamkniecia = safe(dataZamkniecia); }
 	//public void setVin(String vin) {this.vin  = vin ;}
     // --- Gettery ---
     public DocumentMetadata getMetadata() {
@@ -197,6 +210,10 @@ public class DmsParsedDocument {
     public String getInvoiceShortNumber() {
         return invoiceShortNumber;
     }
+    
+    public String getReportNumber() {
+        return reportNumber;
+    }
 
     public String getSourceFileName() {
         return sourceFileName;
@@ -208,7 +225,7 @@ public class DmsParsedDocument {
 	public String getTypDocAnalizer() {
 		return typDocAnalizer;
 	}
-
+    public String getReportDate() {return reportDate; }
     public String getDaneRejestr() { return daneRejestr; }
     public String getOddzial() { return oddzial; }
     public boolean isHasVatDocument() { return hasVatDocument; }
@@ -220,7 +237,11 @@ public class DmsParsedDocument {
     public String getKorektaNumer() {return korektaNumer;}
     public String getTerminPlatnosci() {return terminPlatnosci;}
     public String getKasa() {return kasa;}
+    public String getKwotaRk() {return kwotaRk;}
     public String getDzial() {return dzial;}
+	public String getTransId() {return transId;}
+    public String getDataOtwarcia() { return dataOtwarcia; }  
+    public String getDataZamkniecia() { return dataZamkniecia; }
     //public String getVin() {return vin;}
     // --- Utility ---
 
@@ -267,6 +288,16 @@ public class DmsParsedDocument {
     public void setNotes(List<String> notes) {
         this.notes = notes != null ? notes : new ArrayList<>();
     }
+    public List<DmsRapKasa> getRapKasa() {
+        if (rapKasa == null) {
+            rapKasa = new ArrayList<>();
+        }
+        return rapKasa;
+    }
+
+    public void setRapKasa(List<DmsRapKasa> rapKasa) {
+        this.rapKasa = rapKasa != null ? rapKasa : new ArrayList<>();
+    }
     public static class DmsVatEntry {
         public String stawka;
         public String podstawa;
@@ -276,6 +307,10 @@ public class DmsParsedDocument {
     	public String base;
         public String netto;
         public String brutto;
+    }
+    // --- Helper ---
+    private static String safe(String s) {
+        return s == null ? "" : s;
     }
     /*public class DmsPositionDS {
         private String klasyfikacja;
@@ -291,4 +326,5 @@ public class DmsParsedDocument {
 		// TODO Auto-generated method stub
 		
 	}*/
+
 }
