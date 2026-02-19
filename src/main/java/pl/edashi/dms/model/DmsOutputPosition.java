@@ -38,6 +38,8 @@ public class DmsOutputPosition {
     private String numer = "";
     private String reportDate = "";
     private String reportNumber = "";
+    private String reportNumberPos = "";
+    private String dowodNumber = "";
     private boolean advance = false;
 	private List<DmsKwotaDodatkowa> kwotyDodatkowe = new ArrayList<>();
 
@@ -75,7 +77,9 @@ public class DmsOutputPosition {
     public String getNumer() { return numer; }
     public String getReportDate() {return reportDate; }
     public String getReportNumber() { return reportNumber; }
-	public boolean isAdvance() { return advance; }
+    public String getReportNumberPos() { return reportNumberPos; }
+    public String getDowodNumber () { return dowodNumber; }
+   	public boolean isAdvance() { return advance; }
 	public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {
 	    return kwotyDodatkowe;
 	}
@@ -114,7 +118,9 @@ public class DmsOutputPosition {
     public void setNumer(String numer) { this.numer = safe(numer); }
     public void setReportDate(String reportDate) {this.reportDate = safe(reportDate) ;}
     public void setReportNumber(String reportNumber) { this.reportNumber = safe(reportNumber); }
+    public void setReportNumberPos(String reportNumberPos) { this.reportNumberPos = safe(reportNumberPos); }
 	public void setAdvance(boolean advance) { this.advance = advance; }
+	public void setDowodNumber(String dowodNumber) {this.dowodNumber = safe(dowodNumber); }
     // --- Helper ---
     private static String safe(String s) {
         return s == null ? "" : s;

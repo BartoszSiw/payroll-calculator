@@ -20,7 +20,11 @@ public class DmsRapKasa {
 	public String lp;
 	public String nrKonta;
 	public String kwota = "";
+	public String kwotaRk = "";
 	public String reportNumber = "";
+	public String reportNumberPos = "";
+	public String dowodNumber = "";
+	public String nrDokumentu = "";
     public DmsRapKasa() { }
 
     // --- Gettery ---
@@ -34,7 +38,9 @@ public class DmsRapKasa {
     public String getDecsription() { return description; }
     public String getOpis() { return opis; }
 	public String getNumer() { return numer; }
+	public String getNrDokumentu() { return nrDokumentu; }
 	public String getReportNumber() { return reportNumber; }
+	public String getReportNumberPos() { return reportNumberPos; }
 	public String getNrRKB() { return nrRKB; }
 	public String getKodVat() { return kodVat; }
 	public String getOpis1() { return opis1; };
@@ -42,6 +48,8 @@ public class DmsRapKasa {
 	public String getKierunek() { return kierunek; }
 	public String getLp() { return lp; }
 	public String getKwota() { return kwota; }
+	public String getKwotaRk() { return kwotaRk; }
+	public String getDowodNumber() { return dowodNumber;}
 	//public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {return kwotyDodatkowe;}
     // --- Settery (null-safe) ---
     public void setType(String type) { this.type = type != null ? type : ""; }
@@ -52,6 +60,7 @@ public class DmsRapKasa {
 	public void setOpis(String opis) { this.opis = opis != null ? opis : ""; }
 	public void setNumer(String numer) { this.numer = numer != null ? numer : ""; }
 	public void setReportNumber(String reportNumber) { this.reportNumber = reportNumber != null ? reportNumber : ""; }
+	public void setReportNumberPos(String reportNumberPos) { this.reportNumberPos = reportNumberPos != null ? reportNumberPos : ""; }
 	public void setNrRKB(String nrRKB) { this.nrRKB = nrRKB != null ? nrRKB : ""; }
 	public void setKodVat(String kodVat) {this.kodVat = kodVat != null ? kodVat: ""; }
 	public void setOpis1(String opis1) { this.opis1 = opis1 != null ? opis1: "";}
@@ -59,18 +68,18 @@ public class DmsRapKasa {
 	public void setKierunek(String kierunek) { this.kierunek = kierunek != null ? kierunek : ""; }
 	public void setLp(String lp) { this.lp = lp != null ? lp : ""; }
 	public void setKwota(String kwota) { this.kwota = kwota != null ? kwota : ""; }
+	public void setKwotaRk(String kwotaRk) { this.kwotaRk = kwotaRk != null ? kwotaRk : ""; }
+	public void setDowodNumber(String dowodNumber) {this.dowodNumber = dowodNumber; }
+	public void setNrDokumentu(String nrDokumentu) { this.nrDokumentu = nrDokumentu != null ? nrDokumentu : ""; }
 	//public void setKwotyDodatkowe(List<DmsKwotaDodatkowa> list) {this.kwotyDodatkowe = list;}
 	
     @Override
     public String toString() {
-        return "DmsPosition{" +
-                "type='" + type + '\'' +
-                ", kategoria='" + kategoria + '\'' +
-                ", netto='" + netto + '\'' +
-                ", kanal='" + kanal + '\'' +
-                ", description='" + description + '\'' +
-                ", opis='" + opis + '\'' +
-                ", nrKonta='" + nrKonta + '\'' +
+        return "DmsRapKasa{" +
+        		"reportNumber='" + reportNumber + '\'' +
+                "reportNumberPos='" + reportNumberPos + '\'' +
+                ", kwota='" + kwota + '\'' +
+                ", nrRKB='" + nrRKB + '\'' +
                 ", kierunek='" + kierunek + '\'' +
                 '}';
     }

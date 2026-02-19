@@ -24,20 +24,19 @@ public class DmsParserKZ {
         String genDocId = root.getAttribute("gen_doc_id");
         String id = root.getAttribute("id");
         String trans = root.getAttribute("trans");
-
+        if (numer == null) {
+            //log.info("KO DEBUG: element <numer> NOT FOUND in document element for file=" + fileName);
+        } else {
+            String rawText = numer.getTextContent();
+            String attrNr = numer.getAttribute("nr");
+            String attrRok = numer.getAttribute("rok");
+            String attrKodDok = numer.getAttribute("kod_dok");
+            String normalized = DocumentNumberExtractor.normalizeNumber(rawText); 
+            out.setReportNumber(normalized);
+            //log.info("KO DEBUG: <numer> found rawText='" + rawText + "' nrAttr='" + attrNr+ "' rokAttr='" + attrRok + "' kod_dok='" + attrKodDok + "' file=" + fileName);
+        }
         Element daty = (Element) doc.getElementsByTagName("daty").item(0);
         Element warto = (Element) doc.getElementsByTagName("wartosci").item(0);
-        log.info("KZ dane element = " + numer.getElementsByTagName("numer"));
-        log.info("KZ numer count = " + numer.getAttribute("nr"));
-        String nrFromDane = DocumentNumberExtractor.extractNumberFromDane(numer);
-        boolean hasNumberInDane = nrFromDane != null && !nrFromDane.isBlank();
-        if (hasNumberInDane) {
-            out.setReportNumber(DocumentNumberExtractor.normalizeNumber(nrFromDane));
-            if (out.getDocumentType() == null || out.getDocumentType().isBlank()) {
-                out.setDocumentType("KZ");
-            }
-        }
-        boolean found = DocumentNumberExtractor.extractFromGenInfo(root, out, fileName,hasNumberInDane);
         try {
             NodeList docList = doc.getElementsByTagName("document");
             for (int i = 0; i < docList.getLength(); i++) {

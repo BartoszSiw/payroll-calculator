@@ -247,7 +247,16 @@ function askiAI() {
 	       initForm('convForm');
 	     });
 	   })();
+	   //przycisk wyboru plików xml
+const bigBtn = document.getElementById('bigFileBtn');
+const fileInput = document.getElementById('xmlFile');
 
+	   bigBtn.addEventListener('keydown', (e) => {
+	     if (e.key === 'Enter' || e.key === ' ') {
+	       e.preventDefault();
+	       fileInput.click();
+	     }
+	   });
 	  /* not use for now: function saveAllEmployees() {
 	       let rows = document.querySelectorAll("#employeesTable tbody tr");
 	       let employees = [];

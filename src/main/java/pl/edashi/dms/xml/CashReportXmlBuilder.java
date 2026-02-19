@@ -10,8 +10,10 @@ import org.w3c.dom.Element;
 import pl.edashi.dms.model.DmsDocumentOut;
 import pl.edashi.dms.model.DmsOutputPosition;
 import pl.edashi.dms.model.DmsRapKasa;
+import pl.edashi.dms.parser.util.DocumentNumberExtractor;
 
 public class CashReportXmlBuilder implements XmlSectionBuilder {
+	private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(CashReportXmlBuilder.class);
 	 private static final String NS = "http://www.comarch.pl/cdn/optima/offline";
 	 private final DmsDocumentOut doc;
 
@@ -45,19 +47,33 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	        rejSekcja.appendChild(rk);
 	     // META
 	        rk.appendChild(makeCdata(docXml, "ID_ZRODLA", ""));//safe(doc.getIdZrodla())
-	        rk.appendChild(makeCdata(docXml, "RACHUNEK", ""));
+	        rk.appendChild(makeCdata(docXml, "RACHUNEK", "1"));
 	        rk.appendChild(makeCdata(docXml, "RACHUNEK_ID", ""));
 	        rk.appendChild(makeCdata(docXml, "DATA_OTWARCIA", safe(doc.getDataOtwarcia())));
 	        rk.appendChild(makeCdata(docXml, "DATA_ZAMKNIECIA", safe(doc.getDataZamkniecia())));
-	        rk.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU", "RKB"));
+	        rk.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU", "RK"));
 	        rk.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU_ID", ""));
-	        rk.appendChild(makeCdata(docXml, "NUMER", safe(doc.getReportNumber())));
+	        rk.appendChild(makeCdata(docXml, "NUMER", "RK/"+safe(doc.getReportNumber())));
 	        rk.appendChild(makeCdata(docXml, "NUMERATOR_NUMER_NR", safe(doc.getNrRKB())));
-	        rk.appendChild(makeCdata(docXml, "NUMER_OBCY", safe(doc.getNrRKB())));
+	        rk.appendChild(makeCdata(docXml, "NUMER_OBCY", ""));
 	        // ZAPISY_KB
+	        LOG.info("CashReportXmlBuilder: doc.reportNumber='" + doc.getReportNumber()
+	        + "' doc.reportNumberPos='" + doc.getReportNumberPos()
+	        + "' rapKasa.size=" + (doc.getRapKasa()==null?0:doc.getRapKasa().size()));
+
+	    if (doc.getRapKasa() != null) {
+	        int i = 0;
+	        for (DmsOutputPosition p : doc.getRapKasa()) {
+	            LOG.info(String.format("  rap[%d]: reportNumber='%s' reportNumberPos='%s' nrRKB='%s' kwota='%s' kierunek='%s' opis='%s'",
+	                i++,
+	                p.getReportNumber(), p.getReportNumberPos(), p.getNrRKB(),
+	                p.getKwotaRk(), p.getKierunek(), p.getOpis()));
+	        }
+	    }
 	        Element rapKasa = docXml.createElementNS(NS, "ZAPISY_KB");
 	        rk.appendChild(rapKasa);
-	        // 
+	        LOG.info(String.format("rapKasa='%s ' getReportNumber='%s '", rapKasa, safe(doc.getReportNumberPos())));
+	        // ZAPIS_KB
 	        if (doc.getRapKasa() != null) {
 	        	int lp = 1;
 	        for (DmsOutputPosition k : doc.getRapKasa()) {
@@ -67,10 +83,12 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
     	        rap.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU_ZAPISU", ""));
     	        rap.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU_ZAPISU_ID", ""));
     	        rap.appendChild(makeCdata(docXml, "DATA_DOK", safe(doc.getDataWystawienia())));
-    	        rap.appendChild(makeCdata(docXml, "NUMER_ZAPISU", safe(k.getNrRKB())));
+    	        rap.appendChild(makeCdata(docXml, "NUMER_ZAPISU", safe(k.getDowodNumber())));
     	        rap.appendChild(makeCdata(docXml, "NUMERATOR_REJESTR", safe(k.getNrRKB())));
     	        rap.appendChild(makeCdata(docXml, "NUMERATOR_NUMER_NR_ZAPISU", safe(k.getNrRKB())));
     	        rap.appendChild(makeCdata(docXml, "NUMER_OBCY_ZAPISU", safe(k.getNumer())));
+    	        rap.appendChild(makeCdata(docXml, "KIERUNEK", safe(k.getKierunek())));
+    	        rap.appendChild(makeCdata(docXml, "KWOTA", safe(k.getKwotaRk())));
     	        /*rap.appendChild(makeCdata(docXml, "LP", safe(k.lp)));
     	        rap.appendChild(makeCdata(docXml, "TYP", safe(k.typ)));
     	        rap.appendChild(makeCdata(docXml, "KWOTA", safe(k.kwota)));

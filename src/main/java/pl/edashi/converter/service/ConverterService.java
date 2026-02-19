@@ -146,7 +146,7 @@ public class ConverterService {
 
         		        return out;
         		    }
-        		    	if ("DK".equals(type)) {
+        		    	if ("DK".equals(type) || "RD".equals(type)) {
         		    	    addIfNotBlank(out, doc.getInvoiceShortNumber(), doc.getSourceFileName());
         		    	    addIfNotBlank(out, doc.getInvoiceNumber(), doc.getSourceFileName());
         		    	    if (doc.getPositions() != null) {
@@ -198,6 +198,4 @@ public class ConverterService {
             out.add(new ExtractedNumber(nr.trim(), id));
         }
     }
-
-
 }

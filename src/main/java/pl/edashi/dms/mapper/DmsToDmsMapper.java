@@ -19,6 +19,7 @@ public class DmsToDmsMapper {
         doc.setDocumentType(srcType);
         doc.setDocumentWewne(srcWewne);
         doc.setRejestr(src.getDaneRejestr());
+        doc.setNrKsef(safe(src.getNrKsef()));
         if (doc.getRejestr() != null) {
             String mapped = mapDaneRejestr(doc.getRejestr());
             doc.setRejestr(mapped);
@@ -27,19 +28,24 @@ public class DmsToDmsMapper {
         DocumentMetadata meta = src.getMetadata();
         String date = meta != null ? safe(meta.getDate()) : "";
         String dateSale = meta != null ? safe(meta.getDateSale()) : "";
-        String dateoOperation = meta != null ? safe(meta.getDateOperation()) : "";
+        String dateOperation = meta != null ? safe(meta.getDateOperation()) : "";
         String walutaWarto = meta != null ? safe(meta.getWaluta()) : "";
         doc.setDataWystawienia(date);
         doc.setDataSprzedazy(dateSale);
         doc.setTermin(date);
-        doc.setDataOperacji(dateoOperation);
+        doc.setDataOperacji(dateOperation);
         doc.setDataWplywu(date);
-        doc.setDataObowiazkuPodatkowego(date);
+        doc.setDataObowiazkuPodatkowego(dateSale);
         doc.setDataPrawaOdliczenia(date);
         doc.setWaluta(walutaWarto);
         // NUMER
         doc.setInvoiceNumber(safe(src.getInvoiceNumber()));
         doc.setInvoiceShortNumber(safe(src.getInvoiceShortNumber()));
+        doc.setReportNumber(safe(src.getReportNumber()));
+        doc.setNrRKB(safe(src.getNrRKB()));
+        doc.setReportNumberPos(safe(src.getReportNumberPos()));
+        doc.setDataOtwarcia(date);
+        doc.setDataZamkniecia(date);
         Contractor c = src.getContractor();
         if (c != null) {
             doc.setPodmiotId(safe(c.getId()));
@@ -56,7 +62,6 @@ public class DmsToDmsMapper {
             doc.setUlica(safe(c.getStreet()));
             doc.setNrDomu(safe(c.getHouseNumber()));
             doc.setCzynny(safe(c.getCzynny()));
-            
         }
         doc.setDokumentFiskalny(safe(src.getDokumentFiskalny())); 
         doc.setDokumentDetaliczny(safe(src.getDokumentDetaliczny()));
@@ -94,15 +99,22 @@ public class DmsToDmsMapper {
                 doc.getPozycje().add(outPos);
             }
         }
+          
+
            doc.setRapKasa(new ArrayList<>());
            List<DmsRapKasa> rapKasa = src.getRapKasa();
               if (rapKasa != null && !rapKasa.isEmpty()) {
                for (DmsRapKasa k : rapKasa) {
                    DmsOutputPosition outRk = new DmsOutputPosition();
                    outRk.setReportNumber(k.getReportNumber());
+                   outRk.setReportNumberPos(k.getReportNumberPos());
                    outRk.setNrRKB(k.getNrRKB());
-                   outRk.setKwota(k.getKwota());
+                   outRk.setKwotaRk(k.getKwotaRk());
+                   outRk.setKierunek(k.getKierunek());
+                   outRk.setDowodNumber(k.getDowodNumber());
                    doc.getRapKasa().add(outRk);
+                   log.info("Mapper: ustawiono doc.reportNumberPos = '" + doc.getReportNumberPos() + "'");
+                   log.info(String.format("reportNr='%s ' nrRKB='%s ' kierunek='%s '", k.getReportNumber(), k.getNrRKB(), k.getKierunek()));
                }
            }
      // po zmapowaniu wszystkich DmsPosition na DmsOutputPosition
@@ -194,7 +206,7 @@ public class DmsToDmsMapper {
     private String mapDaneRejestr(String wyr) {
         return switch (wyr) {
             case "EX" -> "ZK";
-            case "PA" -> "Z4";
+            case "PA" -> "Z3";
             case "CD", "CP", "CR" -> "Z1";
             case "CC" -> "ZAKUP";
             case "001" -> "001";
@@ -227,5 +239,4 @@ public class DmsToDmsMapper {
             return 0.0;
         }
     }
-
 }

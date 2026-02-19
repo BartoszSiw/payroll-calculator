@@ -53,7 +53,9 @@ public class DmsDocumentOut {
     private String dokumentFiskalny = "";
     private String dokumentDetaliczny = "";
     private String reportNumber = "";
+    private String reportNumberPos = "";
     private String nrRKB = "";
+    //private String dowodNumber = "";
     // POZYCJE - pozycje są w liście pozycje (DmsOutputPosition)
  
     // PŁATNOŚCI
@@ -162,7 +164,8 @@ public class DmsDocumentOut {
     public String getDataZamkniecia() { return dataZamkniecia; }
     public void setDataZamkniecia(String dataZamkniecia) { this.dataZamkniecia = safe(dataZamkniecia); }
     
-    
+    //public String getDowodNumber () { return dowodNumber; }
+    //public void setDowodNumber(String dowodNumber) {this.dowodNumber = safe(dowodNumber); }
     //public String getTerminPlatnosci() {return terminPlatnosci;}
 	//public void setTerminPlatnosci(String terminPlatnosci) {this.terminPlatnosci = terminPlatnosci;}
 
@@ -246,6 +249,9 @@ public class DmsDocumentOut {
     
     public String getReportNumber() { return reportNumber; }
     public void setReportNumber(String reportNumber) { this.reportNumber = safe(reportNumber); }
+    
+    public String getReportNumberPos() { return reportNumberPos; }
+    public void setReportNumberPos(String reportNumberPos) { this.reportNumberPos = safe(reportNumberPos); }
     
     public String getNrRKB() { return nrRKB; }
     public void setNrRKB(String nrRKB) { this.nrRKB = safe(nrRKB); }

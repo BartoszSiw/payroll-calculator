@@ -11,8 +11,7 @@ import pl.edashi.common.logging.AppLogger;
 import pl.edashi.dms.model.DmsParsedDocument;
 
 public final class DocumentNumberExtractor {
-	private static final org.slf4j.Logger LOG =
-	        org.slf4j.LoggerFactory.getLogger(DocumentNumberExtractor.class);
+	private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(DocumentNumberExtractor.class);
     private DocumentNumberExtractor() { /* util */ }
     // --- istniejące metody (extractFromGenInfo, extractForParserType, looksLikeDocumentNumber, extractMainNumberFromDmsElement)
     // (pozostawiasz je bez zmian) ...
@@ -62,15 +61,15 @@ public final class DocumentNumberExtractor {
         if (dms == null || out == null) return false;
 
         String info = dms.getAttribute("gen_info");
-        LOG.info(info);        
+        //LOG.info(info);        
         //LOG.info("[Extractor][gen_info] raw gen_info='" + info + "'");
         if (info == null || info.isBlank()) {
             // fallback: spróbuj ustawić typ z atrybutu DMS id lub z nazwy pliku
             String dmsId = dms.getAttribute("id");
-          LOG.info("[NrExtractor][gen_info] 1 dmsId='" + dmsId + "'");
+          //LOG.info("[NrExtractor][gen_info] 1 dmsId='" + dmsId + "'");
             if (dmsId != null && !dmsId.isBlank()) out.setDocumentType(dmsId.trim().toUpperCase());
             else if (sourceFileName != null) {
-            	LOG.info("[NrExtractor][gen_info] 2 dmsId='" + dmsId + "'");
+            	//LOG.info("[NrExtractor][gen_info] 2 dmsId='" + dmsId + "'");
                 if (sourceFileName.startsWith("DS")) out.setDocumentType("DS");
                 else if (sourceFileName.startsWith("DK")) out.setDocumentType("DK");
             }
@@ -88,16 +87,16 @@ public final class DocumentNumberExtractor {
             String maybeType = parts[4];
             String maybeNumber = parts[5];
             maybeNumber = stripLeadingIndex(maybeNumber);
-            LOG.info("[Extractor][gen_info] maybeType='" + maybeType + "'");
-            LOG.info("[Extractor][gen_info] maybeNumber='" + maybeNumber + "'");
+            //LOG.info("[Extractor][gen_info] maybeType='" + maybeType + "'");
+            //LOG.info("[Extractor][gen_info] maybeNumber='" + maybeNumber + "'");
             if (maybeType != null && !maybeType.isBlank()) {
-            	LOG.info("[Extractor][gen_info] SET documentType='" + maybeType + "'");
+            	//LOG.info("[Extractor][gen_info] SET documentType='" + maybeType + "'");
                 out.setDocumentType(maybeType.trim().toUpperCase());
             }
 
          // 1) Główna ścieżka: numer w expected position
             if (!hasNumberInDane && maybeNumber != null && !maybeNumber.isBlank()) {
-                LOG.info("[Extractor][gen_info] FOUND number='" + maybeNumber + "'");
+                //LOG.info("[Extractor][gen_info] FOUND number='" + maybeNumber + "'");
                 String normalized = normalizeNumber(maybeNumber);
                 out.setInvoiceNumber(maybeNumber.trim());
                 out.setInvoiceShortNumber(normalized);
@@ -106,7 +105,7 @@ public final class DocumentNumberExtractor {
 
             // 2) Alternatywna ścieżka: regex / looksLikeDocumentNumber
             if (!hasNumberInDane && maybeNumber != null && !maybeNumber.isBlank() && looksLikeDocumentNumber(maybeNumber)) {
-                LOG.info("[Extractor][gen_info] FOUND number='" + maybeNumber + "'");
+                //LOG.info("[Extractor][gen_info] FOUND number='" + maybeNumber + "'");
                 String normalized = normalizeNumber(maybeNumber);
                 out.setInvoiceNumber(maybeNumber.trim());
                 out.setInvoiceShortNumber(normalized);
@@ -244,10 +243,10 @@ public final class DocumentNumberExtractor {
         Element numer = firstElementByTag(dane, "numer");
         if (numer != null) {
             String attrNr = safeAttr(numer, "nr");
-            LOG.info("extractNumber attrNr: " + attrNr);
+            //LOG.info("extractNumber attrNr: " + attrNr);
             if (attrNr != null && !attrNr.isBlank()) return attrNr.trim();
             String txt = numer.getTextContent();
-            LOG.info("extractNumber txt: " + txt);
+            //LOG.info("extractNumber txt: " + txt);
             if (txt != null && !txt.isBlank()) return txt.trim();
         }
 
@@ -259,12 +258,12 @@ public final class DocumentNumberExtractor {
 
             // 🔥 najpierw atrybut nr=
             String attrNr = safeAttr(anyNum, "nr");
-            LOG.info("extractNumber AnyAttrNr: " + attrNr);
+            //LOG.info("extractNumber AnyAttrNr: " + attrNr);
             if (attrNr != null && !attrNr.isBlank()) return attrNr.trim();
 
             // dopiero potem tekst
             String txt = anyNum.getTextContent();
-            LOG.info("extractNumber AnyTxt: " + txt);
+            //LOG.info("extractNumber AnyTxt: " + txt);
             if (txt != null && !txt.isBlank()) return txt.trim();
         }
 

@@ -37,9 +37,12 @@ public class DmsParserDZ {
             log.error("ParserDZ: brak root w pliku: " + fileName);
             return out;
         }*/
-        log.info("DEBUG dane element = " + numer.getElementsByTagName("numer"));
-        log.info("DEBUG numer count = " + numer.getAttribute("nr"));
-
+        //log.info("DEBUG dane element = " + numer.getElementsByTagName("numer"));
+        //log.info("DEBUG numer count = " + numer.getAttribute("nr"));
+        //log.info("DEBUG numer count = " + numer.getAttribute("nr_ksef"));
+        String nrKsef = numer.getAttribute("nr_ksef");
+        out.setNrKsef(nrKsef);
+        //log.info("DEBUG numer count = " + nrKsef);
      // 1) Najpierw numer z <numer nr="...">
         String nrFromDane = DocumentNumberExtractor.extractNumberFromDane(numer);
         boolean hasNumberInDane = nrFromDane != null && !nrFromDane.isBlank();
@@ -562,8 +565,19 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
             String category = p.kategoria2;
             if(p.kategoria2.isBlank()) {category="INNE USŁUGI 550";}
             switch (category) {
+            case "2  " : p.rodzajKoszty = "Inne";p.kategoria2="KOSZTY FINANSOWE";break; 
+            case "3  " : p.rodzajKoszty = "Inne";p.kategoria2="ODSETKI IN MINUS";break;
+            case "4  " : p.rodzajKoszty = "Inne";p.kategoria2="KOSZTY EKSPLOATACJI SAMOCHODÓW";break;
+            case "6  " : p.rodzajKoszty = "Inne";p.kategoria2="GAZ";break; 
+            case "7  " : p.rodzajKoszty = "Inne";p.kategoria2="KARY/ODSZKODOWANIA";break; 
+            case "10 " : p.rodzajKoszty = "Inne";p.kategoria2="PALIWO DO SAMOCHODÓW OSOBOWYCH";break; 
+            case "11 " : p.rodzajKoszty = "Inne";p.kategoria2="POCZĘSTUNEK DLA KLIENTA";break; 
+            case "13 " : p.rodzajKoszty = "Inne";p.kategoria2="MATERIAŁY GOSPODARCZE";break; 
+            case "17 " : p.rodzajKoszty = "Inne";p.kategoria2="ŚRODKI CZYSTOŚCI";break; 
+            //case "13 " : p.rodzajKoszty = "Inne";p.kategoria2="PALIWO 100%";break; 
+            //case "17 " : p.rodzajKoszty = "Inne";p.kategoria2="PALIWO 50%";break;
             case "KAWA/HERBATA": p.rodzajKoszty = "Inne";break; 
-            case "INNE USŁUGI 550": p.rodzajKoszty = "Usługi";p.kategoria2="INNE USŁUGI 550";break;//Wartości: Materiały handlowe tutaj w typ 03
+            case "MATERIAŁY": p.rodzajKoszty = "Towary";p.kategoria2="MATERIAŁY";break;//Wartości: Materiały handlowe tutaj w typ 03
         }
             log.info("[DZ][POS] idx=" + j + " rawKategoria2=" + rawK);
 

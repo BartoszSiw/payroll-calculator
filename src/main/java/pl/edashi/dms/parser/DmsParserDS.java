@@ -294,7 +294,7 @@ public class DmsParserDS {
                 p.nettoZakup = wart != null ? wart.getAttribute("netto_zakup") : "";
                 p.nettoRob = wart != null ? wart.getAttribute("netto_rob") : "";
                 if (p.netto == null) p.netto = "";
-                log.info(String.format("extractPositions p.vin='%s ': p.netto='%s ' p.nettoKoMat='%s ' p.nettoGwMar='%s ' typ='%s '", p.vin, p.netto, p.nettoKoMat, p.nettoGwMat, typ));
+                //log.info(String.format("extractPositions p.vin='%s ': p.netto='%s ' p.nettoKoMat='%s ' p.nettoGwMar='%s ' typ='%s '", p.vin, p.netto, p.nettoKoMat, p.nettoGwMat, typ));
                 boolean hasVat = out.isHasVatDocument();
                 String vatRate = out.getVatRate();
                 //log.info(LogUtils.safeFormat("hasVat=%s, vatRate=%s", hasVat, vatRate));

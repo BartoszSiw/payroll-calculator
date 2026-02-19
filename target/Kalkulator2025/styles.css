@@ -209,7 +209,35 @@ input { padding: 10px; margin: 10px; }
 		  .select-control { height: 180px; }
 		  .conv-form { padding: 12px; margin: 12px; }
 		}
+		.visually-hidden { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
+		.big-file-button {
+		  display: inline-flex;
+		  align-items: center;
+		  gap: 10px;
+		  padding: 14px 22px;
+		  font-size: 16px;
+		  font-weight: 600;
+		  color: #fff;
+		  background: linear-gradient(180deg,#2b7cff,#1a5fe0);
+		  border-radius: 8px;
+		  border: none;
+		  cursor: pointer;
+		  box-shadow: 0 6px 18px rgba(26,95,224,0.18);
+		  transition: transform .08s ease, box-shadow .12s ease;
+		  user-select: none;
+		}
+		.big-file-button:focus,
+		.big-file-button:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(26,95,224,0.22); outline: none; }
+		.big-file-button:active { transform: translateY(0); box-shadow: 0 6px 18px rgba(26,95,224,0.18); }
+
+		.btn-icon { font-size: 20px; line-height: 1; }
+		.btn-text { display: inline-block; white-space: nowrap; }
+
+		/* Responsive: mniejsze ekrany */
+		@media (max-width: 480px) {
+		  .big-file-button { padding: 12px 16px; font-size: 15px; border-radius: 6px; }
+		}
 		/* Theme classes 
 		.table-green th { background-color: rgb(106, 191, 111); color: white; }
 		.table-blue th { background-color: rgb(52, 152, 219); color: white; }

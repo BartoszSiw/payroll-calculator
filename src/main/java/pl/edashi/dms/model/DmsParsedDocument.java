@@ -33,14 +33,16 @@ public class DmsParsedDocument {
     private String advanceNet = "";
     private String advanceVat = "";
     private String kwotaRk = "";
-    
+    private String nrKsef = "";
     private String fiscalNumber = "";
     private String reportNumber = "";
+    private String reportNumberPos = "";
     private String fiscalDevice = "";
     private String fiscalDate = "";
     private String reportDate = "";
     private String dataOtwarcia = "";
     private String dataZamkniecia = "";
+    private String nrRKB = "";
     private String additionalDescription = "";
     private String invoiceNumber = "";
     private String invoiceShortNumber = "";
@@ -58,6 +60,7 @@ public class DmsParsedDocument {
     private String kasa = "";
     private String dzial = "";
     private String transId = "";
+    private String dowodNumber = "";
     //private String vin = "";
 
     // dodatkowe pola pomocnicze
@@ -68,6 +71,7 @@ public class DmsParsedDocument {
     public DmsParsedDocument() { }
     // --- Settery używane przez parsery ---
 
+    public void setNrKsef(String nrKsef) {this.nrKsef = nrKsef; }
     public void setMetadata(DocumentMetadata metadata) {
         this.metadata = metadata;
     }
@@ -130,6 +134,8 @@ public class DmsParsedDocument {
 	}
 	public void setReportDate(String reportDate) {this.reportDate = reportDate != null ? reportDate : "";}
     public void setReportNumber(String reportNumber) {this.reportNumber = reportNumber; }
+    public void setNrRKB(String nrRKB) {this.nrRKB = nrRKB; }
+    public void setReportNumberPos(String reportNumberPos) {this.reportNumberPos = reportNumberPos; }
     public void setDaneRejestr(String daneRejestr) { this.daneRejestr = daneRejestr == null ? "" : daneRejestr.trim(); }
     public void setOddzial(String oddzial) { this.oddzial = oddzial == null ? "" : oddzial.trim(); }
     public void setHasVatDocument(boolean hasVatDocument) { this.hasVatDocument = hasVatDocument; }
@@ -145,8 +151,12 @@ public class DmsParsedDocument {
 	public void setTransId(String transId) { this.transId = transId;}
     public void setDataOtwarcia(String dataOtwarcia) { this.dataOtwarcia = safe(dataOtwarcia); }
     public void setDataZamkniecia(String dataZamkniecia) { this.dataZamkniecia = safe(dataZamkniecia); }
+	public void setDowodNumber(String dowodNumber) {this.dowodNumber = safe(dowodNumber); }
 	//public void setVin(String vin) {this.vin  = vin ;}
     // --- Gettery ---
+    public String getNrKsef() {
+        return nrKsef;
+    }
     public DocumentMetadata getMetadata() {
         return metadata;
     }
@@ -214,6 +224,14 @@ public class DmsParsedDocument {
     public String getReportNumber() {
         return reportNumber;
     }
+    
+    public String getNrRKB() {
+        return nrRKB;
+    }
+    
+    public String getReportNumberPos() {
+        return reportNumberPos;
+    }
 
     public String getSourceFileName() {
         return sourceFileName;
@@ -242,6 +260,7 @@ public class DmsParsedDocument {
 	public String getTransId() {return transId;}
     public String getDataOtwarcia() { return dataOtwarcia; }  
     public String getDataZamkniecia() { return dataZamkniecia; }
+    public String getDowodNumber() { return dowodNumber;}
     //public String getVin() {return vin;}
     // --- Utility ---
 
@@ -326,5 +345,4 @@ public class DmsParsedDocument {
 		// TODO Auto-generated method stub
 		
 	}*/
-
 }

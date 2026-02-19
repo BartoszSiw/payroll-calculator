@@ -214,14 +214,14 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
                 plat.appendChild(make(docXml, "FORMA_PLATNOSCI_PLAT", safe(p.getForma())));
                 plat.appendChild(make(docXml, "FORMA_PLATNOSCI_ID_PLAT", ""));
                 plat.appendChild(make(docXml, "KWOTA_PLAT", safe(p.getKwota())));
-                plat.appendChild(make(docXml, "WALUTA_PLAT", "PLN"));
+                plat.appendChild(make(docXml, "WALUTA_PLAT", ""));
                 plat.appendChild(make(docXml, "KURS_WALUTY_PLAT", "NBP"));
                 plat.appendChild(make(docXml, "NOTOWANIE_WALUTY_ILE_PLAT", "1"));
                 plat.appendChild(make(docXml, "NOTOWANIE_WALUTY_ZA_ILE_PLAT", "1"));
                 plat.appendChild(make(docXml, "KWOTA_PLN_PLAT", safe(p.getKwota())));
                 plat.appendChild(make(docXml, "KIERUNEK", safe(p.getKierunek())));
                 plat.appendChild(make(docXml, "PODLEGA_ROZLICZENIU", "tak"));
-                plat.appendChild(make(docXml, "KONTO", safe(p.getNrBank())));
+                plat.appendChild(make(docXml, "KONTO", ""));
                 plat.appendChild(make(docXml, "NIE_NALICZAJ_ODSETEK", "Nie"));
                 plat.appendChild(make(docXml, "PRZELEW_SEPA", "Nie"));
                 plat.appendChild(make(docXml, "DATA_KURSU_PLAT", safe(p.getTermin())));

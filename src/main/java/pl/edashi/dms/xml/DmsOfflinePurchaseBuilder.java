@@ -121,6 +121,9 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         rz.appendChild(makeCdata(docXml, "JPK_FA", "Nie"));
         rz.appendChild(makeCdata(docXml, "MPP", safe(doc.getMpp() != null ? doc.getMpp() : "Nie")));
         rz.appendChild(makeCdata(docXml, "NR_KSEF", safe(doc.getNrKsef())));
+        if (doc.getNrKsef() != null && !doc.getNrKsef().isEmpty()) {
+        	rz.appendChild(makeCdata(docXml, "KSEF_DATA_PRZYJECIA", safe(doc.getDataWystawienia())));
+        }
         rz.appendChild(makeCdata(docXml, "DODATKOWY_OPIS", safe(doc.getDodatkowyOpis())));
 
         // POZYCJE
@@ -179,19 +182,19 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
                 Element plat = docXml.createElementNS(NS, "PLATNOSC");
                 platnosci.appendChild(plat);
 
-                plat.appendChild(makeCdata(docXml, "ID_ZRODLA_PLAT", safe(p.getIdZrodla() != null ? p.getIdZrodla() : doc.getIdZrodla())));
+                plat.appendChild(makeCdata(docXml, "ID_ZRODLA_PLAT", ""));// safe(p.getIdZrodla() != null ? p.getIdZrodla() : doc.getIdZrodla())));
                 plat.appendChild(makeCdata(docXml, "TERMIN_PLAT", safe(p.getTermin())));
                 plat.appendChild(makeCdata(docXml, "FORMA_PLATNOSCI_PLAT", safe(p.getForma())));
-                plat.appendChild(makeCdata(docXml, "FORMA_PLATNOSCI_ID_PLAT", safe(p.getFormaId())));
+                plat.appendChild(makeCdata(docXml, "FORMA_PLATNOSCI_ID_PLAT", ""));//safe(p.getFormaId())
                 plat.appendChild(makeCdata(docXml, "KWOTA_PLAT", formatAmount(p.getKwota())));
-                plat.appendChild(makeCdata(docXml, "WALUTA_PLAT", "PLN"));
+                plat.appendChild(makeCdata(docXml, "WALUTA_PLAT", ""));
                 plat.appendChild(makeCdata(docXml, "KURS_WALUTY_PLAT", "NBP"));
                 plat.appendChild(makeCdata(docXml, "NOTOWANIE_WALUTY_ILE_PLAT", "1"));
                 plat.appendChild(makeCdata(docXml, "NOTOWANIE_WALUTY_ZA_ILE_PLAT", "1"));
                 plat.appendChild(makeCdata(docXml, "KWOTA_PLN_PLAT", formatAmount(p.getKwota())));
                 plat.appendChild(makeCdata(docXml, "KIERUNEK", safe(p.getKierunek())));
                 plat.appendChild(makeCdata(docXml, "PODLEGA_ROZLICZENIU", safe(p.getPodlegaRozliczeniu() != null ? p.getPodlegaRozliczeniu() : "tak")));
-                plat.appendChild(makeCdata(docXml, "KONTO", safe(p.getNrBank())));
+                plat.appendChild(makeCdata(docXml, "KONTO", ""));
                 plat.appendChild(makeCdata(docXml, "NIE_NALICZAJ_ODSETEK", "Nie"));
                 plat.appendChild(makeCdata(docXml, "PRZELEW_SEPA", "Nie"));
                 plat.appendChild(makeCdata(docXml, "DATA_KURSU_PLAT", safe(p.getTermin())));

@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import pl.edashi.converter.repository.DocumentRepository;
+import pl.edashi.converter.service.CashReportAssembler;
 import pl.edashi.converter.service.ConverterService;
 import pl.edashi.converter.service.ParserRegistry;
 import pl.edashi.converter.service.SkippedDocument;
@@ -13,7 +14,6 @@ import pl.edashi.dms.mapper.DmsToDmsMapper;
 import pl.edashi.dms.model.DmsDocumentOut;
 import pl.edashi.dms.model.DmsParsedContractorList;
 import pl.edashi.dms.model.DmsParsedDocument;
-import pl.edashi.dms.model.DmsPosition;
 import pl.edashi.dms.xml.CashReportXmlBuilder;
 import pl.edashi.dms.xml.DmsOfflinePurchaseBuilder;
 import pl.edashi.dms.xml.DmsOfflineXmlBuilder;
@@ -27,7 +27,9 @@ import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
@@ -55,7 +57,7 @@ public class ConverterServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-    	log.info("1 Odebrano żądanie konwersji wielu plików XML");
+    	//log.info("1 Odebrano żądanie konwersji wielu plików XML");
     	DiskFileItemFactory factory = DiskFileItemFactory.builder().get();
     JakartaServletFileUpload upload = new JakartaServletFileUpload(factory);
         upload.setFileCountMax(-1);
@@ -64,7 +66,7 @@ public class ConverterServlet extends HttpServlet {
         List<FileItem> items;
         try {
             items = upload.parseRequest(req);
-            log.info("Upload: items count = " + (items == null ? 0 : items.size()));
+            //log.info("Upload: items count = " + (items == null ? 0 : items.size()));
             for (FileItem it : items) {
             }
         } catch (Exception e) {
@@ -84,23 +86,23 @@ public class ConverterServlet extends HttpServlet {
             String name = item.getFieldName();
             String value = item.getString(StandardCharsets.UTF_8).trim();
             value = value == null ? "" : value.trim();
-            log.info(String.format("Selected name: %s", name.toUpperCase()));
-            log.info(String.format("Selected rejestr value: %s", value.toUpperCase()));
+            //log.info(String.format("Selected name: %s", name.toUpperCase()));
+            //log.info(String.format("Selected rejestr value: %s", value.toUpperCase()));
             if ("rejestr".equals(name)) {
                 if (!value.isEmpty()) {
                 	filtrRejestry.add(value.toUpperCase());
-                    log.info(String.format("Selected rejestr value: %s", value.toUpperCase()));
+                    //log.info(String.format("Selected rejestr value: %s", value.toUpperCase()));
                 } else {
-                    log.info("Selected rejestr value is empty (treated as all)");
+                    //log.info("Selected rejestr value is empty (treated as all)");
                 }
             } else if ("oddzial".equals(name)) {
             	filtrOddzial = value.isBlank() ? "01" : value;
-                log.info(String.format("Selected oddzial='%s'", filtrOddzial));
+                //log.info(String.format("Selected oddzial='%s'", filtrOddzial));
             } else {
             	log.debug(String.format("Ignored form field: %s", name));
             }
         }
-        log.info(String.format("Collected rejestry: %s", filtrRejestry.isEmpty() ? "ALL" : filtrRejestry.toString()));
+        // log.info(String.format("Collected rejestry: %s", filtrRejestry.isEmpty() ? "ALL" : filtrRejestry.toString()));
         for (FileItem item : items) {
             if (item.isFormField()) continue; // pomijamy pola formularza
             if (!"xmlFile".equals(item.getFieldName())) continue;
@@ -110,44 +112,38 @@ public class ConverterServlet extends HttpServlet {
             Path savedFile = uploadDir.resolve(fileName);
             try (InputStream input = item.getInputStream()) {
                 Files.copy(input, savedFile, StandardCopyOption.REPLACE_EXISTING);
-                log.info(String.format("Saved uploaded file: %s", savedFile.toString()));
+                //log.info(String.format("Saved uploaded file: %s", savedFile.toString()));
             } catch (IOException e) {
                 log.error("Failed to save uploaded file: " + fileName, e);
                 results.add("Błąd zapisu pliku: " + fileName);
                 continue;
             }
         String xml = Files.readString(savedFile, StandardCharsets.UTF_8);
-        log.info(String.format("fileName='%s'", fileName));
+        //log.info(String.format("fileName='%s'", fileName));
         try {
         	Object parsed = converterService.processSingleDocument(xml, fileName);
         	if (parsed instanceof SkippedDocument skipped) {
         	    results.add("Pominięto: " + fileName + " (typ=" + skipped.getType() + ")");
         	    continue;
         	}
-        	log.info(String.format("Parsed object type: %s, file: %s",
-        	        parsed.getClass().getSimpleName(), fileName));
-
+        	//log.info(String.format("Parsed object type: %s, file: %s",parsed.getClass().getSimpleName(), fileName));
         	if (parsed instanceof DmsParsedDocument d) {
         		String docRejestr = d.getDaneRejestr() != null ? d.getDaneRejestr().trim().toUpperCase() : "";
                 String docOddzial = d.getOddzial() != null ? d.getOddzial().trim() : "";
                 if (d.getDocumentType() != null) {
                     d.setDocumentType(d.getDocumentType().trim().toUpperCase());
                 }
-                log.info(String.format("filtrRejestru=%s filtrOddzial=%s docRejestr=%s docOddzial=%s",
-                        filtrRejestry, filtrOddzial, docRejestr, docOddzial));
+                //log.info(String.format("filtrRejestru=%s filtrOddzial=%s docRejestr=%s docOddzial=%s",filtrRejestry, filtrOddzial, docRejestr, docOddzial));
                 if (!filtrRejestry.isEmpty() && (docRejestr.isEmpty() || !filtrRejestry.contains(docRejestr))) {
-                    log.info(String.format("Skipping file: %s — docRejestr='%s' not in filter %s",
-                            fileName, docRejestr, filtrRejestry));
+                    //log.info(String.format("Skipping file: %s — docRejestr='%s' not in filter %s",fileName, docRejestr, filtrRejestry));
                     continue;
                 }
                 if (filtrOddzial != null && !filtrOddzial.isBlank() && !filtrOddzial.equals(docOddzial)) {
-                    log.info(String.format("Skipping file: %s — docOddzial='%s' != filter '%s'",
-                            fileName, docOddzial, filtrOddzial));
+                    //log.info(String.format("Skipping file: %s — docOddzial='%s' != filter '%s'",fileName, docOddzial, filtrOddzial));
                     continue;
                 }
         	    allParsedDocs.add(d);
-        	    log.info("Parsed doc id=" + d.getId() + " type=" + d.getDocumentType() + " file=" + fileName + " class=" + parsed.getClass().getName());
-
+        	    //log.info("Parsed doc id=" + d.getId() + " type=" + d.getDocumentType() + " file=" + fileName + " class=" + parsed.getClass().getName());
         	    DmsDocumentOut docOut = null;
         	    try {
         	    	docOut = new DmsToDmsMapper().map(d);
@@ -175,18 +171,16 @@ public class ConverterServlet extends HttpServlet {
         	 invoice = invoice.trim().replaceAll("[\\\\/:*?\"<>|]", "_");
         	 String rawDocType = d.getDocumentType();
         	 String docType = rawDocType != null ? rawDocType.trim().toUpperCase() : "";
-        	 String msg = String.format("Processing: file=%s, rawDocType='%s', docType='%s', invoice='%s'",
-                     fileName, rawDocType, docType, invoice);
-        	 log.info(msg);
+        	 String msg = String.format("Processing: file=%s, rawDocType='%s', docType='%s', invoice='%s'",fileName, rawDocType, docType, invoice);
+        	 //log.info(msg);
         	 Set<String> DS_TYPES = Set.of("DS", "FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG");
- 		    Set<String> DK_TYPES = Set.of("KO", "KZ", "DK"); //"02"
+ 		    Set<String> DK_TYPES = Set.of("KO", "KZ", "DK", "RD"); //"02"
  		   Set<String> DD_TYPES = Set.of("DM","RO","RK","PO"); //"02"
  		   Set<String> DZ_TYPES = Set.of("DZ","FVZ","FVZK","FVZk", "FZK", "FZk","FS", "FK");
- 		   log.info("SERVLET POSITIONS COUNT: " + d.getPositions().size() 
- 			         + " file=" + d.getSourceFileName());
+ 		   //log.info("SERVLET POSITIONS COUNT: " + d.getPositions().size()+ " file=" + d.getSourceFileName());
  		    if (DZ_TYPES.contains(docType)) {
  		        try {
- 		        	log.info("DZ positions for fileName='%s '" + fileName + " docType='%s ' " + docType + " DZ_TYPES='%s ' " + DZ_TYPES);
+ 		        	//log.info("DZ positions for fileName='%s '" + fileName + " docType='%s ' " + docType + " DZ_TYPES='%s ' " + DZ_TYPES);
  		            root.addSection(new DmsOfflinePurchaseBuilder(docOut));
  		            results.add("Dodano zakup" + invoice);
  		        } catch (Exception e) {
@@ -196,22 +190,21 @@ public class ConverterServlet extends HttpServlet {
         		    try {
         		        root.addSection(new DmsOfflineXmlBuilder(docOut));
         		        results.add("Dodano sprzedaż: " + invoice);
-
         		    } catch (Exception e) {
         		        log.error("Błąd budowy sekcji DS dla " + fileName + ": " + e.getMessage(), e);
         		        results.add("Błąd DS: " + fileName + " -> " + e.getMessage());
         		    }
         	 } else if (DK_TYPES.contains(docType)) {
-        		 try {
-        			 root.addSection(new CashReportXmlBuilder(docOut));
-        			 results.add("Dodano DK: " + fileName + " typ=" + docType);
-        		 } catch (Exception e) {
-        			 results.add("Błąd DK: " + fileName + " -> " + e.getMessage());
-        		 }
-        		    
+        		// zamiast mapowania i natychmiastowego dodawania buildera dla KO/KZ/DK:
+        		 if (DK_TYPES.contains(docType)) {
+        		     // DO NOT create CashReportXmlBuilder here
+        		     // We only collect parsed documents (allParsedDocs already contains 'd')
+        		     results.add("Zarejestrowano dokument kasowy (KO/KZ/DK): " + fileName + " typ=" + docType);
+        		     // optionally still map docOut if you need docOut fields elsewhere, but do not call root.addSection(...)
+        		     continue;
+        		 }        		    
         	} else if (DD_TYPES.contains(docType)) {
-        		log.info(String.format("Skipping file DD %s: docType='%s' not enabled (enabled=%s)",
-                        fileName, docType, DD_TYPES));
+        		//log.info(String.format("Skipping file DD %s: docType='%s' not enabled (enabled=%s)",fileName, docType, DD_TYPES));
                 results.add("Pominięto: " + fileName + " typ=" + docType);
                 continue;
         		}         	 
@@ -230,8 +223,42 @@ public class ConverterServlet extends HttpServlet {
         	continue;
         }
     }
-        log.info(String.format("Parsed documents count allParsedDocs.size: "+ allParsedDocs.size()));
-        log.info(String.format("Results entries results.size: " + results.size()));
+        //log.info(String.format("Parsed documents count allParsedDocs.size: "+ allParsedDocs.size()));
+        //log.info(String.format("Results entries results.size: " + results.size()));
+        //log.info("ALL PARSED DOCS COUNT = " + allParsedDocs.size());
+        allParsedDocs.forEach(d -> log.info("PARSED: type=" + d.getDocumentType() + " reportNr=" + d.getReportNumber() + " reportNrPos=" + d.getReportNumberPos() + " file=" + d.getSourceFileName()));
+     // --- assemble cash reports after all files are parsed ---
+        CashReportAssembler assembler = new CashReportAssembler(allParsedDocs);
+
+        // Zbierz unikalne numery raportów z KO (możesz też zebrać z DK jeśli KO może nie występować)
+        Set<String> reportNumbers = allParsedDocs.stream()
+                .filter(d -> d.getDocumentType() != null && "KO".equalsIgnoreCase(d.getDocumentType()))
+                .map(DmsParsedDocument::getReportNumber)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        //log.info("Collected reportNumbers from KO: " + reportNumbers);
+        // Jeśli chcesz uwzględnić raporty, które mają tylko DK (bez KO) — dodaj też numery z DK po normalizacji
+        // reportNumbers.addAll(allParsedDocs.stream()
+//             .filter(d -> "DK".equalsIgnoreCase(d.getDocumentType()))
+//             .map(DmsParsedDocument::getCashReportNumber)
+//             .filter(Objects::nonNull)
+//             .collect(Collectors.toSet()));
+        for (String nr : reportNumbers) {
+            DmsDocumentOut rap = assembler.buildSingleReport(nr);
+            if (rap != null) {
+                try {
+                    root.addSection(new CashReportXmlBuilder(rap));
+                    results.add("Dodano RAPORT_KB: " + nr);
+                } catch (Exception e) {
+                    log.error("Błąd budowy RAPORT_KB dla " + nr, e);
+                    results.add("Błąd RAPORT_KB: " + nr + " -> " + e.getMessage());
+                }
+            } else {
+                log.info("Raport kasowy " + nr + " pominięty - brak KO lub KZ lub raport niekompletny");
+                results.add("Pominięto raport: " + nr + " (niekompletny)");
+            }
+        }
+        // --- koniec składania raportów ---
         Document finalDoc;
         try {
             finalDoc = root.build();

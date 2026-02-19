@@ -27,19 +27,21 @@ public class DmsParserKO {
         String id = root.getAttribute("id");
         String trans = root.getAttribute("trans");
 
+        if (numer == null) {
+            //log.info("KO DEBUG: element <numer> NOT FOUND in document element for file=" + fileName);
+        } else {
+            String rawText = numer.getTextContent();
+            String attrNr = numer.getAttribute("nr");
+            String attrRok = numer.getAttribute("rok");
+            String attrKodDok = numer.getAttribute("kod_dok");
+            //String normalized = DocumentNumberExtractor.normalizeNumber(rawText); 
+            out.setReportNumber(rawText);
+            out.setNrRKB(attrNr);
+            //log.info("KO DEBUG: <numer> found rawText='" + rawText + "' nrAttr='" + attrNr+ "' rokAttr='" + attrRok + "' kod_dok='" + attrKodDok + "' file=" + fileName);
+        }
         // KO ma tylko jedną sekcję <daty>
         Element daty = (Element) doc.getElementsByTagName("daty").item(0);
         Element warto = (Element) doc.getElementsByTagName("wartosci").item(0);
-        log.info("KO dane element = " + numer.getElementsByTagName("numer"));
-        log.info("KO numer count = " + numer.getAttribute("nr"));
-        String nrFromDane = DocumentNumberExtractor.extractNumberFromDane(numer);
-        boolean hasNumberInDane = nrFromDane != null && !nrFromDane.isBlank();
-        if (hasNumberInDane) {
-            out.setReportNumber(DocumentNumberExtractor.normalizeNumber(nrFromDane));
-            if (out.getDocumentType() == null || out.getDocumentType().isBlank()) {
-                out.setDocumentType("KO");
-            }
-        }
         //boolean found = DocumentNumberExtractor.extractFromGenInfo(root, out, fileName,hasNumberInDane);
         try {
             NodeList docList = doc.getElementsByTagName("document");
@@ -105,7 +107,7 @@ public class DmsParserKO {
 
                 // ZAPISUJEMY DO POL DMS (przez settery)
                 out.setAdditionalDescription("KO Description" + fullNumber);
-                out.setDocumentType("KO DocumentType");
+                out.setDocumentType("KO");
                 //out.setInvoiceNumber("KO InvoiceNumber" + fullNumber); // jeśli chcesz trzymać w invoiceNumber
                 //out.setNumer(fullNumber);
 
