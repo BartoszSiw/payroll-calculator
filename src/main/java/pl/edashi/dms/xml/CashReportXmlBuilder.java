@@ -1,12 +1,12 @@
 package pl.edashi.dms.xml;
 
 import java.util.List;
-
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
+import pl.edashi.dms.model.Contractor;
 import pl.edashi.dms.model.DmsDocumentOut;
 import pl.edashi.dms.model.DmsOutputPosition;
 import pl.edashi.dms.model.DmsRapKasa;
@@ -54,25 +54,25 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	        rk.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU", "RK"));
 	        rk.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU_ID", ""));
 	        rk.appendChild(makeCdata(docXml, "NUMER", "RK/"+safe(doc.getReportNumber())));
-	        rk.appendChild(makeCdata(docXml, "NUMERATOR_NUMER_NR", safe(doc.getNrRKB())));
+	        rk.appendChild(makeCdata(docXml, "NUMERATOR_NUMER_NR", safe(doc.getNrRep())));
 	        rk.appendChild(makeCdata(docXml, "NUMER_OBCY", ""));
 	        // ZAPISY_KB
-	        LOG.info("CashReportXmlBuilder: doc.reportNumber='" + doc.getReportNumber()
+	        /*LOG.info("CashReportXmlBuilder: doc.reportNumber='" + doc.getReportNumber()
 	        + "' doc.reportNumberPos='" + doc.getReportNumberPos()
-	        + "' rapKasa.size=" + (doc.getRapKasa()==null?0:doc.getRapKasa().size()));
+	        + "' rapKasa.size=" + (doc.getRapKasa()==null?0:doc.getRapKasa().size()));*/
 
 	    if (doc.getRapKasa() != null) {
 	        int i = 0;
 	        for (DmsOutputPosition p : doc.getRapKasa()) {
-	            LOG.info(String.format("  rap[%d]: reportNumber='%s' reportNumberPos='%s' nrRKB='%s' kwota='%s' kierunek='%s' opis='%s'",
-	                i++,
+	            /*LOG.info(String.format("  rap[%d]: nrDokumentu:'%s' reportNumber='%s' reportNumberPos='%s' nrRKB='%s' kwota='%s' kierunek='%s' opis='%s'",
+	                i++, p.getNrDokumentu(),
 	                p.getReportNumber(), p.getReportNumberPos(), p.getNrRKB(),
-	                p.getKwotaRk(), p.getKierunek(), p.getOpis()));
+	                p.getKwotaRk(), p.getKierunek(), p.getOpis()));*/
 	        }
 	    }
 	        Element rapKasa = docXml.createElementNS(NS, "ZAPISY_KB");
 	        rk.appendChild(rapKasa);
-	        LOG.info(String.format("rapKasa='%s ' getReportNumber='%s '", rapKasa, safe(doc.getReportNumberPos())));
+	        //LOG.info(String.format("rapKasa='%s ' getReportNumber='%s '", rapKasa, safe(doc.getReportNumberPos())));
 	        // ZAPIS_KB
 	        if (doc.getRapKasa() != null) {
 	        	int lp = 1;
@@ -80,55 +80,57 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
             	Element rap = docXml.createElementNS(NS, "ZAPIS_KB");
             	rapKasa.appendChild(rap);
         		rap.appendChild(makeCdata(docXml, "ID_ZRODLA_ZAPISU", ""));
-    	        rap.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU_ZAPISU", ""));
+    	        rap.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU_ZAPISU", safe(k.getSymbolKPW())));
     	        rap.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU_ZAPISU_ID", ""));
-    	        rap.appendChild(makeCdata(docXml, "DATA_DOK", safe(doc.getDataWystawienia())));
+    	        rap.appendChild(makeCdata(docXml, "DATA_DOK", safe(k.getDataWystawienia())));
     	        rap.appendChild(makeCdata(docXml, "NUMER_ZAPISU", safe(k.getDowodNumber())));
-    	        rap.appendChild(makeCdata(docXml, "NUMERATOR_REJESTR", safe(k.getNrRKB())));
+    	        rap.appendChild(makeCdata(docXml, "NUMERATOR_REJESTR", "1"));
     	        rap.appendChild(makeCdata(docXml, "NUMERATOR_NUMER_NR_ZAPISU", safe(k.getNrRKB())));
-    	        rap.appendChild(makeCdata(docXml, "NUMER_OBCY_ZAPISU", safe(k.getNumer())));
-    	        rap.appendChild(makeCdata(docXml, "KIERUNEK", safe(k.getKierunek())));
+    	        rap.appendChild(makeCdata(docXml, "NUMER_OBCY_ZAPISU", safe(k.getNrDokumentu())));
+    	        
+    	        
+    	        //rap.appendChild(makeCdata(docXml, "LP", safe(k.lp)));
+    	        String draftTyp = mapingPositionSymbol(safe(k.getSymbolKPW()));
+    	        rap.appendChild(makeCdata(docXml, "TYP", safe(draftTyp)));
     	        rap.appendChild(makeCdata(docXml, "KWOTA", safe(k.getKwotaRk())));
-    	        /*rap.appendChild(makeCdata(docXml, "LP", safe(k.lp)));
-    	        rap.appendChild(makeCdata(docXml, "TYP", safe(k.typ)));
-    	        rap.appendChild(makeCdata(docXml, "KWOTA", safe(k.kwota)));
-    	        rap.appendChild(makeCdata(docXml, "WALUTA", safe(k.waluta)));
-    	        rap.appendChild(makeCdata(docXml, "WALUTA_DOK", safe(k.walutaDok)));
-    	        rap.appendChild(makeCdata(docXml, "KURS_WALUTY", safe(k.kursWaluty)));
-    	        rap.appendChild(makeCdata(docXml, "NOTOWANIE_WALUTY_ILE", safe(k.ile)));
-    	        rap.appendChild(makeCdata(docXml, "NOTOWANIE_WALUTY_ZA_ILE", safe(k.zaIle)));
-    	        rap.appendChild(makeCdata(docXml, "DATA_KURSU", safe(k.dataKursu)));
-    	        rap.appendChild(makeCdata(docXml, "KWOTA_PLN", safe(k.kwotaPln)));
-    	        rap.appendChild(makeCdata(docXml, "KIERUNEK", safe(k.kierunek)));
-    	        rap.appendChild(makeCdata(docXml, "PODLEGA_ROZLICZENIU", safe(k.podlega)));
-    	        rap.appendChild(makeCdata(docXml, "JEST_WYNAGRODZENIEM", safe(k.wynagrodzenie)));
-    	        rap.appendChild(makeCdata(docXml, "TYP_PODMIOTU", safe(k.typPodmiotu)));
-    	        rap.appendChild(makeCdata(docXml, "PODMIOT", safe(k.podmiot)));
-    	        rap.appendChild(makeCdata(docXml, "PODMIOT_ID", safe(k.podmiotId)));
-    	        rap.appendChild(makeCdata(docXml, "PODMIOT_NIP", safe(k.podmiotNip)));
-    	        rap.appendChild(makeCdata(docXml, "NAZWA1", safe(k.nazwa1)));
-    	        rap.appendChild(makeCdata(docXml, "NAZWA2", safe(k.nazwa2)));
-    	        rap.appendChild(makeCdata(docXml, "NAZWA3", safe(k.nazwa3)));
-    	        rap.appendChild(makeCdata(docXml, "KRAJ", safe(k.kraj)));
-    	        rap.appendChild(makeCdata(docXml, "WOJEWODZTWO", safe(k.woj)));
-    	        rap.appendChild(makeCdata(docXml, "POWIAT", safe(k.powiat)));
-    	        rap.appendChild(makeCdata(docXml, "GMINA", safe(k.gmina)));
-    	        rap.appendChild(makeCdata(docXml, "ULICA", safe(k.ulica)));
-    	        rap.appendChild(makeCdata(docXml, "NR_DOMU", safe(k.nrDomu)));
-    	        rap.appendChild(makeCdata(docXml, "NR_LOKALU", safe(k.nrLokalu)));
-    	        rap.appendChild(makeCdata(docXml, "MIASTO", safe(k.miasto)));
-    	        rap.appendChild(makeCdata(docXml, "KOD_POCZTOWY", safe(k.kod)));
-    	        rap.appendChild(makeCdata(docXml, "POCZTA", safe(k.poczta)));
-    	        rap.appendChild(makeCdata(docXml, "DODATKOWE", safe(k.dodatkowe)));
-    	        rap.appendChild(makeCdata(docXml, "BANK_NR", safe(k.bankNr)));
-    	        rap.appendChild(makeCdata(docXml, "BANK_ID", safe(k.bankId)));
-    	        rap.appendChild(makeCdata(docXml, "NR_RACHUNKU", safe(k.nrRachunku)));
-    	        rap.appendChild(makeCdata(docXml, "IBAN", safe(k.iban)));
-    	        rap.appendChild(makeCdata(docXml, "KARTA_KR_NUMER", safe(k.karta)));
-    	        rap.appendChild(makeCdata(docXml, "OPIS", safe(k.opis)));
-    	        rap.appendChild(makeCdata(docXml, "KONTO", safe(k.konto)));
-    	        rap.appendChild(makeCdata(docXml, "SPLIT_PAYMENT", safe(k.split)));
-    	        rap.appendChild(makeCdata(docXml, "ZAPIS_VAT", safe(k.zapisVat)));*/
+    	        rap.appendChild(makeCdata(docXml, "WALUTA", ""));
+    	        rap.appendChild(makeCdata(docXml, "WALUTA_DOK", ""));
+    	        rap.appendChild(makeCdata(docXml, "KURS_WALUTY", "NBP"));
+    	        rap.appendChild(makeCdata(docXml, "NOTOWANIE_WALUTY_ILE", "1"));
+    	        rap.appendChild(makeCdata(docXml, "NOTOWANIE_WALUTY_ZA_ILE", "1"));
+    	        rap.appendChild(makeCdata(docXml, "DATA_KURSU", safe(k.getDataWystawienia())));
+    	        rap.appendChild(makeCdata(docXml, "KWOTA_PLN", safe(k.getKwotaRk())));
+    	        rap.appendChild(makeCdata(docXml, "KIERUNEK", safe(k.getKierunek())));
+    	        rap.appendChild(makeCdata(docXml, "PODLEGA_ROZLICZENIU", "tak"));
+    	        rap.appendChild(makeCdata(docXml, "JEST_WYNAGRODZENIEM", "Nie"));
+    	        rap.appendChild(makeCdata(docXml, "TYP_PODMIOTU", "kontrahent"));
+    	        rap.appendChild(makeCdata(docXml, "PODMIOT", safeContractorField(k, "nip")));
+    	        rap.appendChild(makeCdata(docXml, "PODMIOT_ID", ""));
+    	        rap.appendChild(makeCdata(docXml, "PODMIOT_NIP", safeContractorField(k, "nip")));
+    	        rap.appendChild(makeCdata(docXml, "NAZWA1", safeContractorField(k, "name1")));
+    	        rap.appendChild(makeCdata(docXml, "NAZWA2", safeContractorField(k, "name2")));
+    	        rap.appendChild(makeCdata(docXml, "NAZWA3", safeContractorField(k, "name3")));
+    	        rap.appendChild(makeCdata(docXml, "KRAJ", safeContractorField(k, "country")));
+    	        rap.appendChild(makeCdata(docXml, "WOJEWODZTWO", ""));
+    	        rap.appendChild(makeCdata(docXml, "POWIAT", ""));
+    	        rap.appendChild(makeCdata(docXml, "GMINA", ""));
+    	        rap.appendChild(makeCdata(docXml, "ULICA", safeContractorField(k, "street")));
+    	        rap.appendChild(makeCdata(docXml, "NR_DOMU", ""));
+    	        rap.appendChild(makeCdata(docXml, "NR_LOKALU", ""));
+    	        rap.appendChild(makeCdata(docXml, "MIASTO", safeContractorField(k, "city")));
+    	        rap.appendChild(makeCdata(docXml, "KOD_POCZTOWY", safeContractorField(k, "zip")));
+    	        rap.appendChild(makeCdata(docXml, "POCZTA", ""));
+    	        rap.appendChild(makeCdata(docXml, "DODATKOWE", ""));
+    	        rap.appendChild(makeCdata(docXml, "BANK_NR", ""));
+    	        rap.appendChild(makeCdata(docXml, "BANK_ID", ""));
+    	        rap.appendChild(makeCdata(docXml, "NR_RACHUNKU", ""));
+    	        rap.appendChild(makeCdata(docXml, "IBAN", ""));
+    	        rap.appendChild(makeCdata(docXml, "KARTA_KR_NUMER", ""));
+    	        rap.appendChild(makeCdata(docXml, "OPIS", ""));
+    	        String draftKonto = mapingPositionKonto(safe(k.getKierunek()));
+    	        rap.appendChild(makeCdata(docXml, "KONTO", safe(draftKonto)));
+    	        rap.appendChild(makeCdata(docXml, "SPLIT_PAYMENT", ""));
+    	        rap.appendChild(makeCdata(docXml, "ZAPIS_VAT", ""));
 
     	        rap.appendChild(makeCdata(docXml, "KWOTY_DODATKOWE", ""));
 	        }
@@ -139,6 +141,54 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 		// -----------------------
 	    // Helpers
 	    // -----------------------
+	    private static String mapingPositionKonto(String kierunek) {
+	        if (kierunek == null) kierunek = "";
+	        kierunek = kierunek.trim().toLowerCase();
+
+	        // Normalizuj symbol (np. "01/..." -> "01", "kp" -> "KP")
+	        String kie = kierunek == null ? "" : kierunek.trim().toUpperCase();
+	        if (kie.matches("^\\d{2}(/.*)?$")) {
+	            kie = kie.split("/")[0];
+	        }
+
+	        // Proste reguły: rozchód -> 202, przychód -> 101, inaczej ""
+	        if ("rozchód".equals(kierunek) || "rozchod".equals(kierunek)) {
+	            return "202";
+	        } else if ("przychód".equals(kierunek) || "przychod".equals(kierunek)) {
+	            return "201";
+	        }
+
+	        // Opcjonalnie: jeśli chcesz różnicować po symbolu, dopisz tu reguły:
+	        // if ("01".equals(sym) || "KP".equals(sym)) return "202";
+	        // if ("02".equals(sym) || "KW".equals(sym)) return "101";
+
+	        return "";
+	    }
+
+	    private static String mapingPositionSymbol(String symbolOrCode) {
+	        if (symbolOrCode == null) return "";
+	        String s = symbolOrCode.trim().toUpperCase();
+	        // jeśli dostaniesz coś w formacie "01/..." lub "02/..." -> weź pierwszy segment
+	        if (s.matches("^\\d{2}(/.*)?$")) {
+	            s = s.split("/")[0];
+	        }
+
+	        switch (s) {
+	            case "KPD":
+	            case "01":
+	                return "gotówka";
+	            case "KWD":
+	            case "02":
+	                return "gotówka";
+	            case "DW":
+	            case "03":
+	                return "karta";
+	            default:
+	                return ""; // nieznany symbol -> puste (bez błędów)
+	        }
+	    }
+
+
 	    private static String safe(String s) {
 	        return s == null ? "" : s;
 	    }
@@ -150,7 +200,31 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	        String safeValue = v.replace("]]>", "]]]]><![CDATA[>");
 	        el.appendChild(docXml.createCDATASection(safeValue));
 	        return el;
+	    }	   
+	    private String safeContractorField(DmsOutputPosition pos, String field) {
+	        if (pos == null) return "";
+	        Contractor c = pos.getContractor();
+	        if (c == null) return "";
+
+	        String value;
+	        switch (field) {
+	            case "nip":           value = c.getNip(); break;
+	            case "name1":         value = c.getName1(); break;
+	            case "name2":         value = c.getName2(); break;
+	            case "name3":         value = c.getName3(); break;
+	            case "fullName":      value = c.getFullName(); break;
+	            case "country":       value = c.getCountry(); break;
+	            case "region":        value = c.getRegion(); break;
+	            case "city":          value = c.getCity(); break;
+	            case "zip":           value = c.getZip(); break;
+	            case "street":        value = c.getStreet(); break;
+	            case "houseNumber":   value = c.getHouseNumber(); break;
+	            case "czynny":        value = c.getCzynny(); break;
+	            default:              value = null; break;
+	        }
+	        return value == null ? "" : value.trim();
 	    }
+
 }
 
 

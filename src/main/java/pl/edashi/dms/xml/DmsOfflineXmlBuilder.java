@@ -209,7 +209,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
             	if (p.isAdvance()) continue; // NIE eksportujemy zaliczek
                 Element plat = docXml.createElementNS(NS, "PLATNOSC");
                 platnosci.appendChild(plat);
-                plat.appendChild(make(docXml, "ID_ZRODLA_PLAT", safe(p.getIdPlatn()))); // osobne UUID 
+                plat.appendChild(make(docXml, "ID_ZRODLA_PLAT", "")); // osobne UUID 
                 plat.appendChild(make(docXml, "TERMIN_PLAT", safe(p.getTerminPlatnosci())));
                 plat.appendChild(make(docXml, "FORMA_PLATNOSCI_PLAT", safe(p.getForma())));
                 plat.appendChild(make(docXml, "FORMA_PLATNOSCI_ID_PLAT", ""));
@@ -272,7 +272,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
 
         // Wymuszamy CDATA nawet jeśli wartość jest null lub pusta
         String v = value == null ? "" : value;
-        if (v.isBlank()) v = " ";
+        if (v.isBlank()) v = "";
 
         // CDATA nie może zawierać sekwencji "]]>" — rozbijamy/uciekamy ją bez zmiany treści
         // zamieniamy "]]>" na "]]]]><![CDATA[>" co tworzy dwa CDATA obok siebie po serializacji

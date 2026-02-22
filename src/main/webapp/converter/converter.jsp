@@ -30,6 +30,7 @@
                 <!-- <option value="001">001</option> -->
             <%-- <% } --%> 
             <option value="001"> 001 </option>
+            <option value="002"> 002 </option>
             <option value="040"> 040 </option>
             <option value="041"> 041 </option>
             <option value="070"> 070 </option>
@@ -73,11 +74,8 @@
     </div>
   </div>
     <div class="form-section">
-  <label id="bigFileBtn" for="xmlFile" class="big-file-button" role="button" tabindex="0" aria-controls="xmlFile">
-    <span class="btn-icon">--</span>
-    <span class="btn-text">Wybierz pliki XML</span>
-  </label>
-    <input type="file" id="xmlFile" name="xmlFile" accept=".xml" multiple class="file-input visually-hidden" aria-describedby="fileHelp">
+    <label for="xmlFile" class="field-label"><strong>Wybierz pliki XML</strong></label>
+    <input type="file" id="xmlFile" name="xmlFile" accept=".xml" multiple class="file-input" aria-describedby="fileHelp">
     <div id="fileHelp" class="field-help">Mozesz wybrac wiele plikow. Maksymalny rozmiar zalezy od ustawien serwera.</div>
     <div id="selectedFiles" class="selected-files" aria-live="polite" style="margin-top:8px;font-size:0.95em;color:#333;"></div>
   </div>

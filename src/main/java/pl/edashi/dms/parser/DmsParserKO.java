@@ -36,7 +36,7 @@ public class DmsParserKO {
             String attrKodDok = numer.getAttribute("kod_dok");
             //String normalized = DocumentNumberExtractor.normalizeNumber(rawText); 
             out.setReportNumber(rawText);
-            out.setNrRKB(attrNr);
+            out.setNrRep(attrNr);
             //log.info("KO DEBUG: <numer> found rawText='" + rawText + "' nrAttr='" + attrNr+ "' rokAttr='" + attrRok + "' kod_dok='" + attrKodDok + "' file=" + fileName);
         }
         // KO ma tylko jedną sekcję <daty>
@@ -52,7 +52,7 @@ public class DmsParserKO {
                     if (daneEl != null && daneEl.hasAttribute("kasa")) {
                         String kasa = daneEl.getAttribute("kasa").trim();
                         String oddzial = daneEl.getAttribute("oddzial").trim();
-                        log.info(String.format("Parser KO kasa='%s ' oddzial='%s '  ", kasa, oddzial));
+                        //log.info(String.format("Parser KO kasa='%s ' oddzial='%s '  ", kasa, oddzial));
                         out.setDaneRejestr(kasa); // upewnij się, że DmsParsedDocument ma setter
                     	out.setOddzial(oddzial);}
                     break; // zwykle tylko jeden rekord 02

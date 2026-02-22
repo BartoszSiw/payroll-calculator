@@ -43,6 +43,7 @@ public class DmsParsedDocument {
     private String dataOtwarcia = "";
     private String dataZamkniecia = "";
     private String nrRKB = "";
+    private String nrRep = "";
     private String additionalDescription = "";
     private String invoiceNumber = "";
     private String invoiceShortNumber = "";
@@ -61,6 +62,8 @@ public class DmsParsedDocument {
     private String dzial = "";
     private String transId = "";
     private String dowodNumber = "";
+    private String dataWystawienia = "";
+    private String nrDokumentu = "";
     //private String vin = "";
 
     // dodatkowe pola pomocnicze
@@ -135,6 +138,7 @@ public class DmsParsedDocument {
 	public void setReportDate(String reportDate) {this.reportDate = reportDate != null ? reportDate : "";}
     public void setReportNumber(String reportNumber) {this.reportNumber = reportNumber; }
     public void setNrRKB(String nrRKB) {this.nrRKB = nrRKB; }
+    public void setNrRep(String nrRep) {this.nrRep = nrRep; }
     public void setReportNumberPos(String reportNumberPos) {this.reportNumberPos = reportNumberPos; }
     public void setDaneRejestr(String daneRejestr) { this.daneRejestr = daneRejestr == null ? "" : daneRejestr.trim(); }
     public void setOddzial(String oddzial) { this.oddzial = oddzial == null ? "" : oddzial.trim(); }
@@ -152,6 +156,8 @@ public class DmsParsedDocument {
     public void setDataOtwarcia(String dataOtwarcia) { this.dataOtwarcia = safe(dataOtwarcia); }
     public void setDataZamkniecia(String dataZamkniecia) { this.dataZamkniecia = safe(dataZamkniecia); }
 	public void setDowodNumber(String dowodNumber) {this.dowodNumber = safe(dowodNumber); }
+	public void setDataWystawienia(String dataWystawienia) {this.dataWystawienia = safe(dataWystawienia); }
+	public void setNrDokumentu(String nrDokumentu) { this.nrDokumentu = safe(nrDokumentu); }
 	//public void setVin(String vin) {this.vin  = vin ;}
     // --- Gettery ---
     public String getNrKsef() {
@@ -229,6 +235,10 @@ public class DmsParsedDocument {
         return nrRKB;
     }
     
+    public String getNrRep() {
+        return nrRep;
+    }
+    
     public String getReportNumberPos() {
         return reportNumberPos;
     }
@@ -261,6 +271,8 @@ public class DmsParsedDocument {
     public String getDataOtwarcia() { return dataOtwarcia; }  
     public String getDataZamkniecia() { return dataZamkniecia; }
     public String getDowodNumber() { return dowodNumber;}
+    public String getDataWystawienia() { return dataWystawienia;}
+    public String getNrDokumentu() { return nrDokumentu;}
     //public String getVin() {return vin;}
     // --- Utility ---
 

@@ -40,8 +40,12 @@ public class DmsOutputPosition {
     private String reportNumber = "";
     private String reportNumberPos = "";
     private String dowodNumber = "";
+    private String dataWystawienia = "";
+    private String symbolKPW = "";
+    private String nrDokumentu ="";
     private boolean advance = false;
 	private List<DmsKwotaDodatkowa> kwotyDodatkowe = new ArrayList<>();
+	private Contractor contractor;
 
     public DmsOutputPosition() { }
 
@@ -79,11 +83,12 @@ public class DmsOutputPosition {
     public String getReportNumber() { return reportNumber; }
     public String getReportNumberPos() { return reportNumberPos; }
     public String getDowodNumber () { return dowodNumber; }
+    public String getDataWystawienia () { return dataWystawienia; }
+    public String getSymbolKPW () { return symbolKPW; }
+    public String getNrDokumentu() { return nrDokumentu; }
    	public boolean isAdvance() { return advance; }
-	public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {
-	    return kwotyDodatkowe;
-	}
-
+	public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {return kwotyDodatkowe;}
+    public Contractor getContractor() { return contractor; }
 
     // --- Settery (null-safe) ---
     public void setKategoria2(String kategoria2) { this.kategoria2 = safe(kategoria2); }
@@ -116,11 +121,15 @@ public class DmsOutputPosition {
 	public void setLp(String lp) { this.lp = safe(lp); }
 	public void setNrRKB(String nrRKB) { this.nrRKB = safe(nrRKB); }
     public void setNumer(String numer) { this.numer = safe(numer); }
+    public void setNrDokumentu(String nrDokumentu) { this.nrDokumentu = safe(nrDokumentu); }
     public void setReportDate(String reportDate) {this.reportDate = safe(reportDate) ;}
     public void setReportNumber(String reportNumber) { this.reportNumber = safe(reportNumber); }
     public void setReportNumberPos(String reportNumberPos) { this.reportNumberPos = safe(reportNumberPos); }
 	public void setAdvance(boolean advance) { this.advance = advance; }
 	public void setDowodNumber(String dowodNumber) {this.dowodNumber = safe(dowodNumber); }
+	public void setDataWystawienia(String dataWystawienia) {this.dataWystawienia = safe(dataWystawienia); }
+	public void setSymbolKPW(String symbolKPW) { this.symbolKPW = safe(symbolKPW); }
+    public void setContractor(Contractor contractor) { this.contractor = contractor; }
     // --- Helper ---
     private static String safe(String s) {
         return s == null ? "" : s;
@@ -129,7 +138,16 @@ public class DmsOutputPosition {
     @Override
     public String toString() {
         return "DmsOutputPosition{" +
-                "kategoria='" + kategoria2 + '\'' +
+        		"contractor='" + contractor + '\'' +
+        		", dataWystawienia='" + dataWystawienia + '\'' +
+        		", nrDokumentu='" + nrDokumentu + '\'' +
+        		", reportNumber='" + reportNumber + '\'' +
+        		", reportNumberPos='" + reportNumberPos + '\'' +
+        		", nrRKB='" + nrRKB + '\'' +
+        		", kwotaRk='" + kwotaRk + '\'' +
+        		", kierunek='" + kierunek + '\'' +
+        		", dowodNumber='" + dowodNumber + '\'' +
+        		", kategoria='" + kategoria2 + '\'' +
                 ", stawkaVat='" + stawkaVat + '\'' +
                 ", netto='" + netto + '\'' +
                 ", vat='" + vat + '\'' +

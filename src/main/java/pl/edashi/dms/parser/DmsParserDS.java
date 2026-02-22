@@ -335,7 +335,7 @@ public class DmsParserDS {
              switch (typ) {
                  case "03": p.rodzajSprzedazy = "Towary"; break;
                  case "04": p.rodzajSprzedazy = "Usługi"; break;
-                 case "05": p.rodzajSprzedazy = "Środki transportu"; break;
+                 case "05": p.rodzajSprzedazy = "Usługi"; break;
              }
 
              // 2) Grupy rejestrów
@@ -344,7 +344,7 @@ public class DmsParserDS {
              boolean isRejCzesci = readRejestr.equals("120") || readRejestr.equals("121");
              boolean isRejCzesciSklep = readRejestr.equals("200");
              boolean isRejSamochUzyw = readRejestr.equals("070");
-             boolean isRejSamochNowe = readRejestr.equals("001");
+             boolean isRejSamochNowe = readRejestr.equals("001") || readRejestr.equals("002");
 
              // 3) Kategoria zależna od typ + rejestr
              if (isRejSerwis) {

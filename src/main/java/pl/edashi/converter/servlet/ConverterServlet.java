@@ -226,7 +226,7 @@ public class ConverterServlet extends HttpServlet {
         //log.info(String.format("Parsed documents count allParsedDocs.size: "+ allParsedDocs.size()));
         //log.info(String.format("Results entries results.size: " + results.size()));
         //log.info("ALL PARSED DOCS COUNT = " + allParsedDocs.size());
-        allParsedDocs.forEach(d -> log.info("PARSED: type=" + d.getDocumentType() + " reportNr=" + d.getReportNumber() + " reportNrPos=" + d.getReportNumberPos() + " file=" + d.getSourceFileName()));
+        //allParsedDocs.forEach(d -> log.info("PARSED: type=" + d.getDocumentType() + " reportNr=" + d.getReportNumber() + " reportNrPos=" + d.getReportNumberPos() + " file=" + d.getSourceFileName()));
      // --- assemble cash reports after all files are parsed ---
         CashReportAssembler assembler = new CashReportAssembler(allParsedDocs);
 

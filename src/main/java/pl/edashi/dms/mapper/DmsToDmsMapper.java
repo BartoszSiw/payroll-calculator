@@ -26,9 +26,9 @@ public class DmsToDmsMapper {
         }
         // DATY - null-safe
         DocumentMetadata meta = src.getMetadata();
-        String date = meta != null ? safe(meta.getDate()) : "";
-        String dateSale = meta != null ? safe(meta.getDateSale()) : "";
-        String dateOperation = meta != null ? safe(meta.getDateOperation()) : "";
+        String date = meta != null ? stripTime(safe(meta.getDate())) : "";
+        String dateSale = meta != null ? stripTime(safe(meta.getDateSale())) : "";
+        String dateOperation = meta != null ? stripTime(safe(meta.getDateOperation())) : "";
         String walutaWarto = meta != null ? safe(meta.getWaluta()) : "";
         doc.setDataWystawienia(date);
         doc.setDataSprzedazy(dateSale);
@@ -43,6 +43,7 @@ public class DmsToDmsMapper {
         doc.setInvoiceShortNumber(safe(src.getInvoiceShortNumber()));
         doc.setReportNumber(safe(src.getReportNumber()));
         doc.setNrRKB(safe(src.getNrRKB()));
+        doc.setNrRep(safe(src.getNrRep()));
         doc.setReportNumberPos(safe(src.getReportNumberPos()));
         doc.setDataOtwarcia(date);
         doc.setDataZamkniecia(date);
@@ -99,22 +100,32 @@ public class DmsToDmsMapper {
                 doc.getPozycje().add(outPos);
             }
         }
-          
-
            doc.setRapKasa(new ArrayList<>());
            List<DmsRapKasa> rapKasa = src.getRapKasa();
               if (rapKasa != null && !rapKasa.isEmpty()) {
                for (DmsRapKasa k : rapKasa) {
                    DmsOutputPosition outRk = new DmsOutputPosition();
-                   outRk.setReportNumber(k.getReportNumber());
-                   outRk.setReportNumberPos(k.getReportNumberPos());
-                   outRk.setNrRKB(k.getNrRKB());
+                   Contractor posContractor = k.getContractor();
+                   outRk.setContractor(posContractor);             
+                   outRk.setDataWystawienia(date);
+                   outRk.setReportNumber(safe(src.getReportNumber()));
+                   outRk.setReportNumberPos(safe(src.getReportNumberPos()));
+                   outRk.setNrRKB(safe(src.getNrRKB()));
+                   outRk.setNrDokumentu(safe(k.getNrDokumentu()));
                    outRk.setKwotaRk(k.getKwotaRk());
                    outRk.setKierunek(k.getKierunek());
-                   outRk.setDowodNumber(k.getDowodNumber());
+                   outRk.setSymbolKPW(mapSymbolDokumentuZapisu(k.getDowodNumber()));
+                   outRk.setDowodNumber(mapDowodNumber(k.getDowodNumber()));
                    doc.getRapKasa().add(outRk);
-                   log.info("Mapper: ustawiono doc.reportNumberPos = '" + doc.getReportNumberPos() + "'");
-                   log.info(String.format("reportNr='%s ' nrRKB='%s ' kierunek='%s '", k.getReportNumber(), k.getNrRKB(), k.getKierunek()));
+                   log.info(String.format("MAPPER CHECK: out id='%s' rapKasaList id='%s' size='%s'",
+                		    System.identityHashCode(src), src.getRapKasa()==null?0:System.identityHashCode(src.getRapKasa()), src.getRapKasa()==null?0:src.getRapKasa().size()));
+                		log.info(String.format("MAPPER CHECK: processing k id='%s' nrDokumentu='%s' kwotaRk='%s' dowod='%s' c='%s'",
+                		    System.identityHashCode(k), k.getNrDokumentu(), k.getKwotaRk(), k.getDowodNumber(), c));
+
+                   //log.info(String.format("MAPPER: doc identity={} file={} dataWystawienia={} nrDokumentu={}",System.identityHashCode(doc), src.getSourceFileName(), doc.getDataWystawienia(), k.getNrDokumentu()));
+                   //log.info("Mapper OutRk doc="+doc);
+                   log.info("Mapper: ustawiono k.getNrDokumentu= '" + k.getNrDokumentu() + "'");
+                   //log.info(String.format("reportNr='%s ' nrRKB='%s ' kierunek='%s '", k.getReportNumber(), k.getNrRKB(), k.getKierunek()));
                }
            }
      // po zmapowaniu wszystkich DmsPosition na DmsOutputPosition
@@ -210,6 +221,7 @@ public class DmsToDmsMapper {
             case "CD", "CP", "CR" -> "Z1";
             case "CC" -> "ZAKUP";
             case "001" -> "001";
+            case "002" -> "002";
             case "040" -> "040" ;
             case "041" -> "041" ;
             case "070" -> "070" ;
@@ -230,6 +242,63 @@ public class DmsToDmsMapper {
             case "400" -> "400" ;
             default -> "";
         };
+    }
+    private static String mapDowodNumber(String src) {
+        if (src == null) return null;
+        src = src.trim();
+        // jeśli już jest w docelowym formacie, zwróć bez zmian
+        if (src.matches("^(KP|KW|DW)/\\d+/\\d{6}/\\d{4}$")) {
+            return src;
+        }
+
+        String[] parts = src.split("/");
+        if (parts.length < 3) return src; // nieznany format -> zwróć oryginał
+
+        String code = parts[0].trim();
+        String rawNumber = parts[1].replaceAll("\\D", ""); // zostaw tylko cyfry
+        String year = parts[2].trim();
+
+        if (rawNumber.isEmpty()) return src;
+
+        String type;
+        switch (code) {
+            case "01": type = "KPD"; break;
+            case "02": type = "KWD"; break;
+            case "03": type = "DW"; break;
+            default: return src; // nieznany kod -> zwróć oryginał
+        }
+
+        int num;
+        try {
+            num = Integer.parseInt(rawNumber);
+        } catch (NumberFormatException e) {
+            return src;
+        }
+
+        String padded = String.format("%06d", num);
+        return String.format("%s/1/%s/%s", type, padded, year);
+    }
+    private static String mapSymbolDokumentuZapisu(String dowodNumber) {
+        if (dowodNumber == null) return null;
+        String s = dowodNumber.trim();
+        if (s.isEmpty()) return null;
+
+        // oczekiwany format: "NN/xxxxx/YYYY"
+        String[] parts = s.split("/");
+        if (parts.length < 1) return null;
+
+        switch (parts[0].trim()) {
+            case "01": return "KPD";
+            case "02": return "KWD";
+            case "03": return "DW";
+            default:   return null; // nieznany kod -> nie ustawiamy
+        }
+    }
+
+    private String stripTime(String dateTime) {
+        if (dateTime == null) return null;
+        int space = dateTime.indexOf(' ');
+        return space > 0 ? dateTime.substring(0, space) : dateTime;
     }
     private double parseDoubleSafe(String s) {
         if (s == null || s.isBlank()) return 0.0;

@@ -3,8 +3,8 @@ import java.util.ArrayList;
 import java.util.List;
 //import pl.edashi.dms.parser.DmsParserDS.DmsKwotaDodatkowa;
 public class DmsRapKasa {
-
 	//private List<DmsKwotaDodatkowa> kwotyDodatkowe = new ArrayList<>();
+	public Contractor contractor;
 	public String type = ""; 
     public String kategoria = "";
     public String netto = "";
@@ -25,13 +25,12 @@ public class DmsRapKasa {
 	public String reportNumberPos = "";
 	public String dowodNumber = "";
 	public String nrDokumentu = "";
+	public String dataWystawienia = "";
     public DmsRapKasa() { }
 
     // --- Gettery ---
 		
-	public String getType() {
-		return type;
-	}
+	public String getType() {return type;}
     public String getKategoria() { return kategoria; }
     public String getNetto() { return netto; }
     public String getKanal() { return kanal; }
@@ -50,6 +49,8 @@ public class DmsRapKasa {
 	public String getKwota() { return kwota; }
 	public String getKwotaRk() { return kwotaRk; }
 	public String getDowodNumber() { return dowodNumber;}
+	public String getDataWystawienia() { return dataWystawienia;}
+    public Contractor getContractor() {return contractor;}
 	//public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {return kwotyDodatkowe;}
     // --- Settery (null-safe) ---
     public void setType(String type) { this.type = type != null ? type : ""; }
@@ -71,13 +72,19 @@ public class DmsRapKasa {
 	public void setKwotaRk(String kwotaRk) { this.kwotaRk = kwotaRk != null ? kwotaRk : ""; }
 	public void setDowodNumber(String dowodNumber) {this.dowodNumber = dowodNumber; }
 	public void setNrDokumentu(String nrDokumentu) { this.nrDokumentu = nrDokumentu != null ? nrDokumentu : ""; }
+	public void setDataWystawienia(String dataWystawienia) {this.dataWystawienia = dataWystawienia; }
+    public void setContractor(Contractor contractor) {this.contractor = contractor; }
 	//public void setKwotyDodatkowe(List<DmsKwotaDodatkowa> list) {this.kwotyDodatkowe = list;}
 	
     @Override
     public String toString() {
         return "DmsRapKasa{" +
-        		"reportNumber='" + reportNumber + '\'' +
-                "reportNumberPos='" + reportNumberPos + '\'' +
+        		"contractor='" + contractor + '\'' +
+        		", nrDokumentu='" + nrDokumentu + '\'' +
+        		", dataWystawienia='" + dataWystawienia + '\'' +
+        		", reportNumber='" + reportNumber + '\'' +
+                ", reportNumberPos='" + reportNumberPos + '\'' +
+                ", kwotaRk='" + kwotaRk + '\'' +
                 ", kwota='" + kwota + '\'' +
                 ", nrRKB='" + nrRKB + '\'' +
                 ", kierunek='" + kierunek + '\'' +

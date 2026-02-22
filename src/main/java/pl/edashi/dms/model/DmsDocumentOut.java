@@ -55,6 +55,9 @@ public class DmsDocumentOut {
     private String reportNumber = "";
     private String reportNumberPos = "";
     private String nrRKB = "";
+    private String nrRep = "";
+    private String nrDokumentu = "";
+    private String kwotaRk = "";
     //private String dowodNumber = "";
     // POZYCJE - pozycje są w liście pozycje (DmsOutputPosition)
  
@@ -151,6 +154,9 @@ public class DmsDocumentOut {
 
     public String getNumer() { return numer; }
     public void setNumer(String numer) { this.numer = safe(numer); }
+    
+    public String getNrDokumentu() { return nrDokumentu; }
+    public void setNrDokumentu(String nrDokumentu) { this.nrDokumentu = safe(nrDokumentu); }
 
     public String getKorekta() { return korekta; }
     public void setKorekta(String korekta) { this.korekta = korekta; }
@@ -164,6 +170,8 @@ public class DmsDocumentOut {
     public String getDataZamkniecia() { return dataZamkniecia; }
     public void setDataZamkniecia(String dataZamkniecia) { this.dataZamkniecia = safe(dataZamkniecia); }
     
+    public String getNrRep() { return nrRep; }
+    public void setNrRep(String nrRep) {this.nrRep = nrRep; }
     //public String getDowodNumber () { return dowodNumber; }
     //public void setDowodNumber(String dowodNumber) {this.dowodNumber = safe(dowodNumber); }
     //public String getTerminPlatnosci() {return terminPlatnosci;}
@@ -255,6 +263,9 @@ public class DmsDocumentOut {
     
     public String getNrRKB() { return nrRKB; }
     public void setNrRKB(String nrRKB) { this.nrRKB = safe(nrRKB); }
+    
+    public String getKwotaRk() { return kwotaRk; }
+    public void setKwotaRk(String kwotaRk) { this.kwotaRk = safe(kwotaRk); }
     // --- VAT ---
     public String getVatRate() { return vatRate; }
     public void setVatRate(String vatRate) { this.vatRate = safe(vatRate); }
@@ -304,6 +315,8 @@ public class DmsDocumentOut {
                 "idZrodla='" + idZrodla + '\'' +
                 ", typ='" + typ + '\'' +
                 ", invoiceNumber='" + invoiceNumber + '\'' +
+                ", nrDokumentu='" + nrDokumentu + '\'' +
+                ", kwotaRk='" + kwotaRk + '\'' +
                 ", pozycje=" + (pozycje != null ? pozycje.size() : 0) +
                 ", platnosci=" + (platnosci != null ? platnosci.size() : 0) +
                 '}';
