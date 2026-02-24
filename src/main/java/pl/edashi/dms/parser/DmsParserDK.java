@@ -21,7 +21,7 @@ import java.util.List;
  * - wyciąga powiązane numery z zagnieżdżonych dokumentów (np. pozycje dowodu kasowego -> numer wewnętrzny DS)
  * - wyciąga kwotę z <wartosci kwota="..."> jeśli występuje
  */
-public class DmsParserDK {
+public class DmsParserDK implements DmsParser{
 	private final AppLogger log = new AppLogger("DmsParserDK");
 	public DmsParsedDocument parse(Document doc, String fileName) {
     //public DmsParsedDocument parse(InputStream xmlStream, String sourceFileName) throws Exception {
@@ -353,6 +353,22 @@ public class DmsParserDK {
                 if (dane49 == null) continue;
 
                 // odczyt pól z 49
+                String lpAttr = dane49.getAttribute("lp"); 
+
+             // ---- tutaj wstawione: odczyt lp_porz i fallback na indeks ----
+                if (lpAttr == null || lpAttr.isBlank()) {
+                    Element rozs = firstDirectChild(dane49, "rozszerzone");
+                    if (rozs != null) {
+                        String lpPorz = rozs.getAttribute("lp_porz");
+                        if (lpPorz != null && !lpPorz.isBlank()) {
+                            lpAttr = lpPorz.trim();
+                        }
+                    }
+                }
+                if (lpAttr == null || lpAttr.isBlank()) {
+                    // fallback: użyj pozycji w dokumencie (1-based)
+                    lpAttr = String.valueOf(j + 1);
+                }
                 String kwRk = null;
                 Element wart49 = firstDirectChild(dane49, "wartosci");
                 if (wart49 != null) {
@@ -372,19 +388,31 @@ public class DmsParserDK {
                 }
 
                 // weź kolejny skeleton z listy (jeśli jest), inaczej utwórz nowy
-                DmsRapKasa match;
-                if (skeletonIndex < list.size()) {
-                    match = list.get(skeletonIndex);
-                } else {
-                    match = new DmsRapKasa();
-                    list.add(match);
+                DmsRapKasa match = null;
+                if (lpAttr != null && !lpAttr.isBlank()) {
+                    for (DmsRapKasa p : list) {
+                        String existingLp = p.getLp();
+                        if (lpAttr.equals(existingLp)) {
+                            match = p;
+                            break;
+                        }
+                    }
                 }
-                skeletonIndex++; // przesuwamy wskaźnik na następny skeleton
+                if (match == null) {
+                    if (skeletonIndex < list.size()) {
+                        match = list.get(skeletonIndex);
+                    } else {
+                        match = new DmsRapKasa();
+                        list.add(match);
+                    }
+                    skeletonIndex++; // przesuwamy wskaźnik na następny skeleton
+                }
 
                 // ustawiamy pola z 49 (w Twoim przypadku nie nadpisują pól z 48)
                 if (kwRk != null && !kwRk.isBlank()) match.setKwotaRk(kwRk);
                 if (numer49 != null && !numer49.isBlank()) match.setNrDokumentu(numer49);
-
+                match.setLp(lpAttr);
+                //match.setNrDokKasowego(lpAttr);
                 // opcjonalny log debugowy
                 log.info(String.format("49 DK-> filled skeleton id='%s' nrDokumentu='%s' kwotaRk='%s'",
                          System.identityHashCode(match), match.getNrDokumentu(), match.getKwotaRk()));
@@ -460,6 +488,9 @@ public class DmsParserDK {
                     Element num02 = firstDirectChild(dane02, "numer");
                     if (num02 != null) {
                         String rep = num02.getTextContent();
+                        String repRkNr = num02.getAttribute("nr");
+                        repRkNr = repRkNr.trim();
+                        out.setNrRep(repRkNr);
                         if (rep == null || rep.isBlank()) rep = num02.getAttribute("nr");
                         if (rep != null && !rep.isBlank()) {
                             rep = rep.trim();

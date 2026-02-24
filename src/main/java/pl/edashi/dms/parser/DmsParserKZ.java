@@ -8,7 +8,7 @@ import pl.edashi.dms.parser.util.DocumentNumberExtractor;
 
 import java.util.ArrayList;
 
-public class DmsParserKZ {
+public class DmsParserKZ implements DmsParser{
 	private final AppLogger log = new AppLogger("Parser KZ");
     public DmsParsedDocument parse(Document doc, String fileName) {
 

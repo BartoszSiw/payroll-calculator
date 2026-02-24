@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import pl.edashi.converter.repository.DocumentRepository;
 import pl.edashi.converter.service.CashReportAssembler;
 import pl.edashi.converter.service.ConverterService;
+import pl.edashi.converter.service.DateFilterRegistry;
 import pl.edashi.converter.service.ParserRegistry;
 import pl.edashi.converter.service.SkippedDocument;
 import pl.edashi.dms.mapper.DmsToDmsMapper;
@@ -24,6 +25,8 @@ import pl.edashi.optima.model.OfflineContractor;
 import java.nio.charset.StandardCharsets;
 import java.io.*;
 import java.nio.file.*;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -63,6 +66,7 @@ public class ConverterServlet extends HttpServlet {
         upload.setFileCountMax(-1);
         upload.setSizeMax(1024 * 1024 * 500); // 500 MB
         upload.setFileSizeMax(1024 * 1024 * 50); // 50 MB
+
         List<FileItem> items;
         try {
             items = upload.parseRequest(req);
@@ -98,7 +102,15 @@ public class ConverterServlet extends HttpServlet {
             } else if ("oddzial".equals(name)) {
             	filtrOddzial = value.isBlank() ? "01" : value;
                 //log.info(String.format("Selected oddzial='%s'", filtrOddzial));
-            } else {
+            } else if ("fromDate".equals(name)) {
+                DateFilterRegistry.getInstance().setFromDate(
+                        value.isBlank() ? null : LocalDate.parse(value)
+                    );
+                } else if ("toDate".equals(name)) {
+                    DateFilterRegistry.getInstance().setToDate(
+                        value.isBlank() ? null : LocalDate.parse(value)
+                    );
+                }else {
             	log.debug(String.format("Ignored form field: %s", name));
             }
         }
@@ -294,4 +306,5 @@ public class ConverterServlet extends HttpServlet {
         req.setAttribute("results", results);
         req.getRequestDispatcher("converter/converterResult.jsp").forward(req, resp);
     }
+
 }

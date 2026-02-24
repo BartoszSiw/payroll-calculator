@@ -62,7 +62,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         rs.appendChild(make(docXml, "DATA_WYSTAWIENIA", safe(doc.getDataWystawienia())));
         rs.appendChild(make(docXml, "DATA_SPRZEDAZY", safe(doc.getDataSprzedazy())));
         rs.appendChild(make(docXml, "TERMIN",safe(doc.getTermin())));
-        rs.appendChild(make(docXml, "DATA_DATAOBOWIAZKUPODATKOWEGO", safe(doc.getDataSprzedazy())));
+        rs.appendChild(make(docXml, "DATA_DATAOBOWIAZKUPODATKOWEGO", safe(doc.getDataWystawienia())));
         rs.appendChild(make(docXml, "DATA_DATAPRAWAODLICZENIA", safe(doc.getDataSprzedazy())));
         rs.appendChild(make(docXml, "NUMER", safe(doc.getDocumentType()) + "_" + safe(doc.getInvoiceNumber())));
 
@@ -90,7 +90,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         rs.appendChild(make(docXml, "NAZWA2", safe(doc.getNazwa2())));
         rs.appendChild(make(docXml, "NAZWA3", safe(doc.getNazwa3())));
 
-        rs.appendChild(make(docXml, "NIP_KRAJ", "PL"));   // na przyszłość możesz zmapować z doc.kraj
+        rs.appendChild(make(docXml, "NIP_KRAJ", safe(doc.getKraj())));   // na przyszłość możesz zmapować z doc.kraj
         rs.appendChild(make(docXml, "NIP", safe(doc.getPodmiotNip())));
         rs.appendChild(make(docXml, "KRAJ", safe(doc.getKraj())));
         rs.appendChild(make(docXml, "WOJEWODZTWO", safe(doc.getWojewodztwo())));

@@ -4,11 +4,14 @@ import pl.edashi.dms.model.*;
 import pl.edashi.dms.model.DmsParsedDocument.DmsVatEntry;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 public class DmsToDmsMapper {
 	private final AppLogger log = new AppLogger("DmsToDmsMapper");
+    Map<String,Integer> countersd = new HashMap<>();
     public DmsDocumentOut map(DmsParsedDocument src) {
         DmsDocumentOut doc = new DmsDocumentOut();
         doc.setIdZrodla(UUID.randomUUID().toString());
@@ -100,13 +103,17 @@ public class DmsToDmsMapper {
                 doc.getPozycje().add(outPos);
             }
         }
+///      
+
+
+///
            doc.setRapKasa(new ArrayList<>());
            List<DmsRapKasa> rapKasa = src.getRapKasa();
               if (rapKasa != null && !rapKasa.isEmpty()) {
                for (DmsRapKasa k : rapKasa) {
                    DmsOutputPosition outRk = new DmsOutputPosition();
                    Contractor posContractor = k.getContractor();
-                   outRk.setContractor(posContractor);             
+                   outRk.setContractor(posContractor);   
                    outRk.setDataWystawienia(date);
                    outRk.setReportNumber(safe(src.getReportNumber()));
                    outRk.setReportNumberPos(safe(src.getReportNumberPos()));
@@ -115,57 +122,32 @@ public class DmsToDmsMapper {
                    outRk.setKwotaRk(k.getKwotaRk());
                    outRk.setKierunek(k.getKierunek());
                    outRk.setSymbolKPW(mapSymbolDokumentuZapisu(k.getDowodNumber()));
-                   outRk.setDowodNumber(mapDowodNumber(k.getDowodNumber()));
+                   String code = null;
+                   String mapped = safe(mapDowodNumber(k.getDowodNumber(),src.getNrRep()));
+                   code = mapped.split("/")[0].trim();
+                   String typeKey = null;
+                   if ("KWD".equalsIgnoreCase(code)) typeKey = "KWD";
+                   else if ("KPD".equalsIgnoreCase(code)) typeKey = "KPD";
+                   else if ("DW".equalsIgnoreCase(code)) typeKey = "DW";
+                   String suffix = "";
+                   //log.info(String.format("MAPPER BEFORE INC: mapped='%s ' raw='%s ' typeKey='%s ' countersd='%s '", mapped, k.getDowodNumber(), typeKey, countersd));
+                   suffix = nextCounter(countersd, typeKey, 3);
+                   //log.info(String.format("MAPPER  NrRep()='%s ' suffix='%s '", src.getNrRep(), suffix));
+                   String finalMapped = replaceSuffixWithCounter(mapped, suffix);
+                   outRk.setDowodNumber(finalMapped);
                    doc.getRapKasa().add(outRk);
-                   log.info(String.format("MAPPER CHECK: out id='%s' rapKasaList id='%s' size='%s'",
-                		    System.identityHashCode(src), src.getRapKasa()==null?0:System.identityHashCode(src.getRapKasa()), src.getRapKasa()==null?0:src.getRapKasa().size()));
-                		log.info(String.format("MAPPER CHECK: processing k id='%s' nrDokumentu='%s' kwotaRk='%s' dowod='%s' c='%s'",
-                		    System.identityHashCode(k), k.getNrDokumentu(), k.getKwotaRk(), k.getDowodNumber(), c));
+                   /*log.info(String.format("MAPPER CHECK: out id='%s' mapped='%s' rapKasaList id='%s' size='%s'",
+                		    System.identityHashCode(src), mapped, src.getRapKasa()==null?0:System.identityHashCode(src.getRapKasa()), src.getRapKasa()==null?0:src.getRapKasa().size()));
+                		log.info(String.format("MAPPER CHECK: processing k id='%s' nrDokumentu='%s' kwotaRk='%s' dowod='%s' NrRKB='%s'",
+                		    System.identityHashCode(k), k.getNrDokumentu(), k.getKwotaRk(), k.getDowodNumber(), k.getNrRKB()));*/
 
                    //log.info(String.format("MAPPER: doc identity={} file={} dataWystawienia={} nrDokumentu={}",System.identityHashCode(doc), src.getSourceFileName(), doc.getDataWystawienia(), k.getNrDokumentu()));
                    //log.info("Mapper OutRk doc="+doc);
-                   log.info("Mapper: ustawiono k.getNrDokumentu= '" + k.getNrDokumentu() + "'");
+                   //log.info("Mapper: ustawiono k.getNrDokumentu= '" + k.getNrDokumentu() + "'");
                    //log.info(String.format("reportNr='%s ' nrRKB='%s ' kierunek='%s '", k.getReportNumber(), k.getNrRKB(), k.getKierunek()));
                }
            }
-     // po zmapowaniu wszystkich DmsPosition na DmsOutputPosition
-        /*log.info("Mapper: before advance mapping, doc.getPozycje().size=" + (doc.getPozycje() == null ? 0 : doc.getPozycje().size()));
 
-        double advNet = parseDoubleSafe(src.getAdvanceNet()); // src to DmsParsedDocument przekazywany do mappera
-        double advVat = parseDoubleSafe(src.getAdvanceVat());
-
-        if (Math.abs(advNet) > 0.0001 || Math.abs(advVat) > 0.0001) {
-            List<DmsOutputPosition> outPositions = doc.getPozycje();
-            if (outPositions == null) {
-                outPositions = new ArrayList<>();
-                doc.setPozycje(outPositions);
-            }
-
-            DmsOutputPosition advOut = new DmsOutputPosition();
-            advOut.setOpis("ZALICZKA");
-            advOut.setKategoria("");
-            advOut.setKanalKategoria("");
-            advOut.setStawkaVat("");
-            advOut.setStatusVat("");
-
-            advOut.setNetto(String.format(Locale.US, "%.2f", -advNet));
-            advOut.setVat(String.format(Locale.US, "%.2f", -advVat));
-            advOut.setBrutto(String.format(Locale.US, "%.2f", -(advNet + advVat)));
-
-            // jeśli builder numeruje lp sam, możesz pominąć setLp
-            advOut.setLp(String.valueOf(outPositions.size() + 1));
-
-            try { advOut.setAdvance(true); } catch (Throwable ignored) {}
-            outPositions.add(advOut);
-
-            log.info("Mapper: appended advance position -> netto=" + advOut.getNetto() + " vat=" + advOut.getVat());
-        }
-
-        log.info("Mapper: after advance mapping, doc.getPozycje().size=" + (doc.getPozycje() == null ? 0 : doc.getPozycje().size()));*/
-     // VAT (typ 06)
-     // ===============================
-     // VAT — DS vs DZ
-     // ===============================
      if ("DZ".equals(srcType) || "FVZ".equals(srcType)) {
     	 log.info(String.format( "[MAPPER][DZ] file='%s' vatEntries=%d vatBase='%s' vatAmount='%s' vatRate='%s'", safe(src.getSourceFileName()), src.getVatEntries() == null ? -1 : src.getVatEntries().size(), doc.getVatBase(), doc.getVatAmount(), doc.getVatRate() ));
          // DZ → VAT liczymy z vatEntries (typ 06)
@@ -238,12 +220,13 @@ public class DmsToDmsMapper {
             case "240" -> "240" ;
             case "290" -> "290" ;
             case "310" -> "310" ;
+            case "320" -> "320" ;
             case "330" -> "330" ;
             case "400" -> "400" ;
             default -> "";
         };
     }
-    private static String mapDowodNumber(String src) {
+    private static String mapDowodNumber(String src, String nrRKB) {
         if (src == null) return null;
         src = src.trim();
         // jeśli już jest w docelowym formacie, zwróć bez zmian
@@ -276,8 +259,30 @@ public class DmsToDmsMapper {
         }
 
         String padded = String.format("%06d", num);
+
+        // --- normalizacja nrRKB do 2 cyfr (np. "1" -> "01") ---
+        String prefix = "";
+        if (nrRKB != null) {
+            String nr = nrRKB.trim().replaceAll("\\D", "");
+            if (!nr.isEmpty()) {
+                try {
+                    int nrInt = Integer.parseInt(nr);
+                    prefix = String.format("%03d", nrInt); // zawsze 2 cyfry
+                } catch (NumberFormatException ignored) {
+                    // jeśli nie da się sparsować, użyj surowego nr (bez niecyfr)
+                    prefix = nr;
+                }
+            }
+        }
+
+        if (!prefix.isEmpty()) {
+            int replaceLen = Math.min(prefix.length(), padded.length());
+            padded = prefix + padded.substring(replaceLen);
+        }
+
         return String.format("%s/1/%s/%s", type, padded, year);
     }
+
     private static String mapSymbolDokumentuZapisu(String dowodNumber) {
         if (dowodNumber == null) return null;
         String s = dowodNumber.trim();
@@ -307,5 +312,39 @@ public class DmsToDmsMapper {
         } catch (Exception e) {
             return 0.0;
         }
+    }
+    private String nextCounter(Map<String,Integer> countersd, String type, int width) {
+        if (type == null) type = "";
+        Integer cur = countersd.get(type);
+        if (cur == null) cur = 0;
+        cur = cur + 1;
+        countersd.put(type, cur);
+        return String.format("%0" + width + "d", cur); // "001", "002", ...
+    }
+
+    /**
+     * mappedDowodNumber expected format: TYPE/1/NNNNNN/YYYY
+     * We keep first 3 digits of NNNNNN (report prefix) and replace last 3 digits with counterSuffix.
+     * If input doesn't match, return original mapped.
+     */
+    private String replaceSuffixWithCounter(String mappedDowodNumber, String counterSuffix) {
+        if (mappedDowodNumber == null || counterSuffix == null) return mappedDowodNumber;
+        String s = mappedDowodNumber.trim();
+        // prosty split: TYPE / 1 / NNNNNN / YYYY
+        String[] parts = s.split("/");
+        if (parts.length < 4) return mappedDowodNumber;
+        String type = parts[0].trim();      // e.g. "DW"
+        String one = parts[1].trim();       // should be "1"
+        String six = parts[2].trim();       // e.g. "003019"
+        String year = parts[3].trim();      // e.g. "2026"
+        if (six.length() != 6) {
+            // spróbuj sformatować do 6 cyfr jeśli to możliwe
+            String digits = six.replaceAll("\\D", "");
+            if (digits.length() > 6) digits = digits.substring(digits.length() - 6);
+            six = String.format("%06d", digits.isEmpty() ? 0 : Integer.parseInt(digits));
+        }
+        String prefix = six.substring(0, 3); // zachowujemy te 3 cyfry (nr raportu)
+        String newSix = prefix + String.format("%03d", Integer.parseInt(counterSuffix)); // prefix + counterSuffix(3)
+        return String.format("%s/%s/%s/%s", type, one, newSix, year);
     }
 }

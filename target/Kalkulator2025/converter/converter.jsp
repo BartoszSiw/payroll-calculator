@@ -1,12 +1,24 @@
 <%@ page language="java" import="java.util.*" pageEncoding="ISO-8859-1"%>
-<%-- <%
-    String enabledStr = (String) request.getAttribute("enabledStr");
-    if (enabledStr == null) enabledStr = "";
-     boolean en001 = enabledStr.contains("001");
-    boolean enCD  = enabledStr.contains("CD");
-    boolean enCP  = enabledStr.contains("CP");
-    boolean enCR  = enabledStr.contains("CR");
-%> --%>
+<%@ page import="pl.edashi.converter.service.DateFilterRegistry" %>
+<%@ page import="java.time.LocalDate" %>
+<%
+    String from = request.getParameter("fromDate");
+    String to   = request.getParameter("toDate");
+
+    DateFilterRegistry dfr = DateFilterRegistry.getInstance();
+
+    if (from != null && !from.isBlank()) {
+        dfr.setFromDate(LocalDate.parse(from));
+    } else {
+        dfr.setFromDate(null);
+    }
+
+    if (to != null && !to.isBlank()) {
+        dfr.setToDate(LocalDate.parse(to));
+    } else {
+        dfr.setToDate(null);
+    }
+%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
@@ -22,6 +34,21 @@
 <h2>Konwerter XML AUTO TIM</h2>
 <jsp:include page="/menu.jsp" />
 <form action="../ConverterServlet" method="post" enctype="multipart/form-data" class="conv-form">
+<div class="form-section">
+    <label class="field-label"><strong>Filtr dat (opcjonalnie)</strong></label>
+
+    <div class="date-filter-group">
+        <label for="fromDate">Data od:</label>
+        <input type="date" id="fromDate" name="fromDate" class="date-input">
+
+        <label for="toDate">Data do:</label>
+        <input type="date" id="toDate" name="toDate" class="date-input">
+    </div>
+
+    <div class="field-help">
+        Jeśli pozostawisz puste — przetworzymy wszystkie daty.
+    </div>
+</div>
     <div class="form-section">
         <label for="rejestr" class="field-label"><strong>Wybierz rejestry</strong></label>
         <select name="rejestr" id="rejestr" multiple size="8" class="select-control" aria-describedby="rejestrHelp">
@@ -47,6 +74,7 @@
             <option value="240"> 240 </option>
             <option value="290"> 290 </option>
             <option value="310"> 310 </option>
+            <option value="320"> 320 </option>
             <option value="330"> 330 </option>
             <option value="400"> 400 </option>
                         <!-- Z1: pokaz tylko jesli ktorys z CD/CP/CR jest enabled -->

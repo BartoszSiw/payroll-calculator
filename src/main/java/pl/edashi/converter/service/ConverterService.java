@@ -3,7 +3,9 @@ import pl.edashi.common.logging.AppLogger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import pl.edashi.converter.repository.DocumentRepository;
+import pl.edashi.dms.mapper.DmsToDmsMapper;
 import pl.edashi.dms.model.DmsParsedContractorList;
+import pl.edashi.dms.parser.DmsParser;
 import pl.edashi.dms.parser.DmsParserDK;
 import pl.edashi.dms.parser.DmsParserDS;
 import pl.edashi.dms.parser.DmsParserDZ;
@@ -18,6 +20,10 @@ import pl.edashi.dms.parser.DmsParserWZ;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.StringReader;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.time.YearMonth;
+
 import org.xml.sax.InputSource;
 import pl.edashi.converter.analysis.DocumentRelationAnalyzer;
 import pl.edashi.converter.analysis.DocumentRelationAnalyzer.ExtractedNumber;
@@ -42,7 +48,6 @@ public class ConverterService {
         this.structureComparator = new XmlStructureComparator();
     }
 
-
     public Object processSingleDocument(String xml, String sourceFile) throws Exception {
         // 1. parsowanie
     	
@@ -59,14 +64,43 @@ public class ConverterService {
         if (type == null || type.isEmpty()) {
             throw new IllegalArgumentException("Brak atrybutu id w DMS root: " + sourceFile);
         }
-        // Sprawdź, czy parser dla tego typu jest włączony
+        if ("SL".equalsIgnoreCase(type)) {
+            return new DmsParserSL().parse(doc, sourceFile);
+        }
+     // wybór parsera
+        DmsParser parser = DmsParserFactory.getParser(type);
+
+        // parsowanie
+        DmsParsedDocument d = parser.parse(doc, sourceFile);
         ParserRegistry registry = ParserRegistry.getInstance();
+        DateFilterRegistry dateFilter = DateFilterRegistry.getInstance();
+        LocalDate fromDate = dateFilter.getFromDate();
+        LocalDate toDate   = dateFilter.getToDate();
+        LocalDate docDate = parseDateFromPossibleFormats(
+                d.getMetadata() == null ? null : d.getMetadata().getDateOperation()
+        );
         String docType = type.trim().toUpperCase();
+        //LocalDate docDate = parseDateFromPossibleFormats(d.getMetadata() == null ? null : d.getMetadata().getDate()
         if (!registry.isEnabled(docType)) {
             log.info(String.format("Pominięto plik %s: typ '%s' nie jest włączony do przetwarzania", sourceFile, docType));
             return new SkippedDocument(docType, "Parser disabled");
         }
-        switch (type) {
+        if (dateFilter.hasFilter()) {
+            if (!isDateInRange(docDate, fromDate, toDate)) {
+                return new SkippedDocument(docType, "Date out of range");
+            }
+        }
+     // SL obsługujemy osobno, bo zwraca inny typ
+
+
+        // wszystkie inne typy idą przez fabrykę
+        return d;
+
+        // wszystkie inne typy idą przez fabrykę
+        //DmsParser parser = DmsParserFactory.getParser(type);
+        //DmsParsedDocument d = parser.parse(doc, sourceFile);
+
+        /*switch (type) {
         case "DS":
             return new DmsParserDS().parse(doc, sourceFile);
         case "DZ":
@@ -93,7 +127,7 @@ public class ConverterService {
 
         default:
             throw new IllegalArgumentException("Nieobsługiwany typ dokumentu: " + type);
-    }
+    }*/
     }
     public DmsParsedContractorList processContractorDictionary(String xml, String sourceFile) throws Exception {
     	
@@ -197,5 +231,24 @@ public class ConverterService {
         if (nr != null && !nr.isBlank()) {
             out.add(new ExtractedNumber(nr.trim(), id));
         }
+    }
+    private static boolean isDateInRange(LocalDate docDate, LocalDate from, LocalDate to) {
+        if (docDate == null) return false; // brak daty -> pomijamy; zmień jeśli chcesz inaczej
+        if (from != null && docDate.isBefore(from)) return false;
+        if (to   != null && docDate.isAfter(to))   return false;
+        return true;
+    }
+
+    private static LocalDate parseDateFromPossibleFormats(String s) {
+        if (s == null || s.isBlank()) return null;
+        s = s.trim();
+        // najpierw yyyy-MM-dd
+        try { return LocalDate.parse(s); } catch (DateTimeParseException ignored) {}
+        // spróbuj z czasem: "yyyy-MM-dd HH:mm:ss" lub "yyyy-MM-dd'T'HH:mm:ss"
+        try {
+            String datePart = s.split(" ")[0];
+            return LocalDate.parse(datePart);
+        } catch (Exception ignored) {}
+        return null;
     }
 }

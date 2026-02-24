@@ -43,6 +43,7 @@ public class DmsOutputPosition {
     private String dataWystawienia = "";
     private String symbolKPW = "";
     private String nrDokumentu ="";
+    private String mappedDowodNumber;
     private boolean advance = false;
 	private List<DmsKwotaDodatkowa> kwotyDodatkowe = new ArrayList<>();
 	private Contractor contractor;
@@ -86,6 +87,7 @@ public class DmsOutputPosition {
     public String getDataWystawienia () { return dataWystawienia; }
     public String getSymbolKPW () { return symbolKPW; }
     public String getNrDokumentu() { return nrDokumentu; }
+    public String getMappedDowodNumber() { return mappedDowodNumber; } 
    	public boolean isAdvance() { return advance; }
 	public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {return kwotyDodatkowe;}
     public Contractor getContractor() { return contractor; }
@@ -130,6 +132,7 @@ public class DmsOutputPosition {
 	public void setDataWystawienia(String dataWystawienia) {this.dataWystawienia = safe(dataWystawienia); }
 	public void setSymbolKPW(String symbolKPW) { this.symbolKPW = safe(symbolKPW); }
     public void setContractor(Contractor contractor) { this.contractor = contractor; }
+    public void setMappedDowodNumber(String mappedDowodNumber) { this.mappedDowodNumber = mappedDowodNumber; }
     // --- Helper ---
     private static String safe(String s) {
         return s == null ? "" : s;

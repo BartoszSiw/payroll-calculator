@@ -23,7 +23,7 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
 
-public class DmsParserDS {
+public class DmsParserDS implements DmsParser{
 	private final AppLogger log = new AppLogger("DmsParserDS");
     public DmsParsedDocument parse(Document doc, String fileName) {
         DmsParsedDocument out = new DmsParsedDocument();
@@ -543,6 +543,8 @@ public class DmsParserDS {
 
     // ------------------------------
     // VAT (typ 06)
+    /// FVU_1/200/21/00001/2026 <dane lp="1" kod="99" stawka="0.00"> UE 0%
+    /// 1/320/01/00001/2026 <dane lp="1" kod="51" stawka="0.00"> ZW status "zwolniona" Status stawki VAT. Wartość wymagana. Przyjmuje wartości: opodatkowana, zwolniona, zaniżona, nie podlega
     // ------------------------------
     private void extractVat(Document doc, DmsParsedDocument out) {
         if (doc == null || out == null) return;
@@ -558,8 +560,31 @@ public class DmsParserDS {
                 Element wart = firstElementByTag(dane, "wartosci");
 
                 String stawka = safeAttr(dane, "stawka");
+                String kodVat = safeAttr(dane, "kod");
                 String podstawa = wart != null ? safeAttr(wart, "podstawa") : "";
                 String vat = wart != null ? safeAttr(wart, "vat") : "";
+                
+             // Ustal status VAT wg kodu i stawki
+               /* if ("51".equals(kodVat)) {
+                    // 51 = ZW
+                    out.setStatusVat("zwolniona");
+                    out.setVatRate("ZW");
+                } 
+                else if ("99".equals(kodVat) && "0.00".equals(stawka)) {
+                    // 99 + 0.00 = 0% (ale nie ZW)
+                    out.setStatusVat("opodatkowana");
+                    out.setVatRate("0.00");
+                }
+                else if ("02".equals(kodVat)) {
+                    // 02 = 23%
+                    out.setStatusVat("opodatkowana");
+                    out.setVatRate("23.00");
+                }
+                else {
+                    // fallback – normalizacja stawki
+                    out.setStatusVat(stawka);
+                    out.setVatRate(normalizeVatRate(stawka));
+                }*/
 
                 out.setVatRate(normalizeVatRate(stawka));
                 out.setVatBase(podstawa);

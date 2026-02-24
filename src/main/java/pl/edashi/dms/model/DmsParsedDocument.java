@@ -26,6 +26,7 @@ public class DmsParsedDocument {
     public Map<String, String> getNetBruRates() { return netBruRates; }
     public void setNetBruRates(Map<String, String> map) { this.netBruRates = map; }
 
+
     private String vatRate = "";
     private String vatBase = "";
     private String vatAmount = "";
@@ -44,6 +45,7 @@ public class DmsParsedDocument {
     private String dataZamkniecia = "";
     private String nrRKB = "";
     private String nrRep = "";
+    private String lp = "";
     private String additionalDescription = "";
     private String invoiceNumber = "";
     private String invoiceShortNumber = "";
@@ -139,6 +141,7 @@ public class DmsParsedDocument {
     public void setReportNumber(String reportNumber) {this.reportNumber = reportNumber; }
     public void setNrRKB(String nrRKB) {this.nrRKB = nrRKB; }
     public void setNrRep(String nrRep) {this.nrRep = nrRep; }
+    public void setLp(String lp) {this.lp = lp; }
     public void setReportNumberPos(String reportNumberPos) {this.reportNumberPos = reportNumberPos; }
     public void setDaneRejestr(String daneRejestr) { this.daneRejestr = daneRejestr == null ? "" : daneRejestr.trim(); }
     public void setOddzial(String oddzial) { this.oddzial = oddzial == null ? "" : oddzial.trim(); }
@@ -239,6 +242,10 @@ public class DmsParsedDocument {
         return nrRep;
     }
     
+    public String getLp() {
+        return lp;
+    }
+    
     public String getReportNumberPos() {
         return reportNumberPos;
     }
@@ -273,6 +280,7 @@ public class DmsParsedDocument {
     public String getDowodNumber() { return dowodNumber;}
     public String getDataWystawienia() { return dataWystawienia;}
     public String getNrDokumentu() { return nrDokumentu;}
+    
     //public String getVin() {return vin;}
     // --- Utility ---
 

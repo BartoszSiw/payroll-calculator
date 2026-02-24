@@ -10,7 +10,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DmsParserKO {
+public class DmsParserKO implements DmsParser{
 	private final AppLogger log = new AppLogger("Parser KO");
     public DmsParsedDocument parse(Document doc, String fileName) {
 

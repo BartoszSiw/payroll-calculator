@@ -19,7 +19,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-public class DmsParserDZ {
+public class DmsParserDZ implements DmsParser{
     private final AppLogger log = new AppLogger("DmsParserDZ");
     public DmsParsedDocument parse(Document doc, String fileName) {
         DmsParsedDocument out = new DmsParsedDocument();
@@ -215,7 +215,6 @@ public class DmsParserDZ {
                 	    "[DZ][POS] lp=%s kodVat=%s stawka=%s netto=%s vat=%s brutto=%s stawkaVal=%s",
                 	    p.getLp(), p.getKodVat(), p.getStawkaVat(), p.getNetto(), p.getVat(), p.getBrutto(), stawkaVal
                 	));
-
             } else {
                 // fallback — brak stawki VAT
                 p.stawkaVat = "0";
@@ -363,9 +362,10 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
                 String rawK = klas != null ? klas.getAttribute("klasyfikacja") : "";
                 p.kategoria2 = rawK;
                 String category = p.kategoria2;
-                if(p.kategoria2.isBlank()) {category="INNE USŁUGI 550";}
+                if(p.kategoria2.isBlank()) {category="MATERIAŁY";}
                 switch (category) {
                 case "KAWA/HERBATA": p.rodzajKoszty = "Inne";break; 
+                case "MATERIAŁY": p.rodzajKoszty = "Towary";p.kategoria2="MATERIAŁY";break;
                 case "INNE USŁUGI 550": p.rodzajKoszty = "Usługi";p.kategoria2="INNE USŁUGI 550";break;}
 
                 list.add(p);

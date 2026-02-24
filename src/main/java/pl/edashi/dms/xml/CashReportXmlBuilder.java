@@ -1,6 +1,9 @@
 package pl.edashi.dms.xml;
 
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.w3c.dom.Document;
@@ -14,6 +17,7 @@ import pl.edashi.dms.parser.util.DocumentNumberExtractor;
 
 public class CashReportXmlBuilder implements XmlSectionBuilder {
 	private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(CashReportXmlBuilder.class);
+	private static final Pattern DOWOD_PATTERN = Pattern.compile("^(KP|KW|DW)/\\d+/(\\d{6})/\\d{4}$");
 	 private static final String NS = "http://www.comarch.pl/cdn/optima/offline";
 	 private final DmsDocumentOut doc;
 
@@ -77,15 +81,19 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	        if (doc.getRapKasa() != null) {
 	        	int lp = 1;
 	        for (DmsOutputPosition k : doc.getRapKasa()) {
+	        	//String mapped = safe(k.getMappedDowodNumber()); // używamy mapped do XML 
+	        	//String nrLp = safe(k.getLp());
+	        	//String numeratorValue = extractNumeratorFromDowod(k.getDowodNumber(), nrLp); // "100001"
+	        	//LOG.info(String.format("mapped='%s ' nrLp='%s ' numeratorValue='%s '", mapped, nrLp,numeratorValue));
             	Element rap = docXml.createElementNS(NS, "ZAPIS_KB");
             	rapKasa.appendChild(rap);
         		rap.appendChild(makeCdata(docXml, "ID_ZRODLA_ZAPISU", ""));
     	        rap.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU_ZAPISU", safe(k.getSymbolKPW())));
     	        rap.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU_ZAPISU_ID", ""));
     	        rap.appendChild(makeCdata(docXml, "DATA_DOK", safe(k.getDataWystawienia())));
-    	        rap.appendChild(makeCdata(docXml, "NUMER_ZAPISU", safe(k.getDowodNumber())));
+    	        rap.appendChild(makeCdata(docXml, "NUMER_ZAPISU", k.getDowodNumber()));
     	        rap.appendChild(makeCdata(docXml, "NUMERATOR_REJESTR", "1"));
-    	        rap.appendChild(makeCdata(docXml, "NUMERATOR_NUMER_NR_ZAPISU", safe(k.getNrRKB())));
+    	        rap.appendChild(makeCdata(docXml, "NUMERATOR_NUMER_NR_ZAPISU", extractSixDigits(k.getDowodNumber())));
     	        rap.appendChild(makeCdata(docXml, "NUMER_OBCY_ZAPISU", safe(k.getNrDokumentu())));
     	        
     	        
@@ -224,6 +232,78 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	        }
 	        return value == null ? "" : value.trim();
 	    }
+	    /**
+	     * Zwraca 6-cyfrową część mappedDowodNumber w formacie TYPE/1/NNNNNN/YYYY
+	     * Jeśli nie można wyciągnąć 6 cyfr, zwraca null.
+	     */
+	    public static String extractSixDigits(String mappedDowodNumber) {
+	        if (mappedDowodNumber == null) return null;
+	        String s = mappedDowodNumber.trim();
+	        String[] parts = s.split("/");
+	        if (parts.length < 3) return null;
+	        String six = parts[2].trim();
+	        // usuń wszystko co nie-cyfry i dopasuj do 6 cyfr
+	        String digits = six.replaceAll("\\D", "");
+	        if (digits.length() == 6) return digits;
+	        if (digits.length() > 6) {
+	            // jeśli więcej cyfr, weź ostatnie 6 (bezpieczna heurystyka)
+	            return digits.substring(digits.length() - 6);
+	        }
+	        // jeśli mniej niż 6, spróbuj dopełnić zerami z lewej (opcjonalne)
+	        if (!digits.isEmpty()) {
+	            return String.format("%06d", Integer.parseInt(digits));
+	        }
+	        return null;
+	    }
+
+	    /** Pierwsze 3 cyfry z 6-cyfrowego pola; zwraca null jeśli argument niepoprawny */
+	    public static String getPrefix3(String sixDigits) {
+	        if (sixDigits == null || sixDigits.length() != 6) return null;
+	        return sixDigits.substring(0, 3);
+	    }
+
+	    /** Ostatnie 3 cyfry z 6-cyfrowego pola; zwraca null jeśli argument niepoprawny */
+	    public static String getCounter3(String sixDigits) {
+	        if (sixDigits == null || sixDigits.length() != 6) return null;
+	        return sixDigits.substring(3, 6);
+	    }
+
+	    /**
+	     * Bezpieczna wersja replaceSuffixWithCounter — przyjmuje mappedDowodNumber w formacie
+	     * TYPE/1/NNNNNN/YYYY i counterSuffix (np. "007") i zwraca finalny mapped.
+	     * Jeśli input nie pasuje, zwraca oryginalny mappedDowodNumber.
+	     */
+	    public static String replaceSuffixWithCounterSafe(String mappedDowodNumber, String counterSuffix) {
+	        if (mappedDowodNumber == null || counterSuffix == null) return mappedDowodNumber;
+	        String s = mappedDowodNumber.trim();
+	        String[] parts = s.split("/");
+	        if (parts.length < 4) return mappedDowodNumber;
+	        String type = parts[0].trim();
+	        String one = parts[1].trim();
+	        String six = parts[2].trim().replaceAll("\\D", "");
+	        String year = parts[3].trim();
+	        // upewnij się, że six ma 6 cyfr
+	        if (six.length() < 6) {
+	            try {
+	                six = String.format("%06d", Integer.parseInt(six));
+	            } catch (Exception e) {
+	                six = String.format("%06d", 0);
+	            }
+	        } else if (six.length() > 6) {
+	            six = six.substring(six.length() - 6);
+	        }
+	        String prefix = six.substring(0, 3);
+	        // counterSuffix może być "1" lub "001" — sformatuj do 3 cyfr
+	        String counterFormatted;
+	        try {
+	            counterFormatted = String.format("%03d", Integer.parseInt(counterSuffix));
+	        } catch (Exception e) {
+	            counterFormatted = counterSuffix.length() == 3 ? counterSuffix : String.format("%03d", 0);
+	        }
+	        String newSix = prefix + counterFormatted;
+	        return String.format("%s/%s/%s/%s", type, one, newSix, year);
+	    }
+
 
 }
 
