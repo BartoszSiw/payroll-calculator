@@ -54,6 +54,7 @@ public class DmsParsedDocument {
     private String typDocAnalizer = "";
     private String daneRejestr = "";
     private String oddzial = "";
+    private String opis1 = "";
     private String kierunek = "";; // "przychód" albo "rozchód" albo "korekta"
 	public String korekta = "";
 	public String korektaNumer = "";
@@ -66,6 +67,7 @@ public class DmsParsedDocument {
     private String dowodNumber = "";
     private String dataWystawienia = "";
     private String nrDokumentu = "";
+    private String nrIdPlat = "";
     //private String vin = "";
 
     // dodatkowe pola pomocnicze
@@ -145,6 +147,7 @@ public class DmsParsedDocument {
     public void setReportNumberPos(String reportNumberPos) {this.reportNumberPos = reportNumberPos; }
     public void setDaneRejestr(String daneRejestr) { this.daneRejestr = daneRejestr == null ? "" : daneRejestr.trim(); }
     public void setOddzial(String oddzial) { this.oddzial = oddzial == null ? "" : oddzial.trim(); }
+    public void setOpis1(String opis1) { this.opis1 = opis1 == null ? "" : opis1.trim(); }
     public void setHasVatDocument(boolean hasVatDocument) { this.hasVatDocument = hasVatDocument; }
     public void setKierunek(String kierunek) { this.kierunek = kierunek; }
 	public void setDokumentFiskalny(String dokumentFiskalny) { this.dokumentFiskalny = dokumentFiskalny ;} 
@@ -161,6 +164,7 @@ public class DmsParsedDocument {
 	public void setDowodNumber(String dowodNumber) {this.dowodNumber = safe(dowodNumber); }
 	public void setDataWystawienia(String dataWystawienia) {this.dataWystawienia = safe(dataWystawienia); }
 	public void setNrDokumentu(String nrDokumentu) { this.nrDokumentu = safe(nrDokumentu); }
+	public void setNrIdPlat(String nrIdPlat) {	 this.nrIdPlat = safe(nrIdPlat); }
 	//public void setVin(String vin) {this.vin  = vin ;}
     // --- Gettery ---
     public String getNrKsef() {
@@ -263,6 +267,7 @@ public class DmsParsedDocument {
     public String getReportDate() {return reportDate; }
     public String getDaneRejestr() { return daneRejestr; }
     public String getOddzial() { return oddzial; }
+    public String getOpis1() { return opis1; }
     public boolean isHasVatDocument() { return hasVatDocument; }
     public String getUwzglProp() { return uwzglProp; }
     public String getKierunek() { return kierunek; }
@@ -280,6 +285,7 @@ public class DmsParsedDocument {
     public String getDowodNumber() { return dowodNumber;}
     public String getDataWystawienia() { return dataWystawienia;}
     public String getNrDokumentu() { return nrDokumentu;}
+    public String getNrIdPlat() { return nrIdPlat;}
     
     //public String getVin() {return vin;}
     // --- Utility ---

@@ -828,15 +828,17 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
     // ------------------------------
     private Contractor extractContractor(Document doc) {
         NodeList list = doc.getElementsByTagName("document");
-
+        boolean hasContractor = false;
         for (int i = 0; i < list.getLength(); i++) {
             Element el = (Element) list.item(i);
 
             if ("35".equals(el.getAttribute("typ"))) {
-
+            	hasContractor = true;
                 Contractor c = new Contractor();
                 Element dane = (Element) el.getElementsByTagName("dane").item(0);
                 Element rozs = (Element) dane.getElementsByTagName("rozszerzone").item(0);
+                String wyr = rozs.getAttribute("wyr");
+                c.isCompany = "F".equalsIgnoreCase(wyr);
                 c.id = rozs.getAttribute("kod_klienta");
                 c.nip = rozs.getAttribute("nip");
                 c.name1 = rozs.getAttribute("nazwa1");
@@ -847,10 +849,29 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
                 c.zip = rozs.getAttribute("kod_poczta");
                 c.street = rozs.getAttribute("ulica");
 
+             // pełna nazwa
+                c.fullName = buildFullName(c);
+                if (c.isCompany) {
+                    // Firma
+                    c.czynny = "Tak";// jeśli firma to tak, inaczej nie
+                } else {
+                    // Osoba fizyczna
+                	c.czynny = "Nie";// jeśli firma to tak, inaczej nie
+                }
                 return c;
+
             }
         }
-        return null;
+     // 🔥 Fallback — brak typ 35 → sprzedaż detaliczna 
+        Contractor c = new Contractor(); 
+        c.isCompany = false; 
+        c.czynny = "Nie"; 
+        c.nip = ""; 
+        c.name1 = ""; 
+        c.name2 = ""; 
+        c.name3 = ""; 
+        c.fullName = ""; 
+        return c;
     }
 
     // -----------------------
@@ -921,5 +942,21 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
         try { return s != null && !s.isBlank() ? Double.parseDouble(s) : 0.0; }
         catch (Exception e) { return 0.0; }
     }
-    
+    private String buildFullName(Contractor c) {
+
+        // Osoba fizyczna: nazwisko + imię
+        if (!c.isCompany) {
+            StringBuilder sb = new StringBuilder();
+            if (c.name1 != null && !c.name1.isBlank()) sb.append(c.name1.trim());
+            if (c.name2 != null && !c.name2.isBlank()) sb.append("_").append(c.name2.trim());
+            return sb.toString().trim();
+        }
+
+        // Firma: nazwa1 + nazwa2 + nazwa3
+        StringBuilder sb = new StringBuilder();
+        if (c.name1 != null && !c.name1.isBlank()) sb.append(c.name1.trim());
+        if (c.name2 != null && !c.name2.isBlank()) sb.append(" ").append(c.name2.trim());
+        if (c.name3 != null && !c.name3.isBlank()) sb.append(" ").append(c.name3.trim());
+        return sb.toString().trim();
+    }
 }

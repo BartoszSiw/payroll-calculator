@@ -1,4 +1,5 @@
 package pl.edashi.converter.service;
+import pl.edashi.common.dao.RejestrDao;
 import pl.edashi.common.logging.AppLogger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -90,6 +91,10 @@ public class ConverterService {
                 return new SkippedDocument(docType, "Date out of range");
             }
         }
+        if (RejestrDao.existsByNrIdPlat(nrIdPlat)) {
+            log.info("Pominięto {}: nrIdPlat {} już istnieje", sourceFile, nrIdPlat);
+            return new SkippedDocument(docType, "nrIdPlat exists");
+        }
      // SL obsługujemy osobno, bo zwraca inny typ
 
 
@@ -168,7 +173,7 @@ public class ConverterService {
         		    String type = doc.getDocumentType() != null
         		            ? doc.getDocumentType().toUpperCase()
         		            : "";
-        		    if (Set.of("FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG").contains(type)) {
+        		    if (Set.of("FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG", "FH").contains(type)) {
         		        String nr = firstNonBlank(
         		                doc.getInvoiceShortNumber(),
         		                doc.getInvoiceNumber()

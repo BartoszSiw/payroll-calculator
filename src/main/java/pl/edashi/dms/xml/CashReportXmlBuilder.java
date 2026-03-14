@@ -51,13 +51,15 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	        rejSekcja.appendChild(rk);
 	     // META
 	        rk.appendChild(makeCdata(docXml, "ID_ZRODLA", ""));//safe(doc.getIdZrodla())
-	        rk.appendChild(makeCdata(docXml, "RACHUNEK", "1"));
+	        String draftRachunek = mapRachunekRejestr(safe(doc.getDocumentType()));
+	        rk.appendChild(makeCdata(docXml, "RACHUNEK", draftRachunek));
 	        rk.appendChild(makeCdata(docXml, "RACHUNEK_ID", ""));
 	        rk.appendChild(makeCdata(docXml, "DATA_OTWARCIA", safe(doc.getDataOtwarcia())));
 	        rk.appendChild(makeCdata(docXml, "DATA_ZAMKNIECIA", safe(doc.getDataZamkniecia())));
-	        rk.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU", "RK"));
+	        String draftSymbol = mapDocumentSymbol(safe(doc.getDocumentType()));
+	        rk.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU", draftSymbol));
 	        rk.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU_ID", ""));
-	        rk.appendChild(makeCdata(docXml, "NUMER", "RK/"+safe(doc.getReportNumber())));
+	        rk.appendChild(makeCdata(docXml, "NUMER", draftSymbol+"/"+safe(doc.getReportNumber())));
 	        rk.appendChild(makeCdata(docXml, "NUMERATOR_NUMER_NR", safe(doc.getNrRep())));
 	        rk.appendChild(makeCdata(docXml, "NUMER_OBCY", ""));
 	        // ZAPISY_KB
@@ -68,7 +70,17 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	    if (doc.getRapKasa() != null) {
 	        int i = 0;
 	        for (DmsOutputPosition p : doc.getRapKasa()) {
-	            /*LOG.info(String.format("  rap[%d]: nrDokumentu:'%s' reportNumber='%s' reportNumberPos='%s' nrRKB='%s' kwota='%s' kierunek='%s' opis='%s'",
+	        	/*LOG.info(String.format(" build XML rapKasa[%d]: nrDokumentu='%s' dowod='%s' lp='%s' kwota='%s' kier='%s' opis='%s' contractor='%s'",
+	                    i++,
+	                    safe(p.getNrDokumentu()),
+	                    safe(p.getDowodNumber()),
+	                    safe(p.getLp()),
+	                    safe(p.getKwotaRk()),
+	                    safe(p.getKierunek()),
+	                    safe(p.getOpis()),
+	                    p.getContractor() == null ? "null" : p.getContractor().getNip()
+	                ));
+	            LOG.info(String.format("  rap[%d]: nrDokumentu:'%s' reportNumber='%s' reportNumberPos='%s' nrRKB='%s' kwota='%s' kierunek='%s' opis='%s'",
 	                i++, p.getNrDokumentu(),
 	                p.getReportNumber(), p.getReportNumberPos(), p.getNrRKB(),
 	                p.getKwotaRk(), p.getKierunek(), p.getOpis()));*/
@@ -79,8 +91,10 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	        //LOG.info(String.format("rapKasa='%s ' getReportNumber='%s '", rapKasa, safe(doc.getReportNumberPos())));
 	        // ZAPIS_KB
 	        if (doc.getRapKasa() != null) {
+	        	LOG.info("build XML: rapKasa.size=" + doc.getRapKasa().size() + " for reportNumber=" + safe(doc.getReportNumber()));
 	        	int lp = 1;
 	        for (DmsOutputPosition k : doc.getRapKasa()) {
+
 	        	//String mapped = safe(k.getMappedDowodNumber()); // używamy mapped do XML 
 	        	//String nrLp = safe(k.getLp());
 	        	//String numeratorValue = extractNumeratorFromDowod(k.getDowodNumber(), nrLp); // "100001"
@@ -112,6 +126,7 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
     	        rap.appendChild(makeCdata(docXml, "PODLEGA_ROZLICZENIU", "tak"));
     	        rap.appendChild(makeCdata(docXml, "JEST_WYNAGRODZENIEM", "Nie"));
     	        rap.appendChild(makeCdata(docXml, "TYP_PODMIOTU", "kontrahent"));
+    	        //0000000000
     	        rap.appendChild(makeCdata(docXml, "PODMIOT", safeContractorField(k, "nip")));
     	        rap.appendChild(makeCdata(docXml, "PODMIOT_ID", ""));
     	        rap.appendChild(makeCdata(docXml, "PODMIOT_NIP", safeContractorField(k, "nip")));
@@ -134,7 +149,7 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
     	        rap.appendChild(makeCdata(docXml, "NR_RACHUNKU", ""));
     	        rap.appendChild(makeCdata(docXml, "IBAN", ""));
     	        rap.appendChild(makeCdata(docXml, "KARTA_KR_NUMER", ""));
-    	        rap.appendChild(makeCdata(docXml, "OPIS", ""));
+    	        rap.appendChild(makeCdata(docXml, "OPIS", k.getOpis1()));
     	        String draftKonto = mapingPositionKonto(safe(k.getKierunek()));
     	        rap.appendChild(makeCdata(docXml, "KONTO", safe(draftKonto)));
     	        rap.appendChild(makeCdata(docXml, "SPLIT_PAYMENT", ""));
@@ -193,6 +208,28 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	                return "karta";
 	            default:
 	                return ""; // nieznany symbol -> puste (bez błędów)
+	        }
+	    }
+	    private static String mapRachunekRejestr(String rachunek) {
+	        if (rachunek == null) return "";
+	        switch (rachunek) {
+	            case "RO":
+	                return "KARTA"; // dokument kartowy
+	            case "KO":
+	                return "1";  // dokument gotówkowy
+	            default:
+	                return "1";    // nieznany -> puste
+	        }
+	    }
+	    private static String mapDocumentSymbol(String positionCode) {
+	        if (positionCode == null) return "";
+	        switch (positionCode) {
+	            case "RO":
+	                return "RKK"; // dokument kartowy
+	            case "KO":
+	                return "RK";  // dokument gotówkowy
+	            default:
+	                return "KO";    // nieznany -> puste
 	        }
 	    }
 

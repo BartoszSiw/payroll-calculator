@@ -4,9 +4,6 @@ import org.w3c.dom.*;
 
 import pl.edashi.common.logging.AppLogger;
 import pl.edashi.dms.model.*;
-import pl.edashi.dms.parser.util.DocumentNumberExtractor;
-
-import javax.xml.parsers.DocumentBuilderFactory;
 import java.util.ArrayList;
 import java.util.List;
 

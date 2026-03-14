@@ -21,7 +21,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
     private final DmsDocumentOut doc;
     public DmsOfflineXmlBuilder(DmsDocumentOut doc) {
         if (doc == null) throw new IllegalArgumentException("DmsOfflineXmlBuilder: doc is null");
-        Set<String> DS_TYPES = Set.of("DS", "FV", "PR", "FZL", "FVK", "RWS","PRK", "FZLK", "FVU", "FVM", "FVG");
+        Set<String> DS_TYPES = Set.of("DS", "FV", "PR", "FZL", "FVK", "RWS","PRK", "FZLK", "FVU", "FVM", "FVG", "FH");
     	 if (!DS_TYPES.contains(doc.getTyp())) {
             throw new IllegalArgumentException("DmsOfflineXmlBuilder: obsługiwany jest tylko typ DS, otrzymano: " + safe(doc.getTyp()));
         }
@@ -64,7 +64,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         rs.appendChild(make(docXml, "TERMIN",safe(doc.getTermin())));
         rs.appendChild(make(docXml, "DATA_DATAOBOWIAZKUPODATKOWEGO", safe(doc.getDataWystawienia())));
         rs.appendChild(make(docXml, "DATA_DATAPRAWAODLICZENIA", safe(doc.getDataSprzedazy())));
-        rs.appendChild(make(docXml, "NUMER", safe(doc.getDocumentType()) + "_" + safe(doc.getInvoiceNumber())));
+        rs.appendChild(make(docXml, "NUMER", safe(doc.getInvoiceNumber()))); //safe(doc.getDocumentType()) + "_" + 
 
         // Pola flagowe – na razie stałe wartości (można potem zmapować z doc)
         rs.appendChild(make(docXml, "KOREKTA", doc.getKorekta()));
@@ -83,7 +83,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         // PODMIOT (kontrahent)
         rs.appendChild(make(docXml, "TYP_PODMIOTU", "kontrahent"));
         rs.appendChild(make(docXml, "PODMIOT", safe(doc.getPodmiotAkronim()))); // uproszczenie
-        //rs.appendChild(make(docXml, "PODMIOT_ID", doc.podmiotId));
+        rs.appendChild(make(docXml, "PODMIOT_ID", safe(doc.getNrIdPlat())));
         rs.appendChild(make(docXml, "PODMIOT_NIP", safe(doc.getPodmiotNip())));
 
         rs.appendChild(make(docXml, "NAZWA1", safe(doc.getNazwa1())));

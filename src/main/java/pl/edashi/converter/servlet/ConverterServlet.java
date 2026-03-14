@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import pl.edashi.converter.repository.DocumentRepository;
+import pl.edashi.converter.service.CardReportAssembler;
 import pl.edashi.converter.service.CashReportAssembler;
 import pl.edashi.converter.service.ConverterService;
 import pl.edashi.converter.service.DateFilterRegistry;
@@ -19,6 +20,7 @@ import pl.edashi.dms.xml.CashReportXmlBuilder;
 import pl.edashi.dms.xml.DmsOfflinePurchaseBuilder;
 import pl.edashi.dms.xml.DmsOfflineXmlBuilder;
 import pl.edashi.dms.xml.RootXmlBuilder;
+import pl.edashi.dms.xml.RozliczeniaXmlBuilder;
 import pl.edashi.optima.builder.ContractorsXmlBuilder;
 import pl.edashi.optima.mapper.ContractorMapper;
 import pl.edashi.optima.model.OfflineContractor;
@@ -185,9 +187,9 @@ public class ConverterServlet extends HttpServlet {
         	 String docType = rawDocType != null ? rawDocType.trim().toUpperCase() : "";
         	 String msg = String.format("Processing: file=%s, rawDocType='%s', docType='%s', invoice='%s'",fileName, rawDocType, docType, invoice);
         	 //log.info(msg);
-        	 Set<String> DS_TYPES = Set.of("DS", "FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG");
- 		    Set<String> DK_TYPES = Set.of("KO", "KZ", "DK", "RD"); //"02"
- 		   Set<String> DD_TYPES = Set.of("DM","RO","RK","PO"); //"02"
+        	 Set<String> DS_TYPES = Set.of("DS", "FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG", "FH");
+ 		    Set<String> DK_TYPES = Set.of("KO", "KZ", "DK", "RO", "RZ", "RD"); //"02"
+ 		   Set<String> DD_TYPES = Set.of("DM","PO"); //"02"
  		   Set<String> DZ_TYPES = Set.of("DZ","FVZ","FVZK","FVZk", "FZK", "FZk","FS", "FK");
  		   //log.info("SERVLET POSITIONS COUNT: " + d.getPositions().size()+ " file=" + d.getSourceFileName());
  		    if (DZ_TYPES.contains(docType)) {
@@ -240,14 +242,22 @@ public class ConverterServlet extends HttpServlet {
         //log.info("ALL PARSED DOCS COUNT = " + allParsedDocs.size());
         //allParsedDocs.forEach(d -> log.info("PARSED: type=" + d.getDocumentType() + " reportNr=" + d.getReportNumber() + " reportNrPos=" + d.getReportNumberPos() + " file=" + d.getSourceFileName()));
      // --- assemble cash reports after all files are parsed ---
-        CashReportAssembler assembler = new CashReportAssembler(allParsedDocs);
+        CashReportAssembler assemblerCash = new CashReportAssembler(allParsedDocs);
+        CardReportAssembler assemblerCard = new CardReportAssembler(allParsedDocs);
 
         // Zbierz unikalne numery raportów z KO (możesz też zebrać z DK jeśli KO może nie występować)
-        Set<String> reportNumbers = allParsedDocs.stream()
-                .filter(d -> d.getDocumentType() != null && "KO".equalsIgnoreCase(d.getDocumentType()))
+     // Zbierz unikalne numery raportów z KO, RO oraz RD (żeby nie pominąć raportów, które mają tylko RD/RO)
+        Set<String> reportNumbers = new HashSet<>();
+
+        reportNumbers.addAll(
+            allParsedDocs.stream()
+                .filter(d -> d.getDocumentType() != null)
+                .filter(d -> "KO".equalsIgnoreCase(d.getDocumentType())
+                          || "RO".equalsIgnoreCase(d.getDocumentType()))
                 .map(DmsParsedDocument::getReportNumber)
                 .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toSet())
+        );
         //log.info("Collected reportNumbers from KO: " + reportNumbers);
         // Jeśli chcesz uwzględnić raporty, które mają tylko DK (bez KO) — dodaj też numery z DK po normalizacji
         // reportNumbers.addAll(allParsedDocs.stream()
@@ -256,10 +266,11 @@ public class ConverterServlet extends HttpServlet {
 //             .filter(Objects::nonNull)
 //             .collect(Collectors.toSet()));
         for (String nr : reportNumbers) {
-            DmsDocumentOut rap = assembler.buildSingleReport(nr);
-            if (rap != null) {
+            DmsDocumentOut rapCash = assemblerCash.buildSingleReport(nr);
+            if (rapCash != null) {
                 try {
-                    root.addSection(new CashReportXmlBuilder(rap));
+                    root.addSection(new CashReportXmlBuilder(rapCash));
+                    root.addSection(new RozliczeniaXmlBuilder(rapCash));
                     results.add("Dodano RAPORT_KB: " + nr);
                 } catch (Exception e) {
                     log.error("Błąd budowy RAPORT_KB dla " + nr, e);
@@ -269,6 +280,21 @@ public class ConverterServlet extends HttpServlet {
                 log.info("Raport kasowy " + nr + " pominięty - brak KO lub KZ lub raport niekompletny");
                 results.add("Pominięto raport: " + nr + " (niekompletny)");
             }
+        
+        DmsDocumentOut rapCard = assemblerCard.buildSingleReport(nr);
+        if (rapCard != null) {
+            try {
+                // Używamy tego samego buildera XML (CashReportXmlBuilder) jeśli potrafi obsłużyć RD/RO
+                root.addSection(new CashReportXmlBuilder(rapCard));
+                root.addSection(new RozliczeniaXmlBuilder(rapCard));
+                results.add("Dodano RAPORT_KARTOWY: " + nr);
+            } catch (Exception e) {
+                log.error("Błąd budowy RAPORT_KARTOWY dla " + nr, e);
+                results.add("Błąd RAPORT_KARTOWY: " + nr + " -> " + e.getMessage());
+            }
+        } else {
+            log.debug("Raport kartowy " + nr + " pominięty - brak RO/RZ lub niekompletny");
+        }
         }
         // --- koniec składania raportów ---
         Document finalDoc;

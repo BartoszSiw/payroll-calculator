@@ -22,8 +22,8 @@ public class ParserRegistry {
         ready.put("PO", false);
         ready.put("PZ", false);
         ready.put("RD", true);
-        ready.put("RO", false);
-        ready.put("RZ", false);
+        ready.put("RO", true);
+        ready.put("RZ", true);
         ready.put("ZC", false);
         ready.put("WZ", false);
         ready.put("KO", true);

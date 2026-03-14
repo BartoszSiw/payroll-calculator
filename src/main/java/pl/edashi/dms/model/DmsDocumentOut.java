@@ -5,6 +5,7 @@ import pl.edashi.common.logging.AppLogger;
 public class DmsDocumentOut {
 	private List<DmsOutputPosition> pozycje = new ArrayList<>();
 	private List<DmsOutputPosition> rapKasa = new ArrayList<>();
+	private List<Rozliczenie> rozliczenia = new ArrayList<>();
 	// META
     private String idZrodla = "";
     private String modul = "";
@@ -57,6 +58,7 @@ public class DmsDocumentOut {
     private String nrRKB = "";
     private String nrRep = "";
     private String nrDokumentu = "";
+    private String nrIdPlat = "";
     private String kwotaRk = "";
     //private String dowodNumber = "";
     // POZYCJE - pozycje są w liście pozycje (DmsOutputPosition)
@@ -303,7 +305,8 @@ public class DmsDocumentOut {
 
     public String getNrKsef() { return nrKsef; }
     public void setNrKsef(String nrKsef) { this.nrKsef = safe(nrKsef); }
-
+	public String getNrIdPlat() { return nrIdPlat; }
+    public void setNrIdPlat(String nrIdPlat) { this.nrIdPlat = safe(nrIdPlat); }
     // --- Helper ---
     private static String safe(String s) {
         return s == null ? "" : s;
@@ -332,6 +335,12 @@ public class DmsDocumentOut {
 	public String getDeklaracjaVatUE() {
 		// TODO Auto-generated method stub
 		return null;
+	}
+	public List<Rozliczenie> getRozliczenia() {
+		return rozliczenia;
+	}
+	public void setRozliczenia(List<Rozliczenie> rozliczenia) {
+		this.rozliczenia = rozliczenia == null ? new ArrayList<>() : rozliczenia;
 	}
 }
 

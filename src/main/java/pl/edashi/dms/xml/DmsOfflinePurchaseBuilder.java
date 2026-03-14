@@ -56,10 +56,10 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         rz.appendChild(makeCdata(docXml, "DATA_WYSTAWIENIA", safe(doc.getDataWystawienia())));
         rz.appendChild(makeCdata(docXml, "DATA_ZAKUPU", safe(doc.getDataSprzedazy())));
         rz.appendChild(makeCdata(docXml, "DATA_WPLYWU", safe(doc.getDataOperacji())));
-        rz.appendChild(makeCdata(docXml, "TERMIN", safe(doc.getTermin())));
+        rz.appendChild(makeCdata(docXml, "TERMIN", safe(doc.getPlatnosci().get(0).getTermin())));
         rz.appendChild(makeCdata(docXml, "DATA_DATAOBOWIAZKUPODATKOWEGO", safe(doc.getDataObowiazkuPodatkowego())));
         rz.appendChild(makeCdata(docXml, "DATA_DATAPRAWAODLICZENIA", safe(doc.getDataPrawaOdliczenia())));
-        rz.appendChild(makeCdata(docXml, "NUMER",  safe(doc.getDocumentType()) + "_" + safe(doc.getInvoiceNumber())));
+        rz.appendChild(makeCdata(docXml, "NUMER", safe(doc.getInvoiceNumber()))); //safe(doc.getDocumentType()) + "_" +
         rz.appendChild(makeCdata(docXml, "KOREKTA", doc.getKorekta()));
         rz.appendChild(makeCdata(docXml, "KOREKTA_NUMER", safe(doc.getKorektaNumer())));
         rz.appendChild(makeCdata(docXml, "WEWNETRZNA", "Nie"));

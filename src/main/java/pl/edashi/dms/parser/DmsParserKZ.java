@@ -46,7 +46,7 @@ public class DmsParserKZ implements DmsParser{
                     if (daneEl != null && daneEl.hasAttribute("kasa")) {
                         String kasa = daneEl.getAttribute("kasa").trim();
                         String oddzial = daneEl.getAttribute("oddzial").trim();
-                        log.info(String.format("Parser KZ kasa='%s ' oddzial='%s '  ", kasa, oddzial));
+                        //log.info(String.format("Parser KZ kasa='%s ' oddzial='%s '  ", kasa, oddzial));
                         out.setDaneRejestr(kasa); // upewnij się, że DmsParsedDocument ma setter
                     	out.setOddzial(oddzial);}
                     break; // zwykle tylko jeden rekord 02
@@ -107,18 +107,6 @@ public class DmsParserKZ implements DmsParser{
         // 3. PUSTE POLA (KZ ich nie ma)
         // ============================
         out.setContractor(null);
-        out.setPositions(new ArrayList<DmsPosition>());
-
-        out.setPayments(new ArrayList<>());
-
-        out.setVatRate("");
-        out.setVatBase("");
-        out.setVatAmount("");
-
-        out.setFiscalNumber("");
-        out.setFiscalDevice("");
-        out.setFiscalDate("");
-
         return out;
     }
     private static Element firstElementByTag(Node parent, String tagName) {

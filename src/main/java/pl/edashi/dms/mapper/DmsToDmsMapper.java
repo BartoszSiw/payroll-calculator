@@ -71,6 +71,7 @@ public class DmsToDmsMapper {
         doc.setDokumentDetaliczny(safe(src.getDokumentDetaliczny()));
         doc.setKorekta(safe(src.getKorekta()));
         doc.setKorektaNumer(safe(src.getKorektaNumer()));
+        doc.setNrIdPlat(safe(src.getNrIdPlat()));
      // POZYCJE - inicjalizacja listy i mapowanie pozycji
         doc.setPozycje(new ArrayList<>());
         List<DmsPosition> positions = src.getPositions();
@@ -121,6 +122,7 @@ public class DmsToDmsMapper {
                    outRk.setNrDokumentu(safe(k.getNrDokumentu()));
                    outRk.setKwotaRk(k.getKwotaRk());
                    outRk.setKierunek(k.getKierunek());
+                   outRk.setOpis1(k.getOpis1());
                    outRk.setSymbolKPW(mapSymbolDokumentuZapisu(k.getDowodNumber()));
                    String code = null;
                    String mapped = safe(mapDowodNumber(k.getDowodNumber(),src.getNrRep()));
@@ -130,7 +132,7 @@ public class DmsToDmsMapper {
                    else if ("KPD".equalsIgnoreCase(code)) typeKey = "KPD";
                    else if ("DW".equalsIgnoreCase(code)) typeKey = "DW";
                    String suffix = "";
-                   //log.info(String.format("MAPPER BEFORE INC: mapped='%s ' raw='%s ' typeKey='%s ' countersd='%s '", mapped, k.getDowodNumber(), typeKey, countersd));
+                   log.info(String.format("MAPPER BEFORE INC: mapped='%s ' raw='%s ' getOpis1='%s ' typeKey='%s ' countersd='%s '", mapped, k.getDowodNumber(), k.getOpis1(), typeKey, countersd));
                    suffix = nextCounter(countersd, typeKey, 3);
                    //log.info(String.format("MAPPER  NrRep()='%s ' suffix='%s '", src.getNrRep(), suffix));
                    String finalMapped = replaceSuffixWithCounter(mapped, suffix);

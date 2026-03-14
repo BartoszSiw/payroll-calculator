@@ -169,34 +169,51 @@ public class DmsParserRD implements DmsParser{
     // KONTRAHENT (typ 35)
     // ------------------------------
     private Contractor extractContractor(Document doc) {
-
         NodeList list = doc.getElementsByTagName("document");
-
+        boolean hasContractor = false;
         for (int i = 0; i < list.getLength(); i++) {
             Element el = (Element) list.item(i);
 
             if ("35".equals(el.getAttribute("typ"))) {
-
-                Element dane = firstElementByTag(el, "dane");
-                if (dane == null) continue;
-                Element rozs = firstElementByTag(dane, "rozszerzone");
-                if (rozs == null) continue;
-
+            	hasContractor = true;
                 Contractor c = new Contractor();
-                c.setId(safeAttr(rozs, "kod_klienta"));
-                c.setNip(safeAttr(rozs, "nip"));
-                c.setName1(safeAttr(rozs, "nazwa1"));
-                c.setName2(safeAttr(rozs, "nazwa2"));
-                c.setName3(safeAttr(rozs, "nazwa3"));
-                c.setStreet(safeAttr(rozs, "ulica"));
-                c.setZip(safeAttr(rozs, "kod_poczta"));
-                c.setCity(safeAttr(rozs, "miejscowosc"));
-                c.setCountry(safeAttr(rozs, "kod_kraju"));
+                Element dane = (Element) el.getElementsByTagName("dane").item(0);
+                Element rozs = (Element) dane.getElementsByTagName("rozszerzone").item(0);
+                String wyr = rozs.getAttribute("wyr");
+                c.isCompany = "F".equalsIgnoreCase(wyr);
+                c.id = rozs.getAttribute("kod_klienta");
+                c.nip = rozs.getAttribute("nip");
+                c.name1 = rozs.getAttribute("nazwa1");
+                c.name2 = rozs.getAttribute("nazwa2");
+                c.name3 = rozs.getAttribute("nazwa3");
+                c.country = rozs.getAttribute("kod_kraju");
+                c.city = rozs.getAttribute("miejscowosc");
+                c.zip = rozs.getAttribute("kod_poczta");
+                c.street = rozs.getAttribute("ulica");
 
+             // pełna nazwa
+                c.fullName = buildFullName(c);
+                if (c.isCompany) {
+                    // Firma
+                    c.czynny = "Tak";// jeśli firma to tak, inaczej nie
+                } else {
+                    // Osoba fizyczna
+                	c.czynny = "Nie";// jeśli firma to tak, inaczej nie
+                }
                 return c;
+
             }
         }
-        return null;
+     // 🔥 Fallback — brak typ 35 → sprzedaż detaliczna 
+        Contractor c = new Contractor(); 
+        c.isCompany = false; 
+        c.czynny = "Nie"; 
+        c.nip = ""; 
+        c.name1 = ""; 
+        c.name2 = ""; 
+        c.name3 = ""; 
+        c.fullName = ""; 
+        return c;
     }
 
     // ------------------------------
@@ -372,16 +389,24 @@ public class DmsParserRD implements DmsParser{
 
                 // odczyt pól z 49
                 String lpAttr = dane49.getAttribute("lp"); 
-
+                String opis1 = null;
              // ---- tutaj wstawione: odczyt lp_porz i fallback na indeks ----
+                Element rozs = firstDirectChild(dane49, "rozszerzone");
                 if (lpAttr == null || lpAttr.isBlank()) {
-                    Element rozs = firstDirectChild(dane49, "rozszerzone");
                     if (rozs != null) {
                         String lpPorz = rozs.getAttribute("lp_porz");
                         if (lpPorz != null && !lpPorz.isBlank()) {
                             lpAttr = lpPorz.trim();
                         }
                     }
+                }else {
+                	opis1 = rozs.getAttribute("opis1");
+                	if (rozs != null) {
+                		if (opis1 != null && !opis1.isBlank()) {
+                            opis1 = opis1.trim();
+                        }
+                	}
+                	
                 }
                 if (lpAttr == null || lpAttr.isBlank()) {
                     // fallback: użyj pozycji w dokumencie (1-based)
@@ -404,12 +429,13 @@ public class DmsParserRD implements DmsParser{
                         //if (attrNr != null && !attrNr.isBlank()) nr = attrNr;
                     }
                 }
-
+                String existingKierunek = "";
                 // weź kolejny skeleton z listy (jeśli jest), inaczej utwórz nowy
                 DmsRapKasa match = null;
                 if (lpAttr != null && !lpAttr.isBlank()) {
                     for (DmsRapKasa p : list) {
                         String existingLp = p.getLp();
+                        existingKierunek = p.getKierunek();
                         if (lpAttr.equals(existingLp)) {
                             match = p;
                             break;
@@ -430,6 +456,8 @@ public class DmsParserRD implements DmsParser{
                 if (kwRk != null && !kwRk.isBlank()) match.setKwotaRk(kwRk);
                 if (numer49 != null && !numer49.isBlank()) match.setNrDokumentu(numer49);
                 match.setLp(lpAttr);
+                match.setOpis1(opis1);
+                match.setKierunek(existingKierunek);
                 //match.setNrDokKasowego(lpAttr);
                 // opcjonalny log debugowy
                 log.info(String.format("49 RD -> filled skeleton id='%s' nrDokumentu='%s' kwotaRk='%s'",
@@ -557,7 +585,7 @@ public class DmsParserRD implements DmsParser{
             raw = raw.trim(); // tylko trim, zachowujemy format "01/00003/2026"
             // **TUTAJ TYLKO** ustawiamy pole dowodowe — nie ruszamy reportNumber/reportNumberPos/nrRKB
             out.setDowodNumber(raw); // <- jeśli Twój setter ma inną nazwę, zamień na właściwy (np. setNrDowodu)
-            log.info("1 RD parser: ustawiono dowodNumber (KP/KW) = '" + raw + "' file=" + out.getSourceFileName());
+            log.info("1 RD parser: ustawiono dowodNumber (DW) = '" + raw + "' file=" + out.getSourceFileName());
             //////////////////////////
             /*log.info("Pos RD parser: nie znaleziono document typ=48; file=" + out.getSourceFileName());
             String raw1 = null;
@@ -699,6 +727,23 @@ public class DmsParserRD implements DmsParser{
         if (parts.length == 1) return parts[0];
         if (parts.length == 2) return parts[0] + "/" + parts[1];
         return parts[0] + "/" + parts[1] + "/" + parts[2];
+    }
+    private String buildFullName(Contractor c) {
+
+        // Osoba fizyczna: nazwisko + imię
+        if (!c.isCompany) {
+            StringBuilder sb = new StringBuilder();
+            if (c.name1 != null && !c.name1.isBlank()) sb.append(c.name1.trim());
+            if (c.name2 != null && !c.name2.isBlank()) sb.append("_").append(c.name2.trim());
+            return sb.toString().trim();
+        }
+
+        // Firma: nazwa1 + nazwa2 + nazwa3
+        StringBuilder sb = new StringBuilder();
+        if (c.name1 != null && !c.name1.isBlank()) sb.append(c.name1.trim());
+        if (c.name2 != null && !c.name2.isBlank()) sb.append(" ").append(c.name2.trim());
+        if (c.name3 != null && !c.name3.isBlank()) sb.append(" ").append(c.name3.trim());
+        return sb.toString().trim();
     }
     private void synchronizeDocFromPositions(DmsParsedDocument out) {
         if (out == null) return;

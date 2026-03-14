@@ -7,6 +7,8 @@ import pl.edashi.dms.parser.DmsParserDZ;
 import pl.edashi.dms.parser.DmsParserKO;
 import pl.edashi.dms.parser.DmsParserKZ;
 import pl.edashi.dms.parser.DmsParserRD;
+import pl.edashi.dms.parser.DmsParserRO;
+import pl.edashi.dms.parser.DmsParserRZ;
 
 public class DmsParserFactory {
 
@@ -20,6 +22,8 @@ public class DmsParserFactory {
             case "DZ": return new DmsParserDZ();
             case "KO": return new DmsParserKO();
             case "KZ": return new DmsParserKZ();
+            case "RO": return new DmsParserRO();
+            case "RZ": return new DmsParserRZ();
             case "DK": return new DmsParserDK();
             case "RD": return new DmsParserRD();             
             default:

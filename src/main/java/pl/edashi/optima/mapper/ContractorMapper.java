@@ -11,7 +11,7 @@ public class ContractorMapper {
 
     // przykładowe stałe – dopasujesz pod swoją instalację
     private static final String DEFAULT_FORMA_PLATNOSCI = "gotówka";
-    private static final String DEFAULT_FORMA_PLATNOSCI_ID = " "; //FA1FD00E-70D3-4DDA-8984-5F47EAF93854
+    private static final String DEFAULT_FORMA_PLATNOSCI_ID = ""; //FA1FD00E-70D3-4DDA-8984-5F47EAF93854
 
     public OfflineContractor map(DmsParsedContractor src) {
 

@@ -1,7 +1,7 @@
 package pl.edashi.dms.parser;
 import pl.edashi.common.logging.AppLogger;
 import pl.edashi.common.logging.AppLogger.LogUtils;
-
+import pl.edashi.common.util.MappingIdDocs;
 import org.apache.logging.log4j.util.BiConsumer;
 import org.w3c.dom.*;
 import pl.edashi.dms.model.*;
@@ -145,6 +145,7 @@ public class DmsParserDS implements DmsParser{
         extractFiscal(doc, out);
         extractCorrection(doc, out);
      // 🔥 TU: logika akronimu dla sprzedaży paragonowej
+        String podmiot = c.getNip();
         if ("Tak".equalsIgnoreCase(out.getDokumentFiskalny())
                 && (c == null || c.getNip() == null || c.getNip().isBlank())) {
 
@@ -152,12 +153,19 @@ public class DmsParserDS implements DmsParser{
             if (c != null && c.getFullName().isBlank()) {
                 c.setFullName("SPRZEDAZ_PARAGONOWA");
                 c.setName1("Sprzedaż Paragonowa");
+                podmiot = c.getFullName();
             }
         }
         // ============================
         // 8. UWAGI (typ 98)
         // ============================
         out.setNotes(extractNotes(doc));
+
+     // w metodzie parse
+     
+     String numer = out.getInvoiceNumber();
+     String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, numer, 36);
+     out.setNrIdPlat(nrIdPlat);
 
         return out;
     }
@@ -212,7 +220,6 @@ public class DmsParserDS implements DmsParser{
         c.fullName = ""; 
         return c;
     }
-
     // ------------------------------
     // POZYCJE 
     // ------------------------------

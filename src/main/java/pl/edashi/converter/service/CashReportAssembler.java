@@ -4,9 +4,12 @@ import pl.edashi.dms.model.Contractor;
 import pl.edashi.dms.model.DmsDocumentOut;
 import pl.edashi.dms.model.DmsOutputPosition;
 import pl.edashi.dms.model.DmsParsedDocument;
+import pl.edashi.dms.model.DmsRapKasa;
+import pl.edashi.dms.model.Rozliczenie;
 import pl.edashi.dms.xml.CashReportXmlBuilder;
 import pl.edashi.dms.mapper.DmsToDmsMapper.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +20,7 @@ public class CashReportAssembler {
     private final List<DmsParsedDocument> docs;
 
     public CashReportAssembler(List<DmsParsedDocument> docs) {
-        this.docs = docs;
+    	this.docs = docs == null ? Collections.emptyList() : docs;
     }
 
     public DmsDocumentOut buildSingleReport(String nrRaportu) {
@@ -44,7 +47,7 @@ public class CashReportAssembler {
 
         // 3. DK – wszystkie zapisy KP/KW do tego raportu
         List<DmsParsedDocument> dkList = docs.stream()
-                .filter(d -> "DK".equals(d.getDocumentType()) || "RD".equals(d.getDocumentType()))
+                .filter(d -> "DK".equals(d.getDocumentType()))
                 .filter(d -> nrRaportu.equals(d.getReportNumber()))
                 .collect(Collectors.toList());
         /*docs.forEach(d -> LOG.info("DOCS LIST: identity={} file={} type={} dataWystawienia={}",
@@ -54,25 +57,33 @@ public class CashReportAssembler {
         //LOG.info("Assembler: dkList.size=" + dkList.size());
         // 4. Budujemy DmsDocumentOut (tak jak DS/DZ)
         DmsDocumentOut out = new DmsDocumentOut();
+        out.setDocumentType(ko.getDocumentType());
         out.setReportNumber(nrRaportu);
         out.setReportNumberPos(nrRaportu);
         out.setNrRep(ko.getNrRep());
         out.setDataOtwarcia(stripTime(ko.getMetadata().getDate()));
         out.setDataZamkniecia(stripTime(kz.getMetadata().getDate()));
-       //LOG.info("Assembler: building report " + nrRaportu);
-        //LOG.info("Assembler: dkList.size=" + dkList.size());
+       LOG.info("Assembler: building report " + nrRaportu);
+        LOG.info("Assembler: dkList.size=" + dkList.size());
         out.setRapKasa(new ArrayList<>());
         Map<String,Integer> counters = new HashMap<>();
-        counters.put("KWD",0); counters.put("KPD",0); counters.put("DW",0);
+        counters.put("KWD",0); counters.put("KPD",0);
         // 5. Dodajemy wszystkie DK jako ZAPIS_KB
-        for (DmsParsedDocument dk : dkList) {        	
-            String kier = dk.getKierunek();
-            String kwoRk = dk.getKwotaRk();
+        for (DmsParsedDocument dk : dkList) { 
+        	List<DmsRapKasa> rapList = dk.getRapKasa();
+            /*if (rapList == null || rapList.isEmpty()) {
+                LOG.debug("Assembler: DK has no rapKasa entries: dowod=" + safe(dk.getDowodNumber()));
+                continue;
+            }*/
+            for (DmsRapKasa rkEntry : rapList) {
+            String kier = rkEntry.getKierunek();
+            //String kwoRk = dk.getKwotaRk();
             /*LOG.info("ASM: processing kwoRk='%s' identity='%s' file='%s' dataWystawienia='%s'",
                     System.identityHashCode(dk), kwoRk, dk.getSourceFileName(), dk.getDataWystawienia());*/
-            if ((kier == null || kier.isBlank()) && dk.getRapKasa() != null && !dk.getRapKasa().isEmpty()) {
-                kier = dk.getRapKasa().get(0).getKierunek(); // lub wybierz regułę wyboru pozycji
+            if ((kier == null || kier.isBlank()) && rkEntry != null) {
+                kier = rkEntry.getKierunek();
             }
+            
            //LOG.info("Assembler: file=" +" | dk.getNrRKB= "+dk.getNrRKB()+ dk.getSourceFileName()+ " | dk.getDataWystawienia= " +dk.getDataWystawienia() + " | entryNr=" + dk.getReportNumber()+ " | amount=" + dk.getKwotaRk()+" | kierunek=" + kier);
             DmsOutputPosition pos = new DmsOutputPosition();
             Contractor posContractor = dk.getContractor();
@@ -84,11 +95,12 @@ public class CashReportAssembler {
             //pos.setDataWystawienia(dk.getDataWystawienia());
             pos.setReportNumber(dk.getReportNumber()); // 01/00001/2026
             pos.setReportNumberPos(dk.getReportNumberPos());
-            pos.setKwotaRk(dk.getRapKasa().get(0).getKwotaRk());
+            pos.setKwotaRk(rkEntry.getKwotaRk());
             pos.setKierunek(kier);
             pos.setOpis(dk.getAdditionalDescription());
+            pos.setOpis1(rkEntry.getOpis1());
             pos.setReportDate(dk.getReportDate());
-            pos.setNrDokumentu(dk.getRapKasa().get(0).getNrDokumentu());
+            pos.setNrDokumentu(rkEntry.getNrDokumentu());
             pos.setSymbolKPW(mapSymbolDokumentuZapisu(dk.getDowodNumber()));
             String code = null;
             String mapped = safe(mapDowodNumber(dk.getDowodNumber(),ko.getNrRep()));
@@ -98,16 +110,26 @@ public class CashReportAssembler {
             else if ("KPD".equalsIgnoreCase(code)) typeKey = "KPD";
             else if ("DW".equalsIgnoreCase(code)) typeKey = "DW";
             String suffix = "";
-            LOG.info(String.format("Assembler BEFORE INC: mapped='%s ' raw='%s ' typeKey='%s ' counters='%s '", mapped, dk.getDowodNumber(), typeKey, counters));
             suffix = nextCounter(counters, typeKey, 3);
-            LOG.info(String.format("Assembler  NrRep()='%s ' suffix='%s '", ko.getNrRep(), suffix));
             String finalMapped = replaceSuffixWithCounter(mapped, suffix);
+            LOG.info(String.format("Assembler BEFORE INC: mapped='%s ' raw='%s ' opis1='%s ' typeKey='%s ' finalMapped='%s ' counters='%s ' NrRep()='%s ' suffix='%s '", mapped, dk.getDowodNumber(), dk.getOpis1(),typeKey, finalMapped, counters,ko.getNrRep(), suffix));
             pos.setDowodNumber(finalMapped);
             pos.setLp(suffix);
             //LOG.info("Assembler: list pos=" + pos);
             //LOG.info("Assembler: file=" + dk.getSourceFileName()+ " | dk.getDataWystawienia= " +dk.getDataWystawienia() + " | entryNr=" + dk.getReportNumber()+ " | amount=" + dk.getKwotaRk()+" | kierunek=" + kier);
             //LOG.info("Assembler: pos nrDokumentu='%s', c='%s'" + dk.getRapKasa().get(0).getNrDokumentu(), c.getName1());
             out.getRapKasa().add(pos);
+            Rozliczenie r = new Rozliczenie();
+            r.setKwotaRk(pos.getKwotaRk());
+            r.setDataDokumentu(pos.getDataWystawienia());
+            r.setNumerLewegoDokumentu(pos.getNrDokumentu());
+            r.setNumerPrawegoDokumentu(pos.getDowodNumber());
+            r.setTypLewegoDokumentu("zdarzenie");
+            r.setTypPrawegoDokumentu("zapis");
+            r.setIdZrodla("");
+            out.getRozliczenia().add(r);
+
+        }
         }
         //LOG.info("Assembler: out.getRapKasa().size=" + (out.getRapKasa()==null?0:out.getRapKasa().size()));
         return out;
@@ -121,7 +143,7 @@ public class CashReportAssembler {
         if (src == null) return null;
         src = src.trim();
         // jeśli już jest w docelowym formacie, zwróć bez zmian
-        if (src.matches("^(KP|KW|DW)/\\d+/\\d{6}/\\d{4}$")) {
+        if (src.matches("^(KP|KW)/\\d+/\\d{6}/\\d{4}$")) {
             return src;
         }
 
@@ -138,7 +160,6 @@ public class CashReportAssembler {
         switch (code) {
             case "01": type = "KPD"; break;
             case "02": type = "KWD"; break;
-            case "03": type = "DW"; break;
             default: return src; // nieznany kod -> zwróć oryginał
         }
 
@@ -186,7 +207,6 @@ public class CashReportAssembler {
         switch (parts[0].trim()) {
             case "01": return "KPD";
             case "02": return "KWD";
-            case "03": return "DW";
             default:   return null; // nieznany kod -> nie ustawiamy
         }
     }
