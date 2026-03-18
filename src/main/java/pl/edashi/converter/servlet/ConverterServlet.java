@@ -1,4 +1,6 @@
 package pl.edashi.converter.servlet;
+import pl.edashi.common.dao.RejestrDao;
+import pl.edashi.common.dao.RejestrDaoImpl;
 import pl.edashi.common.logging.AppLogger;
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.WebServlet;
@@ -34,6 +36,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import javax.xml.transform.OutputKeys;
@@ -45,8 +48,10 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.apache.commons.fileupload2.core.DiskFileItemFactory;
 import org.apache.commons.fileupload2.jakarta.JakartaServletFileUpload;
+import org.slf4j.MDC;
 import org.apache.commons.fileupload2.core.FileItem;
 
 @WebServlet("/ConverterServlet")
@@ -56,7 +61,10 @@ public class ConverterServlet extends HttpServlet {
 	private final AppLogger log = new AppLogger("CONVERTER-SERVLET");
     @Override
     public void init() throws ServletException {
-        converterService = new ConverterService(new DocumentRepository());
+    	RejestrDao rejestrDao = new RejestrDaoImpl();
+        
+        // Przekazywanie do ConverterService
+        converterService = new ConverterService(new DocumentRepository(), rejestrDao);
     }
 
     @Override
@@ -190,7 +198,7 @@ public class ConverterServlet extends HttpServlet {
         	 Set<String> DS_TYPES = Set.of("DS", "FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG", "FH");
  		    Set<String> DK_TYPES = Set.of("KO", "KZ", "DK", "RO", "RZ", "RD"); //"02"
  		   Set<String> DD_TYPES = Set.of("DM","PO"); //"02"
- 		   Set<String> DZ_TYPES = Set.of("DZ","FVZ","FVZK","FVZk", "FZK", "FZk","FS", "FK");
+ 		   Set<String> DZ_TYPES = Set.of("DZ","FVZ","FVZK","FVZk", "FZK", "FZk","FS", "FK","UMUZ");
  		   //log.info("SERVLET POSITIONS COUNT: " + d.getPositions().size()+ " file=" + d.getSourceFileName());
  		    if (DZ_TYPES.contains(docType)) {
  		        try {
@@ -297,12 +305,24 @@ public class ConverterServlet extends HttpServlet {
         }
         }
         // --- koniec składania raportów ---
-        Document finalDoc;
+        Document finalDoc = null;
+        ////////////////////////////////////
         try {
             finalDoc = root.build();
         } catch (Exception e) {
+        	if (finalDoc != null) {
+                try {
+                    // 1. root info
+                    Element roott = finalDoc.getDocumentElement();
+                    log.info(String.format("root nodeName='%s' localName='%s' namespace='%s'", roott.getNodeName(), roott.getLocalName(), roott.getNamespaceURI()));
+                } catch (Exception ex) {
+                    log.error("Failed to extract info from finalDoc", ex);
+                }
+        	}
             throw new ServletException("Błąd budowania XML: " + e.getMessage(), e);
         }
+
+        //////////////////////////////////////
 		try {
 	    	TransformerFactory tf = TransformerFactory.newInstance();
 	    	 Transformer transformer = tf.newTransformer();

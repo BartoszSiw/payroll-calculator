@@ -7,7 +7,7 @@ public class DocumentMetadata {
     private final String sourceFile; // nazwa pliku źródłowego
 
     private final String date;          // data wystawienia
-    private final String dateSale;      // data sprzedaży
+    private final String dateSale;      // data sprzedaży albo data_dok w DZ
     private final String dateApproval;  // data zatwierdzenia
     private final String dateOperation;  // data operacji w DZ
     private final String waluta;  // waluta 

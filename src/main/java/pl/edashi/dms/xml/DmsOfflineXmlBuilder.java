@@ -1,5 +1,6 @@
 package pl.edashi.dms.xml;
 
+import pl.edashi.common.logging.AppLogger;
 import pl.edashi.dms.model.DmsDocumentOut;
 import pl.edashi.dms.model.DmsOutputPosition;
 import pl.edashi.dms.model.DmsPayment;
@@ -16,7 +17,7 @@ import javax.sql.rowset.spi.XmlWriter;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
-
+	private final AppLogger log = new AppLogger("SalesBuilder");
     private static final String NS = "http://www.comarch.pl/cdn/optima/offline";
     private final DmsDocumentOut doc;
     public DmsOfflineXmlBuilder(DmsDocumentOut doc) {
@@ -54,14 +55,23 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         rejSekcja.appendChild(rs);
 
         // META
-        rs.appendChild(make(docXml, "ID_ZRODLA", ""));//safe(doc.getIdZrodla())
+        rs.appendChild(make(docXml, "ID_ZRODLA", safe(doc.getDocKey())));//safe(doc.getIdZrodla())
         rs.appendChild(make(docXml, "MODUL", safe(doc.getModul())));               // np. "Handel"
         rs.appendChild(make(docXml, "TYP", safe(doc.getDocumentType())));       // tutaj możesz w przyszłości zmapować typ → opis
         rs.appendChild(make(docXml, "REJESTR", safe(doc.getRejestr())));
 
         rs.appendChild(make(docXml, "DATA_WYSTAWIENIA", safe(doc.getDataWystawienia())));
         rs.appendChild(make(docXml, "DATA_SPRZEDAZY", safe(doc.getDataSprzedazy())));
-        rs.appendChild(make(docXml, "TERMIN",safe(doc.getTermin())));
+        String termin = null;
+        if (doc.getPlatnosci() != null && !doc.getPlatnosci().isEmpty()) {
+            DmsPayment first = doc.getPlatnosci().get(0);
+            if (first != null) {
+                termin = first.getTermin();
+            }
+        } else {
+        	termin = doc.getTermin();
+        }
+        rs.appendChild(make(docXml, "TERMIN",safe(termin)));
         rs.appendChild(make(docXml, "DATA_DATAOBOWIAZKUPODATKOWEGO", safe(doc.getDataWystawienia())));
         rs.appendChild(make(docXml, "DATA_DATAPRAWAODLICZENIA", safe(doc.getDataSprzedazy())));
         rs.appendChild(make(docXml, "NUMER", safe(doc.getInvoiceNumber()))); //safe(doc.getDocumentType()) + "_" + 
@@ -82,16 +92,16 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
 
         // PODMIOT (kontrahent)
         rs.appendChild(make(docXml, "TYP_PODMIOTU", "kontrahent"));
-        rs.appendChild(make(docXml, "PODMIOT", safe(doc.getPodmiotAkronim()))); // uproszczenie
-        rs.appendChild(make(docXml, "PODMIOT_ID", safe(doc.getNrIdPlat())));
-        rs.appendChild(make(docXml, "PODMIOT_NIP", safe(doc.getPodmiotNip())));
+        rs.appendChild(make(docXml, "PODMIOT", safe(removeHyphensBetweenDigits(doc.getPodmiotAkronim())))); // uproszczenie
+        //rs.appendChild(make(docXml, "PODMIOT_ID", ""));
+        rs.appendChild(make(docXml, "PODMIOT_NIP", safe(removeHyphensBetweenDigits(doc.getPodmiotNip()))));
 
         rs.appendChild(make(docXml, "NAZWA1", safe(doc.getNazwa1())));
         rs.appendChild(make(docXml, "NAZWA2", safe(doc.getNazwa2())));
         rs.appendChild(make(docXml, "NAZWA3", safe(doc.getNazwa3())));
 
         rs.appendChild(make(docXml, "NIP_KRAJ", safe(doc.getKraj())));   // na przyszłość możesz zmapować z doc.kraj
-        rs.appendChild(make(docXml, "NIP", safe(doc.getPodmiotNip())));
+        rs.appendChild(make(docXml, "NIP", safe(removeHyphensBetweenDigits(doc.getPodmiotNip()))));
         rs.appendChild(make(docXml, "KRAJ", safe(doc.getKraj())));
         rs.appendChild(make(docXml, "WOJEWODZTWO", safe(doc.getWojewodztwo())));
         rs.appendChild(make(docXml, "POWIAT", safe(doc.getPowiat())));
@@ -105,9 +115,9 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
 
         rs.appendChild(make(docXml, "DODATKOWE", ""));
         rs.appendChild(make(docXml, "TYP_PLATNIKA", "kontrahent"));
-        rs.appendChild(make(docXml, "PLATNIK", safe(doc.getPodmiotAkronim())));
+        rs.appendChild(make(docXml, "PLATNIK", safe(removeHyphensBetweenDigits(doc.getPodmiotAkronim()))));
         //rs.appendChild(make(docXml, "PLATNIK_ID", doc.podmiotId));
-        rs.appendChild(make(docXml, "PLATNIK_NIP", safe(doc.getPodmiotNip())));
+        rs.appendChild(make(docXml, "PLATNIK_NIP", safe(removeHyphensBetweenDigits(doc.getPodmiotNip()))));
         rs.appendChild(make(docXml, "PESEL", ""));
         rs.appendChild(make(docXml, "ROLNIK", "Nie"));
 
@@ -209,7 +219,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
             	if (p.isAdvance()) continue; // NIE eksportujemy zaliczek
                 Element plat = docXml.createElementNS(NS, "PLATNOSC");
                 platnosci.appendChild(plat);
-                plat.appendChild(make(docXml, "ID_ZRODLA_PLAT", "")); // osobne UUID 
+                plat.appendChild(make(docXml, "ID_ZRODLA_PLAT", safe(p.getIdPlatn()))); // osobne UUID 
                 plat.appendChild(make(docXml, "TERMIN_PLAT", safe(p.getTerminPlatnosci())));
                 plat.appendChild(make(docXml, "FORMA_PLATNOSCI_PLAT", safe(p.getForma())));
                 plat.appendChild(make(docXml, "FORMA_PLATNOSCI_ID_PLAT", ""));
@@ -227,9 +237,9 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
                 plat.appendChild(make(docXml, "DATA_KURSU_PLAT", safe(p.getTermin())));
                 plat.appendChild(make(docXml, "WALUTA_DOK", "PLN"));
                 plat.appendChild(make(docXml, "PLATNOSC_TYP_PODMIOTU", "kontrahent"));
-                plat.appendChild(make(docXml, "PLATNOSC_PODMIOT", safe(doc.getPodmiotAkronim())));
+                plat.appendChild(make(docXml, "PLATNOSC_PODMIOT", safe(removeHyphensBetweenDigits(doc.getPodmiotAkronim()))));
                 //plat.appendChild(make(docXml, "PLATNOSC_PODMIOT_ID", doc.podmiotId));
-                plat.appendChild(make(docXml, "PLATNOSC_PODMIOT_NIP", safe(doc.getPodmiotNip())));
+                plat.appendChild(make(docXml, "PLATNOSC_PODMIOT_NIP", safe(removeHyphensBetweenDigits(doc.getPodmiotNip()))));
                 plat.appendChild(make(docXml, "PLAT_ELIXIR_O1", safe(p.getOpis())));
                 plat.appendChild(make(docXml, "PLAT_ELIXIR_O2", ""));
                 plat.appendChild(make(docXml, "PLAT_ELIXIR_O3", ""));
@@ -295,5 +305,10 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         try { return s != null && !s.isBlank() ? Double.parseDouble(s) : 0.0; }
         catch (Exception e) { return 0.0; }
     }
+    private String removeHyphensBetweenDigits(String nip) {
+        if (nip == null) return null;
+        return nip.replaceAll("(?<=\\d)-(?!\\D)", "");
+    }
+
 
 }

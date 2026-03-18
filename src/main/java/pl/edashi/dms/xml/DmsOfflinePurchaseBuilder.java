@@ -1,5 +1,6 @@
 package pl.edashi.dms.xml;
 
+import pl.edashi.common.logging.AppLogger;
 import pl.edashi.dms.model.DmsDocumentOut;
 import pl.edashi.dms.model.DmsOutputPosition;
 import pl.edashi.dms.model.DmsPayment;
@@ -16,13 +17,13 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 
 public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
-
+	//private final AppLogger log = new AppLogger("PurchaseBuilder");
     private static final String NS = "http://www.comarch.pl/cdn/optima/offline";
     private final DmsDocumentOut doc;
 
     public DmsOfflinePurchaseBuilder(DmsDocumentOut doc) {
         if (doc == null) throw new IllegalArgumentException("DmsOfflinePurchaseBuilder: doc is null");
-        Set<String> PURCHASE_TYPES = Set.of("DZ","FVZ","FVZK","FVZk", "FZK", "FZk","FS", "FK");
+        Set<String> PURCHASE_TYPES = Set.of("DZ","FVZ","FVZK","FVZk", "FZK", "FZk","FS", "FK","UMUZ");
         if (!PURCHASE_TYPES.contains(doc.getTyp())) {
             throw new IllegalArgumentException("DmsOfflinePurchaseBuilder: obsługiwany jest tylko typ zakupowy, otrzymano: " + safe(doc.getTyp()));
         }
@@ -48,7 +49,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         rejSekcja.appendChild(rz);
 
         // META
-        rz.appendChild(makeCdata(docXml, "ID_ZRODLA", ""));//safe(doc.getIdZrodla())
+        rz.appendChild(makeCdata(docXml, "ID_ZRODLA",  safe(doc.getDocKey())));//safe(doc.getIdZrodla())
         rz.appendChild(makeCdata(docXml, "MODUL", safe(doc.getModul() != null ? doc.getModul() : "Rejestr Vat")));
         rz.appendChild(makeCdata(docXml, "TYP", "Rejestr zakupu"));
         rz.appendChild(makeCdata(docXml, "REJESTR", safe(doc.getRejestr())));
@@ -56,9 +57,18 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         rz.appendChild(makeCdata(docXml, "DATA_WYSTAWIENIA", safe(doc.getDataWystawienia())));
         rz.appendChild(makeCdata(docXml, "DATA_ZAKUPU", safe(doc.getDataSprzedazy())));
         rz.appendChild(makeCdata(docXml, "DATA_WPLYWU", safe(doc.getDataOperacji())));
-        rz.appendChild(makeCdata(docXml, "TERMIN", safe(doc.getPlatnosci().get(0).getTermin())));
+        String termin = null;
+        if (doc.getPlatnosci() != null && !doc.getPlatnosci().isEmpty()) {
+            DmsPayment first = doc.getPlatnosci().get(0);
+            if (first != null) {
+                termin = first.getTermin();
+            }
+        } else {
+        	termin = doc.getTermin();
+        }
+        rz.appendChild(makeCdata(docXml, "TERMIN", safe(termin)));
         rz.appendChild(makeCdata(docXml, "DATA_DATAOBOWIAZKUPODATKOWEGO", safe(doc.getDataObowiazkuPodatkowego())));
-        rz.appendChild(makeCdata(docXml, "DATA_DATAPRAWAODLICZENIA", safe(doc.getDataPrawaOdliczenia())));
+        rz.appendChild(makeCdata(docXml, "DATA_DATAPRAWAODLICZENIA", safe(doc.getDataOperacji())));
         rz.appendChild(makeCdata(docXml, "NUMER", safe(doc.getInvoiceNumber()))); //safe(doc.getDocumentType()) + "_" +
         rz.appendChild(makeCdata(docXml, "KOREKTA", doc.getKorekta()));
         rz.appendChild(makeCdata(docXml, "KOREKTA_NUMER", safe(doc.getKorektaNumer())));
@@ -66,21 +76,21 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         rz.appendChild(makeCdata(docXml, "METODA_KASOWA", "Nie"));
         rz.appendChild(makeCdata(docXml, "FISKALNA", "Nie"));
         rz.appendChild(makeCdata(docXml, "DETALICZNA", "Nie"));
-        rz.appendChild(makeCdata(docXml, "EKSPORT", "nie"));
+        rz.appendChild(makeCdata(docXml, "EKSPORT", safe(doc.getExpKrajowy())));
         rz.appendChild(makeCdata(docXml, "FINALNY", "Nie"));
         rz.appendChild(makeCdata(docXml, "PODATNIK_CZYNNY", "Tak"));
         rz.appendChild(makeCdata(docXml, "IDENTYFIKATOR_KSIEGOWY", safe(doc.getNumer())));
 
         // PODMIOT (dostawca)
         rz.appendChild(makeCdata(docXml, "TYP_PODMIOTU", "kontrahent"));
-        //rz.appendChild(makeCdata(docXml, "PODMIOT", safe(doc.getPodmiotAkronim())));
+        rz.appendChild(makeCdata(docXml, "PODMIOT", safe(removeHyphensBetweenDigits(doc.getPodmiotAkronim()))));
         //rz.appendChild(makeCdata(docXml, "PODMIOT_ID", safe(doc.getPodmiotId())));
-        rz.appendChild(makeCdata(docXml, "PODMIOT_NIP", safe(doc.getPodmiotNip())));
+        rz.appendChild(makeCdata(docXml, "PODMIOT_NIP", safe(removeHyphensBetweenDigits(doc.getPodmiotNip()))));//normalizeNip(String nip
         rz.appendChild(makeCdata(docXml, "NAZWA1", safe(doc.getNazwa1())));
         rz.appendChild(makeCdata(docXml, "NAZWA2", safe(doc.getNazwa2())));
         rz.appendChild(makeCdata(docXml, "NAZWA3", safe(doc.getNazwa3())));
-        rz.appendChild(makeCdata(docXml, "NIP_KRAJ", safe(doc.getKraj() != null ? doc.getKraj() : "PL")));
-        rz.appendChild(makeCdata(docXml, "NIP", safe(doc.getPodmiotNip())));
+        rz.appendChild(makeCdata(docXml, "NIP_KRAJ", safe(doc.getKraj())));
+        rz.appendChild(makeCdata(docXml, "NIP", safe(removeHyphensBetweenDigits(doc.getPodmiotNip()))));
         rz.appendChild(makeCdata(docXml, "KRAJ", safe(doc.getKraj())));
         rz.appendChild(makeCdata(docXml, "WOJEWODZTWO", safe(doc.getWojewodztwo())));
         rz.appendChild(makeCdata(docXml, "POWIAT", safe(doc.getPowiat())));
@@ -97,7 +107,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         rz.appendChild(makeCdata(docXml, "TYP_PLATNIKA", "kontrahent"));
         //rz.appendChild(makeCdata(docXml, "PLATNIK", safe(doc.getPodmiotNip())));
         //rz.appendChild(makeCdata(docXml, "PLATNIK_ID", safe(doc.getPodmiotId())));
-        rz.appendChild(makeCdata(docXml, "PLATNIK_NIP", safe(doc.getPodmiotNip())));
+        rz.appendChild(makeCdata(docXml, "PLATNIK_NIP", safe(removeHyphensBetweenDigits(doc.getPodmiotNip()))));
         rz.appendChild(makeCdata(docXml, "OPIS", safe(doc.getOpis())));
         rz.appendChild(makeCdata(docXml, "FORMA_PLATNOSCI", firstPaymentForm(doc)));
         rz.appendChild(makeCdata(docXml, "FORMA_PLATNOSCI_ID", safe(doc.getFormaPlatnosciId())));
@@ -158,7 +168,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
 
                 // RODZAJ_ZAKUPU, ODLICZENIA_VAT, KOLUMNA_KPR, KOLUMNA_RYCZALT
                 poz.appendChild(makeCdata(docXml, "RODZAJ_ZAKUPU", safe(p.getRodzajKoszty())));
-                poz.appendChild(makeCdata(docXml, "ODLICZENIA_VAT", safe(p.getOdliczeniaVat() != null ? p.getOdliczeniaVat() : "tak")));
+                poz.appendChild(makeCdata(docXml, "ODLICZENIA_VAT", safe(p.getOdliczenia())));// != null ? p.getOdliczeniaVat() : "tak")));
                 poz.appendChild(makeCdata(docXml, "KOLUMNA_KPR", safe(p.getKolumnaKpr() != null ? p.getKolumnaKpr() : "Nie księgować")));
                 poz.appendChild(makeCdata(docXml, "KOLUMNA_RYCZALT", safe(p.getKolumnaRyczalt())));
 
@@ -181,8 +191,8 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
             for (DmsPayment p : platnosciList) {
                 Element plat = docXml.createElementNS(NS, "PLATNOSC");
                 platnosci.appendChild(plat);
-
-                plat.appendChild(makeCdata(docXml, "ID_ZRODLA_PLAT", ""));// safe(p.getIdZrodla() != null ? p.getIdZrodla() : doc.getIdZrodla())));
+                //log.info(String.format("DEBUG payments size=" + (platnosciList == null ? "null" : platnosciList.size()) + " fullKey=" + p.getIdPlatn()));
+                plat.appendChild(makeCdata(docXml, "ID_ZRODLA_PLAT", safe(p.getIdPlatn())));// safe(p.getIdZrodla() != null ? p.getIdZrodla() : doc.getIdZrodla())));
                 plat.appendChild(makeCdata(docXml, "TERMIN_PLAT", safe(p.getTermin())));
                 plat.appendChild(makeCdata(docXml, "FORMA_PLATNOSCI_PLAT", safe(p.getForma())));
                 plat.appendChild(makeCdata(docXml, "FORMA_PLATNOSCI_ID_PLAT", ""));//safe(p.getFormaId())
@@ -200,9 +210,9 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
                 plat.appendChild(makeCdata(docXml, "DATA_KURSU_PLAT", safe(p.getTermin())));
                 plat.appendChild(makeCdata(docXml, "WALUTA_DOK", "PLN"));
                 plat.appendChild(makeCdata(docXml, "PLATNOSC_TYP_PODMIOTU", "kontrahent"));
-                plat.appendChild(makeCdata(docXml, "PLATNOSC_PODMIOT", safe(doc.getPodmiotAkronim())));
+                plat.appendChild(makeCdata(docXml, "PLATNOSC_PODMIOT", safe(removeHyphensBetweenDigits(doc.getPodmiotAkronim()))));
                 //plat.appendChild(makeCdata(docXml, "PLATNOSC_PODMIOT_ID", safe(doc.getPodmiotId())));
-                plat.appendChild(makeCdata(docXml, "PLATNOSC_PODMIOT_NIP", safe(doc.getPodmiotNip())));
+                plat.appendChild(makeCdata(docXml, "PLATNOSC_PODMIOT_NIP", safe(removeHyphensBetweenDigits(doc.getPodmiotNip()))));
                 plat.appendChild(makeCdata(docXml, "PLAT_ELIXIR_O1", safe(p.getOpis())));
                 plat.appendChild(makeCdata(docXml, "PLAT_ELIXIR_O2", ""));
                 plat.appendChild(makeCdata(docXml, "PLAT_ELIXIR_O3", ""));
@@ -275,4 +285,11 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         // ensure two decimals when needed (Optima examples show 12.65)
         return String.format(Locale.US, "%.2f", v);
     }
+    private String removeHyphensBetweenDigits(String nip) {
+        if (nip == null) return null;
+        return nip.replaceAll("(?<=\\d)-(?!\\D)", "");
+    }
+
+
+
 }

@@ -5,7 +5,7 @@ public class OfflineContractor {
     public String idZrodla;
     public String akronim;
     public String rodzaj;           // odbiorca
-    public String eksport;          // krajowy
+    public String expKrajowy;          // krajowy
     public String platnikVat;       // Tak/ Nie (dla osoby fizycznej: zwykle Nie)
     public String finalny;          // Nie
     public String medialny;         // Nie

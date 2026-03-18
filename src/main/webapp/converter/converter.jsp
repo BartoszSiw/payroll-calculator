@@ -87,6 +87,7 @@
             <% } %>  --%>
             <option value="CC"> ZAKUP </option>
             <option value="EX"> EX -> ZK </option>
+            <option value="CU"> CU -> ZK </option>
             <option value="PA"> PA -> Z3 </option>
             <option value="CD"> CD -> Z1 </option>
             <option value="CP"> CP -> Z1 </option>

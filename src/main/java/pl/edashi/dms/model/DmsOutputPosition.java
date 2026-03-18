@@ -44,6 +44,7 @@ public class DmsOutputPosition {
     private String symbolKPW = "";
     private String nrDokumentu ="";
     private String mappedDowodNumber;
+    private String odliczenia="";
     private boolean advance = false;
 	private List<DmsKwotaDodatkowa> kwotyDodatkowe = new ArrayList<>();
 	private Contractor contractor;
@@ -88,6 +89,7 @@ public class DmsOutputPosition {
     public String getSymbolKPW () { return symbolKPW; }
     public String getNrDokumentu() { return nrDokumentu; }
     public String getMappedDowodNumber() { return mappedDowodNumber; } 
+    public String getOdliczenia() { return odliczenia;}
    	public boolean isAdvance() { return advance; }
 	public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {return kwotyDodatkowe;}
     public Contractor getContractor() { return contractor; }
@@ -133,6 +135,7 @@ public class DmsOutputPosition {
 	public void setSymbolKPW(String symbolKPW) { this.symbolKPW = safe(symbolKPW); }
     public void setContractor(Contractor contractor) { this.contractor = contractor; }
     public void setMappedDowodNumber(String mappedDowodNumber) { this.mappedDowodNumber = mappedDowodNumber; }
+    public void setOdliczenia(String odliczenia) { this.odliczenia = safe(odliczenia);}
     // --- Helper ---
     private static String safe(String s) {
         return s == null ? "" : s;
@@ -186,5 +189,6 @@ public class DmsOutputPosition {
 		// TODO Auto-generated method stub
 		return null;
 	}
+
 }
 

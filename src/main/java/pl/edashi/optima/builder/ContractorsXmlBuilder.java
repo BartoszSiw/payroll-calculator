@@ -44,7 +44,7 @@ public class ContractorsXmlBuilder implements XmlSectionBuilder {
 
             k.appendChild(make(xml, "CHRONIONY", "Nie"));
             k.appendChild(make(xml, "RODZAJ", c.rodzaj));
-            k.appendChild(make(xml, "EKSPORT", c.eksport));
+            k.appendChild(make(xml, "EKSPORT", c.expKrajowy));
             k.appendChild(make(xml, "FINALNY", c.finalny));
             k.appendChild(make(xml, "PLATNIK_VAT", c.platnikVat));
             k.appendChild(make(xml, "MEDIALNY", c.medialny));

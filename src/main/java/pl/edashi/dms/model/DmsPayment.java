@@ -50,6 +50,7 @@ public class DmsPayment {
     public String toString() {
         return "DmsPayment{" +
                 "termin='" + termin + '\'' +
+                ", idPlatn='" + idPlatn + '\'' +
                 ", forma='" + forma + '\'' +
                 ", kwota='" + kwota + '\'' +
                 ", opis='" + opis + '\'' +

@@ -12,20 +12,20 @@ public class DmsParsedDocument {
     private List<DmsRapKasa> rapKasa = new ArrayList<>();
     private List<String> notes = new ArrayList<>();
     private List<DmsVatEntry> vatEntries = new ArrayList<>();
-	public List<DmsNetBruEntry> netBruEntries = new ArrayList<>();
-
     public List<DmsVatEntry> getVatEntries() { return vatEntries; }
     public void addVatEntry(DmsVatEntry e) { vatEntries.add(e); }
+    
     private Map<String, String> vatRates = new HashMap<>();
     public Map<String, String> getVatRates() { return vatRates; }
     public void setVatRates(Map<String, String> map) { this.vatRates = map; }
     
+	public List<DmsNetBruEntry> netBruEntries = new ArrayList<>();
     public List<DmsNetBruEntry> getNetBruEntries() { return netBruEntries; }
     public void addNetBruEntry(DmsNetBruEntry e) { netBruEntries.add(e); }
     private Map<String, String> netBruRates = new HashMap<>();
     public Map<String, String> getNetBruRates() { return netBruRates; }
     public void setNetBruRates(Map<String, String> map) { this.netBruRates = map; }
-
+    private MappingTarget mappingTarget = MappingTarget.PURCHASES;
 
     private String vatRate = "";
     private String vatBase = "";
@@ -68,6 +68,13 @@ public class DmsParsedDocument {
     private String dataWystawienia = "";
     private String nrDokumentu = "";
     private String nrIdPlat = "";
+    private String fullKey = "";
+    private String docKey = "";
+    private String hash = "";
+    private String podmiot = "";
+    private String statusVat = "";
+    public String odliczenia ="";
+    public String expKrajowy = "";
     //private String vin = "";
 
     // dodatkowe pola pomocnicze
@@ -165,6 +172,15 @@ public class DmsParsedDocument {
 	public void setDataWystawienia(String dataWystawienia) {this.dataWystawienia = safe(dataWystawienia); }
 	public void setNrDokumentu(String nrDokumentu) { this.nrDokumentu = safe(nrDokumentu); }
 	public void setNrIdPlat(String nrIdPlat) {	 this.nrIdPlat = safe(nrIdPlat); }
+	public void setFullKey(String fullKey) {this.fullKey = safe(fullKey);	}
+	public void setDocKey(String docKey) {this.docKey = safe(docKey);	}
+	public void setHash(String hash) {this.hash = safe(hash);	}
+	public void setPodmiot(String podmiot) {this.podmiot = safe(podmiot);	}
+	public void setStatusVat(String statusVat) { this.statusVat = safe(statusVat); }
+	public void setOdliczenia(String odliczenia) { this.odliczenia = safe(odliczenia); }
+	public void setExpKrajowy(String expKrajowy) { this.expKrajowy = safe(expKrajowy); }
+	public void setMappingTarget(MappingTarget mappingTarget) { this.mappingTarget = mappingTarget; }
+	
 	//public void setVin(String vin) {this.vin  = vin ;}
     // --- Gettery ---
     public String getNrKsef() {
@@ -286,8 +302,15 @@ public class DmsParsedDocument {
     public String getDataWystawienia() { return dataWystawienia;}
     public String getNrDokumentu() { return nrDokumentu;}
     public String getNrIdPlat() { return nrIdPlat;}
-    
-    //public String getVin() {return vin;}
+    public String getFullKey() { return fullKey;}
+    public String getDocKey() { return docKey;}
+    public String getHash() { return hash;}
+    public String getPodmiot() { return podmiot;}
+    public String getStatusVat() {return statusVat;}
+    public String getOdliczenia() { return odliczenia; }
+    public String getExpKrajowy() { return expKrajowy; }
+    public MappingTarget getMappingTarget() { return mappingTarget; }
+	    //public String getVin() {return vin;}
     // --- Utility ---
 
     @Override
@@ -347,6 +370,7 @@ public class DmsParsedDocument {
         public String stawka;
         public String podstawa;
         public String vat;
+        public String statusVat;
     }
     public static class DmsNetBruEntry{
     	public String base;

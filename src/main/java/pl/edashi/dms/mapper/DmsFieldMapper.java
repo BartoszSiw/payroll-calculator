@@ -21,6 +21,7 @@ public class DmsFieldMapper {
         WYR_MAP.put("PA", "Z3");
         WYR_MAP.put("EX", "Z4");
         WYR_MAP.put("EX", "ZK");
+        WYR_MAP.put("CU", "ZK");
         WYR_MAP.put("EX", "ZR");
         // W przyszłości:
         // WYR_MAP.put("ABC", "COŚ_INNEGO");

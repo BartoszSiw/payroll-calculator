@@ -89,13 +89,20 @@ public class DmsParserDS implements DmsParser{
         }
         // debug (tymczasowo) — pokaże co mamy po ekstrakcji
         //log.info(String.format("Gen_Info: extracted documentType='%s', ",out.getDocumentType()));
+        String dataSprzed = daty.getAttribute("data_sprzed");
+        String dataDok = daty.getAttribute("data_dok");
+
+        // jeśli data_sprzed jest null, pusta lub "0" → użyj data_dok
+        String finalDataSprzed = (dataSprzed == null || dataSprzed.isBlank()) 
+                ? dataDok 
+                : dataSprzed;
         out.setMetadata(new DocumentMetadata(
                 genDocId,
                 id,
                 trans,
                 fileName,
                 daty.getAttribute("data"),
-                daty.getAttribute("data_sprzed"),
+                finalDataSprzed,
                 daty.getAttribute("data_zatw"),
                 daty.getAttribute("data"),
                 warto.getAttribute("waluta")
@@ -145,17 +152,45 @@ public class DmsParserDS implements DmsParser{
         extractFiscal(doc, out);
         extractCorrection(doc, out);
      // 🔥 TU: logika akronimu dla sprzedaży paragonowej
-        String podmiot = c.getNip();
-        if ("Tak".equalsIgnoreCase(out.getDokumentFiskalny())
-                && (c == null || c.getNip() == null || c.getNip().isBlank())) {
+        String podmiot = "";
 
-            // jeśli masz akronim w Contractor:
-            if (c != null && c.getFullName().isBlank()) {
-                c.setFullName("SPRZEDAZ_PARAGONOWA");
-                c.setName1("Sprzedaż Paragonowa");
-                podmiot = c.getFullName();
-            }
-        }
+     // zabezpieczenia: c może być null
+     if ("Tak".equalsIgnoreCase(out.getDokumentFiskalny())) {
+         // dokument fiskalny (paragon)
+         if (c == null || c.getNip() == null || c.getNip().isBlank()) {
+             // brak NIP — traktujemy jako sprzedaż paragonowa
+             String paragonName = "SPRZEDAZ_PARAGONOWA";
+             if (c != null) {
+                 // ustawiaj tylko jeśli nie nadpisujesz czegoś ważnego
+                 c.setFullName(paragonName);
+                 c.setName1("Sprzedaż Paragonowa");
+                 c.setPodmiot(paragonName);
+             }
+             podmiot = paragonName;
+         } else {
+             // jest NIP — używamy NIP
+             podmiot = c.getNip().trim();
+             if (c != null) c.setPodmiot(podmiot);
+         }
+     } else {
+         // nie jest dokumentem fiskalnym — preferuj NIP, potem fullName
+         if (c != null && c.getNip() != null && !c.getNip().isBlank()) {
+             podmiot = c.getNip().trim();
+             c.setPodmiot(podmiot);
+         } else if (c != null && c.getFullName() != null && !c.getFullName().isBlank()) {
+             podmiot = c.getFullName().trim();
+             c.setPodmiot(podmiot);
+         } else {
+             podmiot = "";
+             c.setPodmiot(podmiot);
+         }
+         if (c != null) c.setPodmiot(podmiot);
+     }
+
+        out.setContractor(c);
+        out.setPodmiot(podmiot);
+        String code = "S";
+        out.setMappingTarget(MappingTarget.fromCode(code));
         // ============================
         // 8. UWAGI (typ 98)
         // ============================
@@ -165,9 +200,20 @@ public class DmsParserDS implements DmsParser{
      
      String numer = out.getInvoiceNumber();
      String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, numer, 36);
-     out.setNrIdPlat(nrIdPlat);
+     String fullKey = MappingIdDocs.buildFullKey(podmiot, numer);
+     String hash = MappingIdDocs.shortHashFromFullKey(fullKey, 6);
+     String docKey = MappingIdDocs.generateDocId(podmiot, "S" ,numer, 36);
 
-        return out;
+     out.setFullKey(fullKey);
+     out.setDocKey(docKey);
+     out.setNrIdPlat(nrIdPlat);
+     out.setHash(hash);
+     List<DmsPayment> payId = out.getPayments();
+     if (payId != null && !payId.isEmpty()) {
+         payId.get(0).setIdPlatn(nrIdPlat); // setIdPlatn zwraca void — wykonaj to osobno
+     }
+     //log.info(String.format("nrIdPlat ='%s' Podmiot='%s' payId.get(0)='%s' payId='%s'", nrIdPlat, podmiot, payId.get(0), payId));
+     return out;
     }
 
     // ------------------------------
@@ -213,11 +259,11 @@ public class DmsParserDS implements DmsParser{
         Contractor c = new Contractor(); 
         c.isCompany = false; 
         c.czynny = "Nie"; 
-        c.nip = ""; 
-        c.name1 = ""; 
-        c.name2 = ""; 
-        c.name3 = ""; 
-        c.fullName = ""; 
+        //c.nip = ""; 
+        //c.name1 = ""; 
+        //c.name2 = ""; 
+        //c.name3 = ""; 
+        //c.fullName = ""; 
         return c;
     }
     // ------------------------------
@@ -304,12 +350,13 @@ public class DmsParserDS implements DmsParser{
                 //log.info(String.format("extractPositions p.vin='%s ': p.netto='%s ' p.nettoKoMat='%s ' p.nettoGwMar='%s ' typ='%s '", p.vin, p.netto, p.nettoKoMat, p.nettoGwMat, typ));
                 boolean hasVat = out.isHasVatDocument();
                 String vatRate = out.getVatRate();
+                String statusVat = out.getStatusVat();
                 //log.info(LogUtils.safeFormat("hasVat=%s, vatRate=%s", hasVat, vatRate));
                 if (!hasVat) {
                 	double nettoVal = 0.0;
                     p.stawkaVat = "0";
                     p.vat = "0.00";
-                    p.statusVat = "opodatkowana";
+                    p.statusVat = statusVat;
                     if (p.netto != null && !p.netto.isBlank()) {
                         nettoVal = parseDoubleSafe(p.netto.replace(",", "."));
                     }
@@ -319,7 +366,7 @@ public class DmsParserDS implements DmsParser{
                     //log.info(String.format("1 hasVat p.statusVat='%s': ", p.statusVat));
                 } else {
                     p.stawkaVat = vatRate != null ? vatRate : "";
-                    p.statusVat = "opodatkowana";
+                    p.statusVat = statusVat;
                     //log.info(String.format("2 hasVat p.statusVat='%s': ", p.statusVat));
                     if (p.netto != null && !p.netto.isBlank()) {
                         try {
@@ -475,7 +522,7 @@ public class DmsParserDS implements DmsParser{
             // uzupełnij pola, których mapper oczekuje (kategoria/kanal/stawka itp.)
             advPos.setKategoria("SPRZEDAŻ ZALICZKA"); // lub "" jeśli builder filtruje po kategoriach
             advPos.setKanalKategoria("");
-            advPos.statusVat = "opodatkowana";
+            advPos.statusVat = out.getStatusVat();
             advPos.setStawkaVat("23"); // jeśli znasz stawkę VAT, wpisz ją
             try { advPos.setAdvance(true); } catch (Throwable ignored) {}
             // Dodajemy zaliczkę na koniec listy pozycji
@@ -565,12 +612,12 @@ public class DmsParserDS implements DmsParser{
                 Element dane = firstElementByTag(el, "dane");
                 if (dane == null) continue;
                 Element wart = firstElementByTag(dane, "wartosci");
-
-                String stawka = safeAttr(dane, "stawka");
+                
                 String kodVat = safeAttr(dane, "kod");
+                String stawka = "";//safeAttr(dane, "stawka");
                 String podstawa = wart != null ? safeAttr(wart, "podstawa") : "";
                 String vat = wart != null ? safeAttr(wart, "vat") : "";
-                
+                String statusVat="";
              // Ustal status VAT wg kodu i stawki
                /* if ("51".equals(kodVat)) {
                     // 51 = ZW
@@ -592,8 +639,24 @@ public class DmsParserDS implements DmsParser{
                     out.setStatusVat(stawka);
                     out.setVatRate(normalizeVatRate(stawka));
                 }*/
-
+                if ("02".equals(kodVat)) {
+                    statusVat = "opodatkowana";
+                    stawka = "23";
+                } else if ("22".equals(kodVat)) {
+                	statusVat = "opodatkowana";
+                	stawka = "8";
+                } else if ("99".equals(kodVat)) {
+                	statusVat = "nie podlega";
+                	stawka = "0";
+                } else if ("51".equals(kodVat)) {
+                	statusVat = "zwolniona";
+                	stawka = "0";
+                } else {
+                	statusVat = "nie podlega";
+                	stawka = "0";
+                }
                 out.setVatRate(normalizeVatRate(stawka));
+                out.setStatusVat(statusVat);
                 out.setVatBase(podstawa);
                 out.setVatAmount(vat);
                 //log.info(String.format("extractVat: podstawa='%s': ,vat='%s': ", podstawa, vat));
@@ -603,7 +666,6 @@ public class DmsParserDS implements DmsParser{
         }
         out.setHasVatDocument(foundVat);
     }
-
     // ------------------------------
     // PŁATNOŚCI (typ 40 + 43)
     // ------------------------------
@@ -632,7 +694,6 @@ public class DmsParserDS implements DmsParser{
                 if (dane.getParentNode() != el) continue;
 
                 Element wart = firstElementByTag(dane, "wartosci");
-                
                 DmsPayment p = new DmsPayment();
                 p.setIdPlatn(UUID.randomUUID().toString());
                 p.setAdvance(false);

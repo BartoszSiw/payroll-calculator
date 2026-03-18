@@ -47,6 +47,7 @@ public class DmsPosition {
 	private boolean advance = false;
 	public String kod09;
 	public String nettoPrup;
+	public String odliczenia;
     public DmsPosition() { }
 
     // --- Gettery ---
@@ -91,6 +92,7 @@ public class DmsPosition {
 	public String getKodKlasyfikatora() { return kodKlasyfikatora; }
 	public String getKod09() { return kod09; }
 	public String getNettoPrup() { return nettoPrup; }
+	public String getOdliczenia() { return odliczenia; }
 	public boolean isAdvance() { return advance; }
 	public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {return kwotyDodatkowe;}
     // --- Settery (null-safe) ---
@@ -134,6 +136,7 @@ public class DmsPosition {
 	public void setAdvance(boolean advance) { this.advance = advance; }
 	public void setKwotyDodatkowe(List<DmsKwotaDodatkowa> list) {this.kwotyDodatkowe = list;}
 	public void setNettoPrup(String nettoPrup) { this.nettoPrup = nettoPrup != null ? nettoPrup : "";}
+	public void setOdliczenia(String odliczenia) { this.odliczenia = odliczenia != null ? odliczenia : ""; }
     @Override
     public String toString() {
         return "DmsPosition{" +

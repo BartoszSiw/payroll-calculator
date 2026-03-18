@@ -21,16 +21,21 @@ import pl.edashi.dms.parser.DmsParserWZ;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.StringReader;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.time.YearMonth;
 
 import org.xml.sax.InputSource;
+
+//import com.sun.org.apache.xerces.internal.impl.dv.dtd.StringDatatypeValidator;
+
 import pl.edashi.converter.analysis.DocumentRelationAnalyzer;
 import pl.edashi.converter.analysis.DocumentRelationAnalyzer.ExtractedNumber;
 import pl.edashi.converter.analysis.DocumentRelationAnalyzer.DocumentMeta;
 import pl.edashi.dms.model.DmsParsedDocument;
 import pl.edashi.dms.model.DmsPosition;
+import pl.edashi.dms.model.MappingTarget;
 
 import java.util.ArrayList; 
 import java.util.List;
@@ -41,11 +46,13 @@ import java.util.regex.Pattern;
 public class ConverterService {
 
     private final DocumentRepository repository;
+    private final RejestrDao rejestrDao;
     private final XmlStructureComparator structureComparator;
     private final AppLogger log = new AppLogger("ConverterService");
 
-    public ConverterService(DocumentRepository repository) {
+    public ConverterService(DocumentRepository repository, RejestrDao rejestrDao) {
         this.repository = repository;
+        this.rejestrDao = rejestrDao;
         this.structureComparator = new XmlStructureComparator();
     }
 
@@ -81,8 +88,26 @@ public class ConverterService {
                 d.getMetadata() == null ? null : d.getMetadata().getDateOperation()
         );
         String docType = type.trim().toUpperCase();
+        String fullKey = d.getFullKey();
+        String nrIdPlat = d.getNrIdPlat();
+        String podmiot = d.getPodmiot();
+        String numer = d.getInvoiceNumber();
+        String hash = d.getHash();
+        String docKey = d.getDocKey();
+        //log.info(String.format("fullKey='%s ' nrIdPlat='%s ' podmiot='%s ' numer='%s ' hash='%s '",fullKey, nrIdPlat, podmiot, numer, hash));
         //LocalDate docDate = parseDateFromPossibleFormats(d.getMetadata() == null ? null : d.getMetadata().getDate()
+        
         if (!registry.isEnabled(docType)) {
+            log.info(String.format("Pominięto: registry disabled docType='%s' fullKey='%s'", docType, fullKey));
+            return new SkippedDocument(docType, "Parser disabled");
+        }
+        if (dateFilter.hasFilter()) {
+        	if (!isDateInRange(docDate, fromDate, toDate)) {
+        	    log.info(String.format("Pominięto: date out of range docDate='%s' range='%s' - ='%s'", docDate, fromDate, toDate));
+        	    return new SkippedDocument(docType, "Date out of range");
+        	}
+        ///
+        /* if (!registry.isEnabled(docType)) {
             log.info(String.format("Pominięto plik %s: typ '%s' nie jest włączony do przetwarzania", sourceFile, docType));
             return new SkippedDocument(docType, "Parser disabled");
         }
@@ -90,10 +115,34 @@ public class ConverterService {
             if (!isDateInRange(docDate, fromDate, toDate)) {
                 return new SkippedDocument(docType, "Date out of range");
             }
+        */ 
+        //log.info(String.format("RejestrDao implementation: ='%s '", rejestrDao.getClass().getName()));
+
+        try {
+        	MappingTarget target = d.getMappingTarget();
+            log.info(String.format("fullKey='%s' nrIdPlat='%s' podmiot='%s' target='%s'", fullKey, nrIdPlat, podmiot, target));
+            try {
+                // jedna próba insertu — jeśli rekord już istnieje, złapiemy to po kodzie SQL
+            	
+                rejestrDao.insertMapping(fullKey, podmiot, numer, nrIdPlat, hash, docKey, target);
+                log.info(String.format("insertMapping zakończone pomyślnie dla nrIdPlat='%s ' podmiot='%s '", nrIdPlat, podmiot));
+            } catch (SQLException ex) {
+                log.error(String.format("SQL Error Code: ='%s ', Message: ='%s '", ex.getErrorCode(), ex.getMessage()), ex);
+                int code = ex.getErrorCode();
+                if (code == 2627 || code == 2601) { // SQL Server unique violation
+                	rejestrDao.incrementCollision(fullKey, target);
+                    log.warn(String.format("Insert ignored: unique constraint violation for nrIdPlat='%s ' sourceFile='%s '", nrIdPlat, sourceFile));
+                    return new SkippedDocument(docType, "nrIdPlat conflict on insert");
+                } else {
+                    log.error(String.format("Błąd SQL przy pliku sourceFile='%s ': SQLState=%s, ErrorCode=%d, Message=%s",
+                            sourceFile, ex.getSQLState(), ex.getErrorCode(), ex.getMessage()), ex);
+                    return new SkippedDocument(docType, "DB error");
+                }
+            }
+        } catch (Throwable t) {
+            log.error(String.format("Nieoczekiwany błąd przy pliku sourceFile='%s ': %s", sourceFile, t.getMessage()), t);
+            return new SkippedDocument(docType, "DB runtime error");
         }
-        if (RejestrDao.existsByNrIdPlat(nrIdPlat)) {
-            log.info("Pominięto {}: nrIdPlat {} już istnieje", sourceFile, nrIdPlat);
-            return new SkippedDocument(docType, "nrIdPlat exists");
         }
      // SL obsługujemy osobno, bo zwraca inny typ
 
@@ -173,7 +222,7 @@ public class ConverterService {
         		    String type = doc.getDocumentType() != null
         		            ? doc.getDocumentType().toUpperCase()
         		            : "";
-        		    if (Set.of("FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG", "FH").contains(type)) {
+        		    if (Set.of("FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG", "FH", "UMUZ").contains(type)) {
         		        String nr = firstNonBlank(
         		                doc.getInvoiceShortNumber(),
         		                doc.getInvoiceNumber()

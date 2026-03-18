@@ -28,6 +28,7 @@ public class DmsDocumentOut {
     private String podmiotAkronim = "";
     private String podmiotId = "";
     private String podmiotNip = "";
+    private String podmiot = "";
     private String nazwa1 = "";
     private String nazwa2 = "";
     private String nazwa3 = "";
@@ -60,6 +61,12 @@ public class DmsDocumentOut {
     private String nrDokumentu = "";
     private String nrIdPlat = "";
     private String kwotaRk = "";
+    private String fullKey = "";
+    private String docKey = "";
+    private String hash = "";
+    private String statusVat = "";
+    private String odliczenia = "";
+    private String expKrajowy = "";
     //private String dowodNumber = "";
     // POZYCJE - pozycje są w liście pozycje (DmsOutputPosition)
  
@@ -174,6 +181,9 @@ public class DmsDocumentOut {
     
     public String getNrRep() { return nrRep; }
     public void setNrRep(String nrRep) {this.nrRep = nrRep; }
+    
+    public String getStatusVat() { return statusVat; }
+    public void setStatusVat(String statusVat) { this.statusVat =  statusVat;}
     //public String getDowodNumber () { return dowodNumber; }
     //public void setDowodNumber(String dowodNumber) {this.dowodNumber = safe(dowodNumber); }
     //public String getTerminPlatnosci() {return terminPlatnosci;}
@@ -188,6 +198,9 @@ public class DmsDocumentOut {
 
     public String getPodmiotNip() { return podmiotNip; }
     public void setPodmiotNip(String podmiotNip) { this.podmiotNip = safe(podmiotNip); }
+    
+    public String getPodmiot() { return podmiot; }
+    public void setPodmiot(String podmiot) { this.podmiot = safe(podmiot); }
 
     public String getNazwa1() { return nazwa1; }
     public void setNazwa1(String nazwa1) { this.nazwa1 = safe(nazwa1); }
@@ -305,8 +318,24 @@ public class DmsDocumentOut {
 
     public String getNrKsef() { return nrKsef; }
     public void setNrKsef(String nrKsef) { this.nrKsef = safe(nrKsef); }
+    
 	public String getNrIdPlat() { return nrIdPlat; }
     public void setNrIdPlat(String nrIdPlat) { this.nrIdPlat = safe(nrIdPlat); }
+    
+	public String getFullKey() { return fullKey; }
+    public void setFullKey(String fullKey) { this.fullKey = safe(fullKey); }
+    
+	public String getDocKey() { return docKey; }
+    public void setDocKey(String docKey) { this.docKey = safe(docKey); }
+    
+    public String getHash() { return hash; }
+    public void setHash(String hash) { this.hash = safe(hash); }
+    
+    public String getOdliczenia() { return odliczenia; }
+    public void setOdliczenia(String odliczenia) { this.odliczenia = safe(odliczenia); }
+    
+    public String getExpKrajowy() { return expKrajowy; }
+    public void setExpKrajowy(String expKrajowy) {this.expKrajowy = safe(expKrajowy); }
     // --- Helper ---
     private static String safe(String s) {
         return s == null ? "" : s;
@@ -342,5 +371,5 @@ public class DmsDocumentOut {
 	public void setRozliczenia(List<Rozliczenie> rozliczenia) {
 		this.rozliczenia = rozliczenia == null ? new ArrayList<>() : rozliczenia;
 	}
-}
+	}
 
