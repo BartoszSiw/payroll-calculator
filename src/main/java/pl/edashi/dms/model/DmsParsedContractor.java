@@ -19,6 +19,7 @@ public class DmsParsedContractor {
     public String miasto;
     public String kraj;
 	public String nipKraj;
+	public String expKrajowy;
     public String nip;
     public String regon;
     public String pesel;

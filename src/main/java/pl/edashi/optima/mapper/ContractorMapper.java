@@ -21,9 +21,9 @@ public class ContractorMapper {
         
     	c.akronim = src.akronim;
         c.rodzaj = "odbiorca dostawca";
-        c.expKrajowy = "krajowy";
+        c.expKrajowy = src.expKrajowy;
         c.medialny = "Nie";
-        c.krajIso = "PL";
+        c.krajIso = src.kraj;
         c.algorytm = "netto";
 
         if (src.isCompany) {

@@ -216,7 +216,8 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         List<DmsPayment> platnosciList = doc.getPlatnosci();
         if (platnosciList != null && !platnosciList.isEmpty()) {
             for (DmsPayment p : platnosciList) {
-            	if (p.isAdvance()) continue; // NIE eksportujemy zaliczek
+            	//if (p.isAdvance()) continue; // NIE eksportujemy zaliczek
+            	log.info(String.format("platnosciList='%s' isAdvance='%s'",platnosciList.size(),p.isAdvance()));
                 Element plat = docXml.createElementNS(NS, "PLATNOSC");
                 platnosci.appendChild(plat);
                 plat.appendChild(make(docXml, "ID_ZRODLA_PLAT", safe(p.getIdPlatn()))); // osobne UUID 

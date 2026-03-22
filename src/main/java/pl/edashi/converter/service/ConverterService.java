@@ -35,6 +35,7 @@ import pl.edashi.converter.analysis.DocumentRelationAnalyzer.ExtractedNumber;
 import pl.edashi.converter.analysis.DocumentRelationAnalyzer.DocumentMeta;
 import pl.edashi.dms.model.DmsParsedDocument;
 import pl.edashi.dms.model.DmsPosition;
+import pl.edashi.dms.model.DocumentMetadata;
 import pl.edashi.dms.model.MappingTarget;
 
 import java.util.ArrayList; 
@@ -55,10 +56,8 @@ public class ConverterService {
         this.rejestrDao = rejestrDao;
         this.structureComparator = new XmlStructureComparator();
     }
-
-    public Object processSingleDocument(String xml, String sourceFile) throws Exception {
+    public Object processSingleDocument(String xml, String sourceFile,Set<String> filtrRejestry, String filtrOddzial) throws Exception {
         // 1. parsowanie
-    	
         Document doc = load(xml);
         if (doc == null) {
         	IllegalArgumentException iae = new IllegalArgumentException("Niepoprawny XML"); 
@@ -80,12 +79,17 @@ public class ConverterService {
 
         // parsowanie
         DmsParsedDocument d = parser.parse(doc, sourceFile);
+        String docRejestr = d.getDaneRejestr() == null ? "" : d.getDaneRejestr().trim().toUpperCase();
+        String docOddzial = d.getOddzial() == null ? "" : d.getOddzial().trim();
         ParserRegistry registry = ParserRegistry.getInstance();
         DateFilterRegistry dateFilter = DateFilterRegistry.getInstance();
+        log.info(String.format("AFTER PARSE: parsedClass='%s' metadata='%s'",
+        	    d.getClass().getName(),
+        	    d.getMetadata()));
         LocalDate fromDate = dateFilter.getFromDate();
         LocalDate toDate   = dateFilter.getToDate();
         LocalDate docDate = parseDateFromPossibleFormats(
-                d.getMetadata() == null ? null : d.getMetadata().getDateOperation()
+                d.getMetadata() == null ? null : d.getMetadata().getDate()
         );
         String docType = type.trim().toUpperCase();
         String fullKey = d.getFullKey();
@@ -94,9 +98,16 @@ public class ConverterService {
         String numer = d.getInvoiceNumber();
         String hash = d.getHash();
         String docKey = d.getDocKey();
+    	log.info(String.format("DEBUG pre-filter: docType='%s' fullKey='%s' docDate='%s'",
+        	    docType, fullKey, docDate));
         //log.info(String.format("fullKey='%s ' nrIdPlat='%s ' podmiot='%s ' numer='%s ' hash='%s '",fullKey, nrIdPlat, podmiot, numer, hash));
         //LocalDate docDate = parseDateFromPossibleFormats(d.getMetadata() == null ? null : d.getMetadata().getDate()
-        
+        if (!filtrRejestry.isEmpty() && (docRejestr.isEmpty() || !filtrRejestry.contains(docRejestr))) {
+            return new SkippedDocument(d.getDocumentType(), "Rejestr not in filter");
+        }
+        if (filtrOddzial != null && !filtrOddzial.isBlank() && !filtrOddzial.equals(docOddzial)) {
+            return new SkippedDocument(d.getDocumentType(), "Oddzial not in filter");
+        }
         if (!registry.isEnabled(docType)) {
             log.info(String.format("Pominięto: registry disabled docType='%s' fullKey='%s'", docType, fullKey));
             return new SkippedDocument(docType, "Parser disabled");
@@ -106,6 +117,8 @@ public class ConverterService {
         	    log.info(String.format("Pominięto: date out of range docDate='%s' range='%s' - ='%s'", docDate, fromDate, toDate));
         	    return new SkippedDocument(docType, "Date out of range");
         	}
+        }
+
         ///
         /* if (!registry.isEnabled(docType)) {
             log.info(String.format("Pominięto plik %s: typ '%s' nie jest włączony do przetwarzania", sourceFile, docType));
@@ -123,7 +136,18 @@ public class ConverterService {
             log.info(String.format("fullKey='%s' nrIdPlat='%s' podmiot='%s' target='%s'", fullKey, nrIdPlat, podmiot, target));
             try {
                 // jedna próba insertu — jeśli rekord już istnieje, złapiemy to po kodzie SQL
-            	
+            	log.info(String.format("DEBUG pre-filter: docType='%s' fullKey='%s' docDate='%s' parsedClass='%s'",
+            		    docType, fullKey, docDate, d.getClass().getName()));
+
+            		log.info(String.format("DEBUG registry.isEnabled('%s') = '%s'", docType, registry.isEnabled(docType)));
+            		log.info(String.format("DEBUG dateFilter.from='%s' to='%s' hasFilter='%s'",
+            		    dateFilter.getFromDate(), dateFilter.getToDate(), dateFilter.hasFilter()));
+
+            		log.info(String.format("1 DEBUG BEFORE INSERT: fullKey='%s' nrIdPlat='%s' podmiot='%s' target='%s' thread='%s'",
+            		    fullKey, nrIdPlat, podmiot, d.getMappingTarget(), Thread.currentThread().getName()));
+            		log.info(String.format("2 DEBUG BEFORE INSERT: fullKey='%s' docKey='%s' thread='%s' parsedHash='%s'",
+            			    fullKey, docKey, Thread.currentThread().getName(), System.identityHashCode(d)));
+
                 rejestrDao.insertMapping(fullKey, podmiot, numer, nrIdPlat, hash, docKey, target);
                 log.info(String.format("insertMapping zakończone pomyślnie dla nrIdPlat='%s ' podmiot='%s '", nrIdPlat, podmiot));
             } catch (SQLException ex) {
@@ -143,7 +167,7 @@ public class ConverterService {
             log.error(String.format("Nieoczekiwany błąd przy pliku sourceFile='%s ': %s", sourceFile, t.getMessage()), t);
             return new SkippedDocument(docType, "DB runtime error");
         }
-        }
+        
      // SL obsługujemy osobno, bo zwraca inny typ
 
 

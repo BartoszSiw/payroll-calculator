@@ -2,7 +2,9 @@ package pl.edashi.dms.model;
 
 public enum MappingTarget {
     SALES("S"),
-    PURCHASES("Z");
+    PURCHASES("Z"),
+    CARD("C"),
+    CASH("K");
 
     private final String code;
 
@@ -16,8 +18,20 @@ public enum MappingTarget {
 
     public static MappingTarget fromCode(String code) {
         if (code == null) return SALES;
-        code = code.trim().toUpperCase();
-        return "Z".equals(code) ? PURCHASES : SALES;
+
+        String normalized = code.trim().toUpperCase();
+
+        switch (normalized) {
+            case "Z":
+                return PURCHASES;
+            case "C":
+                return CARD;
+            case "K":
+                return CASH;
+            case "S":
+            default:
+                return SALES;
+        }
     }
 }
 

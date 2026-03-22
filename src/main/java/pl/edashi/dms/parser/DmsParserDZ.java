@@ -202,7 +202,7 @@ public class DmsParserDZ implements DmsParser{
                 for (int j = 0; j < daneList.getLength(); j++) {
                 	Element dane = (Element) daneList.item(j);
                     Element wart = firstElementByTag(dane, "wartosci");
-                    kodVat = safeAttr(dane, "kod_vat");
+                    kodVat = safeAttr(dane, "kod");
                     // 🔥 Zapisz mapę VAT dla całego dokumentu
                     if ("02".equals(kodVat)) {
                         statusVat = "opodatkowana";
@@ -230,13 +230,8 @@ public class DmsParserDZ implements DmsParser{
                     //stawka = stawka;//safeAttr(dane, "stawka"); // 23.00, 8.00
                     vatRates.put(kodVat, stawka);
                     foundVat = true;
-                    log.info(String.format(
-                    	    "[PARSER][DZ][VAT] entry: kod=%s podstawa=%s vat=%s",
-                    	    kodVat, entry.podstawa, entry.vat
-                    	));
-
+                    log.info(String.format("[PARSER][DZ][VAT] entry: kod=%s podstawa=%s vat=%s", kodVat, entry.podstawa, entry.vat));
                 }   
-
                 //out.setVatRate(normalizeVatRate(stawka));
                 //out.setStatusVat(statusVat);
                 out.setVatRates(vatRates);
@@ -693,22 +688,78 @@ log.info("76 doc in positions From VAT list='%s' doc='%s'"+list76+ doc);
             String category = p.kategoria2;
             if(p.kategoria2.isBlank()) {category="INNE USŁUGI 550";}
             switch (category) {
-            case "2  " : p.rodzajKoszty = "Inne";p.kategoria2="KOSZTY FINANSOWE";break; 
-            case "3  " : p.rodzajKoszty = "Inne";p.kategoria2="ODSETKI IN MINUS";break;
-            case "4  " : p.rodzajKoszty = "Inne";p.kategoria2="KOSZTY EKSPLOATACJI SAMOCHODÓW";break;
-            case "5  " : p.rodzajKoszty = "Inne";p.kategoria2="ENERGIA";break;
-            case "6  " : p.rodzajKoszty = "Inne";p.kategoria2="GAZ";break; 
-            case "7  " : p.rodzajKoszty = "Inne";p.kategoria2="KARY/ODSZKODOWANIA";break; 
-            case "10 " : p.rodzajKoszty = "Inne";p.kategoria2="PALIWO DO SAMOCHODÓW OSOBOWYCH";break; 
-            case "11 " : p.rodzajKoszty = "Inne";p.kategoria2="POCZĘSTUNEK DLA KLIENTA";break; 
-            case "13 " : p.rodzajKoszty = "Inne";p.kategoria2="MATERIAŁY GOSPODARCZE";break; 
-            case "17 " : p.rodzajKoszty = "Inne";p.kategoria2="ŚRODKI CZYSTOŚCI";break; 
-            case "25 " : p.rodzajKoszty = "Towary";p.kategoria2="ALLEGRO MAGAZYN";break; 
-            case "39 " : p.rodzajKoszty = "Towary";p.kategoria2="PODWYKON BLACH/LAK";break;
-            case "42  " : p.rodzajKoszty = "Inne";p.kategoria2="PROWIZJA BLACH-LAK";break;
-            case "50  " : p.rodzajKoszty = "Inne";p.kategoria2="TRANSPORT OBCY";break;
-            case "58  " : p.rodzajKoszty = "Inne";p.kategoria2="BHP";break;
-            case "65 " : p.rodzajKoszty = "Towary";p.kategoria2="WYPOSAŻENIE";break;
+            case "1  ": p.rodzajKoszty = "Inne";   p.kategoria2 = "AMORTYZACJA"; break;
+            case "2  ": p.rodzajKoszty = "Inne";   p.kategoria2 = "KOSZTY FINANSOWE"; break;
+            case "3  ": p.rodzajKoszty = "Inne";   p.kategoria2 = "ODSETKI IN MINUS"; break;
+            case "4  ": p.rodzajKoszty = "Inne";   p.kategoria2 = "KOSZTY EKSPLOATACJI SAMOCHODÓW"; break;
+            case "5  ": p.rodzajKoszty = "Inne";   p.kategoria2 = "ENERGIA"; break;
+            case "6  ": p.rodzajKoszty = "Inne";   p.kategoria2 = "GAZ"; break;
+            case "7  ": p.rodzajKoszty = "Inne";   p.kategoria2 = "KARY/ODSZKODOWANIA"; break;
+            case "8  ": p.rodzajKoszty = "Inne";   p.kategoria2 = "KOSZTY EKSPLOATACJI SAMOCHODÓW 75%"; break;
+            case "9  ": p.rodzajKoszty = "Paliwo";   p.kategoria2 = "PALIWO 100%"; break;
+            case "10 ": p.rodzajKoszty = "Paliwo";   p.kategoria2 = "PALIWO 50%"; break;
+            case "11 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "POCZĘSTUNEK DLA KLIENTA"; break;
+            case "12 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "MATERIAŁY BIUROWE"; break;
+            case "13 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "MATERIAŁY GOSPODARCZE"; break;
+            case "14 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "MATERIAŁY NA SALON"; break;
+            case "15 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "MATERIAŁY PODSTAWOWE"; break;
+            case "16 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "MATERIAŁY SERWIS"; break;
+            case "17 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "ŚRODKI CZYSTOŚCI"; break;
+            case "18 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "OPŁATY OD NIERUCHOMOŚCI"; break;
+            case "19 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "OPŁATY I PODATKI LOKALNE"; break;
+            case "20 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "POZOSTAŁE OPŁATY"; break;
+            case "21 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "ŚRODEK TRWAŁY W BUDOWIE"; break;
+            case "22 ": p.rodzajKoszty = "Towary"; p.kategoria2 = "TOWARY-CZĘŚCI"; break;
+            case "23 ": p.rodzajKoszty = "Towary"; p.kategoria2 = "TOWARY SAMOCHODY"; break;
+            case "24 ": p.rodzajKoszty = "Towary"; p.kategoria2 = "SAMOCHODY UŻYWANE"; break;
+            case "25 ": p.rodzajKoszty = "Inne"; p.kategoria2 = "ALLEGRO MAGAZYN"; break;
+            case "26 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "AUDATEX"; break;
+            case "27 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "GWARANCJA"; break;
+            case "28 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "INNE SALON"; break;
+            case "29 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "INNE SERWIS"; break;
+            case "30 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "INNE USŁUG 550"; break;
+            case "31 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "KRD"; break;
+            case "32 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "NAJEM TERMINALA"; break;
+            case "33 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "NAJEM/DZIERŻAWA"; break;
+            case "34 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "OCHRONA MIENIA"; break;
+            case "35 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "ODPADY"; break;
+            case "36 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "OGŁOSZENIA"; break;
+            case "37 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "OPŁATY ZA TRANSAKCJE KARTĄ"; break;
+            case "38 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "OPŁATY BANKOWE"; break;
+            case "39 ": p.rodzajKoszty = "Towary"; p.kategoria2 = "PODWYKONAWCA BLACH/LAK"; break;
+            case "40 ": p.rodzajKoszty = "Towary"; p.kategoria2 = "PODWYKONAWCA SERWIS"; break;
+            case "41 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "PRANIE UBRAŃ"; break;
+            case "42 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "PROWIZJA BLACH-LAK"; break;
+            case "43 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "PRZEGLĄDY I LEGALIZACJA"; break;
+            case "44 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "REKLAMA"; break;
+            case "45 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "RTV-TELEWIZJA"; break;
+            case "46 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "SPRZĄTANIE"; break;
+            case "47 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "STELLANTIS"; break;
+            case "48 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "STOWARZYSZENIE"; break;
+            case "49 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "TELEKOMUNIKACJA"; break;
+            case "50 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "TRANSPORT OBCY"; break;
+            case "51 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "UBEZPIECZENIA"; break;
+            case "52 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "UMOWY"; break;
+            case "53 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "USŁUGI INFORMATYCZNE"; break;
+            case "54 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "USŁUGI MARKETINGOWE"; break;
+            case "55 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "USŁUGI OBCE NKUP"; break;
+            case "56 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "USŁUGI PRAWNE"; break;
+            case "57 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "USŁUGI WINDYKACYJNE"; break;
+            case "58 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "BHP"; break;
+            case "59 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "DELEGACJE SALON"; break;
+            case "60 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "DELEGACJE SERWIS"; break;
+            case "61 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "ŚWIADCZENIA BHP"; break;
+            case "62 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "ZAKUPY W KRAJACH UE"; break;
+            case "63 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "USŁUGI W UE"; break;
+            case "64 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "ZALICZKI OD KONTRAHENTÓW"; break;
+            case "65 ": p.rodzajKoszty = "Towary"; p.kategoria2 = "WYPOSAŻENIE"; break;
+            case "66 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "WODA I ŚCIEKI"; break;
+            case "67 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "INNE MAGAZYN"; break;
+            case "68 ": p.rodzajKoszty = "Inne";   p.kategoria2 = "POCZTA"; break;
+            default:
+                p.rodzajKoszty = "Inne";
+                p.kategoria2 = "NIEZNANA KATEGORIA";
+                break;
             //case "13 " : p.rodzajKoszty = "Inne";p.kategoria2="PALIWO 100%";break; 
             //case "17 " : p.rodzajKoszty = "Inne";p.kategoria2="PALIWO 50%";break;
             case "KAWA/HERBATA": p.rodzajKoszty = "Inne";break; 

@@ -11,6 +11,7 @@ import pl.edashi.dms.xml.DmsXmlValidator;
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.List;
+import java.util.Set;
 
 public class XmlWatcher implements Runnable {
 
@@ -71,10 +72,10 @@ public class XmlWatcher implements Runnable {
         try {
             // 1. Wczytanie całego pliku XML jako String
             String xml = Files.readString(file);
-
+            Set<String> filtrRejestry = Set.of("ZK"); // tymczasowo dla działania tylko
             // 2. Parsowanie dokumentu DMS (DS, KO, DK, WZ, KZ, SL ...)
             Object parsed =
-                    converterService.processSingleDocument(xml, file.getFileName().toString());
+                    converterService.processSingleDocument(xml, file.getFileName().toString(),filtrRejestry, "02");
 
          // ============================
             // 3. Obsługa DS (sprzedaż)

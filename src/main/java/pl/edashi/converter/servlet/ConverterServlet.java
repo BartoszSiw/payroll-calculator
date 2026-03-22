@@ -18,6 +18,7 @@ import pl.edashi.dms.mapper.DmsToDmsMapper;
 import pl.edashi.dms.model.DmsDocumentOut;
 import pl.edashi.dms.model.DmsParsedContractorList;
 import pl.edashi.dms.model.DmsParsedDocument;
+import pl.edashi.dms.model.DocumentMetadata;
 import pl.edashi.dms.xml.CashReportXmlBuilder;
 import pl.edashi.dms.xml.DmsOfflinePurchaseBuilder;
 import pl.edashi.dms.xml.DmsOfflineXmlBuilder;
@@ -143,7 +144,7 @@ public class ConverterServlet extends HttpServlet {
         String xml = Files.readString(savedFile, StandardCharsets.UTF_8);
         //log.info(String.format("fileName='%s'", fileName));
         try {
-        	Object parsed = converterService.processSingleDocument(xml, fileName);
+        	Object parsed = converterService.processSingleDocument(xml, fileName,filtrRejestry, filtrOddzial);
         	if (parsed instanceof SkippedDocument skipped) {
         	    results.add("Pominięto: " + fileName + " (typ=" + skipped.getType() + ")");
         	    continue;

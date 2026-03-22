@@ -2,6 +2,7 @@ package pl.edashi.dms.parser;
 import pl.edashi.common.logging.AppLogger;
 import pl.edashi.dms.model.DmsParsedDocument;
 import pl.edashi.dms.model.DocumentMetadata;
+import pl.edashi.dms.model.MappingTarget;
 import pl.edashi.dms.model.Contractor;
 import pl.edashi.dms.model.DmsRapKasa;
 import org.w3c.dom.*;
@@ -31,6 +32,8 @@ public class DmsParserRD implements DmsParser{
         DmsParsedDocument out = new DmsParsedDocument();
         out.setDocumentType("RD");
         out.setSourceFileName(fileName);
+        String code = "S";
+        out.setMappingTarget(MappingTarget.fromCode(code));
         Element root = doc.getDocumentElement();
         Element document = (Element) doc.getElementsByTagName("document").item(0);
         //Element numer = (Element) document.getElementsByTagName("numer").item(0);

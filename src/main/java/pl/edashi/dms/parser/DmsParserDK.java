@@ -1,7 +1,10 @@
 package pl.edashi.dms.parser;
 import pl.edashi.common.logging.AppLogger;
+import pl.edashi.common.util.MappingIdDocs;
 import pl.edashi.dms.model.DmsParsedDocument;
+import pl.edashi.dms.model.DmsPayment;
 import pl.edashi.dms.model.DocumentMetadata;
+import pl.edashi.dms.model.MappingTarget;
 import pl.edashi.dms.model.Contractor;
 import pl.edashi.dms.model.DmsRapKasa;
 import org.w3c.dom.*;
@@ -29,6 +32,43 @@ public class DmsParserDK implements DmsParser{
         DmsParsedDocument out = new DmsParsedDocument();
         out.setDocumentType("DK");
         out.setSourceFileName(fileName);
+        String podmiot = "";
+        Contractor c = extractContractor(doc);
+        out.setContractor(c);
+        if (c != null) {
+            if (c.getNip() != null && !c.getNip().isBlank()) {
+                podmiot = c.getNip();
+            } else {
+                podmiot = c.getFullName() == null ? "" : c.getFullName();
+            }
+            // jeśli masz setter, użyj go; jeśli nie, odkomentuj bezpośredni dostęp
+            c.setPodmiot(podmiot);
+            // c.podmiot = podmiot;
+        } else {
+            podmiot = "";
+        }
+
+        out.setContractor(c);
+        out.setPodmiot(podmiot);
+        /*log.info(String.format(Locale.US,
+                "ParserDZ: END file=%s type=%s nr=%s positions=%d",
+                fileName, out.getDocumentType(), out.getInvoiceShortNumber(), out.getPositions().size()));*/
+        String numerFa = out.getInvoiceNumber();
+        String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, numerFa, 36);
+        String fullKey = MappingIdDocs.buildFullKey(podmiot, numerFa);
+        String hash = MappingIdDocs.shortHashFromFullKey(fullKey, 6);
+        String docKey = MappingIdDocs.generateDocId(podmiot, "Z" ,numerFa, 36);
+
+        out.setFullKey(fullKey);
+        out.setDocKey(docKey);
+        out.setNrIdPlat(nrIdPlat);
+        out.setHash(hash);
+        List<DmsPayment> payId = out.getPayments();
+        if (payId != null && !payId.isEmpty()) {
+            payId.get(0).setIdPlatn(nrIdPlat); // setIdPlatn zwraca void — wykonaj to osobno
+        }
+        String code = "K";
+        out.setMappingTarget(MappingTarget.fromCode(code));
         Element root = doc.getDocumentElement();
         Element document = (Element) doc.getElementsByTagName("document").item(0);
         //Element numer = (Element) document.getElementsByTagName("numer").item(0);

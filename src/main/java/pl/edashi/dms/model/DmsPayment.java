@@ -57,6 +57,7 @@ public class DmsPayment {
                 ", nrBank='" + nrBank + '\'' +
                 ", vat='" + vat + '\'' +
                 ", vatZ='" + vatZ + '\'' +
+                ", advance='" + advance + '\'' +
                 ", description='" + description + '\'' +
                 '}';
     }

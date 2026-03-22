@@ -5,6 +5,7 @@ import pl.edashi.common.util.MappingIdDocs;
 import org.apache.logging.log4j.util.BiConsumer;
 import org.w3c.dom.*;
 import pl.edashi.dms.model.*;
+import pl.edashi.dms.model.DmsParsedDocument.DmsVatEntry;
 import pl.edashi.dms.parser.util.DocumentNumberExtractor;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
@@ -12,8 +13,10 @@ import java.math.RoundingMode;
 //import javax.xml.parsers.DocumentBuilderFactory;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -111,6 +114,7 @@ public class DmsParserDS implements DmsParser{
         // ============================
         // 2. KONTRAHENT (typ 35)
         // ============================
+        String podmiot = "";
         Contractor c = extractContractor(doc);
         out.setContractor(c);
 
@@ -152,12 +156,14 @@ public class DmsParserDS implements DmsParser{
         extractFiscal(doc, out);
         extractCorrection(doc, out);
      // 🔥 TU: logika akronimu dla sprzedaży paragonowej
-        String podmiot = "";
+        
 
      // zabezpieczenia: c może być null
      if ("Tak".equalsIgnoreCase(out.getDokumentFiskalny())) {
+    	 log.info(String.format("if 1 podmiot='%s' fullName='%s'", podmiot, c.fullName));
          // dokument fiskalny (paragon)
-         if (c == null || c.getNip() == null || c.getNip().isBlank()) {
+    	 if ((c.getNip() == null || c.getNip().isBlank()) 
+    		        && (c.getFullName() == null || c.getFullName().isBlank())) {
              // brak NIP — traktujemy jako sprzedaż paragonowa
              String paragonName = "SPRZEDAZ_PARAGONOWA";
              if (c != null) {
@@ -168,11 +174,21 @@ public class DmsParserDS implements DmsParser{
              }
              podmiot = paragonName;
          } else {
-             // jest NIP — używamy NIP
-             podmiot = c.getNip().trim();
-             if (c != null) c.setPodmiot(podmiot);
+             // jest NIP lub full name 
+        	 log.info(String.format("if 2 podmiot='%s' fullName='%s' nip='%s'", podmiot, c.fullName, c.getNip()));
+        		 if (c.getNip() != null && !c.getNip().isBlank()) {
+        		 podmiot = c.getNip().trim();
+        		 log.info(String.format("if 3 podmiot='%s' fullName='%s' nip='%s'", podmiot, c.fullName, c.getNip()));
+        		 c.setPodmiot(podmiot);
+        	 } else {
+                 podmiot = c.getFullName().trim();
+                 log.info(String.format("if 4 podmiot='%s' fullName='%s'", podmiot, c.fullName));
+                 c.setPodmiot(podmiot);
+        	 }
+             //if (c != null) c.setPodmiot(podmiot);
          }
      } else {
+    	 log.info(String.format("else podmiot='%s'", podmiot));
          // nie jest dokumentem fiskalnym — preferuj NIP, potem fullName
          if (c != null && c.getNip() != null && !c.getNip().isBlank()) {
              podmiot = c.getNip().trim();
@@ -295,13 +311,13 @@ public class DmsParserDS implements DmsParser{
 	            addIfPositive(kwoty66, wart.getAttribute("netto_gwar_mat"), "CZĘŚCI-SERWIS-GWARAN", "", "","705-1-11",rozs.getAttribute("vin"),"");
             }
         } }
-        log.info("DS: extractKwoty66 -> size=" + kwoty66.size());
+        //log.info("DS: extractKwoty66 -> size=" + kwoty66.size());
         return kwoty66;
     }
 
     private List<DmsPosition> extractPositions(Document doc, DmsParsedDocument out, List<DmsKwotaDodatkowa> kwoty66){
     	boolean hasType66 = !kwoty66.isEmpty();
-    	log.info(String.format("1 kwoty66 p.getKwotyDodatkowe()='%s': ", kwoty66));
+    	//log.info(String.format("1 kwoty66 p.getKwotyDodatkowe()='%s': ", kwoty66));
         List<DmsPosition> listOut = new ArrayList<>();
         //if (doc == null || out == null) return listOut;
         NodeList list = doc.getElementsByTagName("document");
@@ -350,13 +366,22 @@ public class DmsParserDS implements DmsParser{
                 //log.info(String.format("extractPositions p.vin='%s ': p.netto='%s ' p.nettoKoMat='%s ' p.nettoGwMar='%s ' typ='%s '", p.vin, p.netto, p.nettoKoMat, p.nettoGwMat, typ));
                 boolean hasVat = out.isHasVatDocument();
                 String vatRate = out.getVatRate();
-                String statusVat = out.getStatusVat();
-                //log.info(LogUtils.safeFormat("hasVat=%s, vatRate=%s", hasVat, vatRate));
+             // when building a position p, find matching vat entry (by kod or by nearest match)
+                DmsParsedDocument.DmsVatEntry vatEntry = out.getVatEntries() != null && !out.getVatEntries().isEmpty()
+                	    ? out.getVatEntries().get(0)
+                	    : null;
+                /*DmsParsedDocument.DmsVatEntry vatEntry = out.getVatEntries().stream()
+                	    .filter(e -> approxEquals(parseAmount(e.podstawa), parseAmount(p.netto)))
+                	    .findFirst().orElse(null);*/
+
+                	String stawka = (vatEntry != null && vatEntry.stawka != null) ? vatEntry.stawka.trim() : "0";
+                	String statusVat = (vatEntry != null && vatEntry.statusVat != null) ? vatEntry.statusVat.trim() : "nie podlega";
+                    log.info(LogUtils.safeFormat("vatEntry=%s hasVat=%s vatRate=%s stawka=%s statusVat=%s", vatEntry, hasVat, vatRate, stawka,statusVat));
                 if (!hasVat) {
                 	double nettoVal = 0.0;
                     p.stawkaVat = "0";
                     p.vat = "0.00";
-                    p.statusVat = statusVat;
+                    p.statusVat = "nie podlega";
                     if (p.netto != null && !p.netto.isBlank()) {
                         nettoVal = parseDoubleSafe(p.netto.replace(",", "."));
                     }
@@ -365,13 +390,13 @@ public class DmsParserDS implements DmsParser{
                     //p.brutto = String.format(Locale.US, "%.2f", p.netto);
                     //log.info(String.format("1 hasVat p.statusVat='%s': ", p.statusVat));
                 } else {
-                    p.stawkaVat = vatRate != null ? vatRate : "";
+                    p.stawkaVat = stawka != null ? stawka : "";
                     p.statusVat = statusVat;
                     //log.info(String.format("2 hasVat p.statusVat='%s': ", p.statusVat));
                     if (p.netto != null && !p.netto.isBlank()) {
                         try {
                             double netto = parseDoubleSafe(p.netto);
-                            double vat = netto * (parseDoubleSafe(vatRate) / 100.0);
+                            double vat = netto * (parseDoubleSafe(stawka) / 100.0);
                             double brutto = netto + vat;
                             p.brutto = String.format(Locale.US, "%.2f", brutto);
                             p.vat = String.format(Locale.US, "%.2f", vat);
@@ -527,7 +552,7 @@ public class DmsParserDS implements DmsParser{
             try { advPos.setAdvance(true); } catch (Throwable ignored) {}
             // Dodajemy zaliczkę na koniec listy pozycji
             listOut.add(advPos);
-            log.info("extractPositions Zaliczka: appended DmsPosition advance -> netto=" + advPos.getNetto() + " vat=" + advPos.getVat() + " brutto=" + advPos.getBrutto());
+            log.info("extractPositions Zaliczka: appended DmsPosition advance -> netto=" + advPos.getNetto() + " isAdvance="+advPos.isAdvance()+ " vat=" + advPos.getVat() + " brutto=" + advPos.getBrutto());
         }
 
         //------------------------------------------------------------------
@@ -608,8 +633,8 @@ public class DmsParserDS implements DmsParser{
             Element el = (Element) list.item(i);
 
             if ("06".equals(el.getAttribute("typ"))) {
-
                 Element dane = firstElementByTag(el, "dane");
+                Map<String, String> vatRates = new HashMap<>();
                 if (dane == null) continue;
                 Element wart = firstElementByTag(dane, "wartosci");
                 
@@ -648,6 +673,9 @@ public class DmsParserDS implements DmsParser{
                 } else if ("99".equals(kodVat)) {
                 	statusVat = "nie podlega";
                 	stawka = "0";
+                } else if ("41".equals(kodVat)) {
+                	statusVat = "nie podlega";
+                	stawka = "0";
                 } else if ("51".equals(kodVat)) {
                 	statusVat = "zwolniona";
                 	stawka = "0";
@@ -655,12 +683,21 @@ public class DmsParserDS implements DmsParser{
                 	statusVat = "nie podlega";
                 	stawka = "0";
                 }
-                out.setVatRate(normalizeVatRate(stawka));
-                out.setStatusVat(statusVat);
-                out.setVatBase(podstawa);
-                out.setVatAmount(vat);
-                //log.info(String.format("extractVat: podstawa='%s': ,vat='%s': ", podstawa, vat));
+                //out.setVatRate(normalizeVatRate(stawka));
+                //out.setStatusVat(statusVat);
+                //out.setVatBase(podstawa);
+                //out.setVatAmount(vat);
+                DmsVatEntry entry = new DmsVatEntry();
+                entry.statusVat = statusVat;
+                entry.stawka = stawka;//safeAttr(dane, "stawka");
+                entry.podstawa = wart != null ? safeAttr(wart, "podstawa") : "";
+                entry.vat = wart != null ? safeAttr(wart, "vat") : "";
+                out.addVatEntry(entry);
+                kodVat = safeAttr(dane, "kod");      // 02, 22
+                //stawka = stawka;//safeAttr(dane, "stawka"); // 23.00, 8.00
+                vatRates.put(kodVat, stawka);
                 foundVat = true;
+                log.info(String.format("exVat: stawka=%s podstawa=%s vat=%s status=%s", stawka, podstawa, vat, statusVat));
                 break;
             }
         }
@@ -785,29 +822,50 @@ public class DmsParserDS implements DmsParser{
             	//double dSumAdvanceNet = 0;
             	String sSumAdvanceVat = "";
             	String sSumAdvanceNet = "";
+                //String kodVat = "";
+                //String stawka = "";
+            	//String statusVat="";
                 NodeList daneList45 = el.getElementsByTagName("dane");
                 for (int j = 0; j < daneList45.getLength(); j++) {
                 	Element dane = (Element) daneList45.item(j);
                 if (dane == null) continue;
                 if (dane.getParentNode() != el) continue;
                 Element wart = firstElementByTag(dane, "wartosci");
+                /*kodVat = safeAttr(dane, "kod_vat");
                 if (wart == null) continue;
+                // 🔥 Zapisz mapę VAT dla całego dokumentu
+                if ("02".equals(kodVat)) {
+                    statusVat = "opodatkowana";
+                    stawka = "23";
+                } else if ("22".equals(kodVat)) {
+                	statusVat = "opodatkowana";
+                	stawka = "8";
+                } else if ("99".equals(kodVat)) {
+                	statusVat = "nie podlega";
+                	stawka = "0";
+                } else if ("51".equals(kodVat)) {
+                	statusVat = "zwolniona";
+                	stawka = "0";
+                } else {
+                	statusVat = "nie podlega";
+                	stawka = "0";
+                }*/
              DmsPayment p = new DmsPayment();
              p.setIdPlatn(UUID.randomUUID().toString());
              p.setAdvance(true);
              String lp = safeAttr(dane, "lp");
              String bruttoStr = safeAttr(wart, "brutto");
              String nettoStr = safeAttr(wart, "netto");
-             log.info(String.format("1 extractPayments: nettoStr='%s': ,lp='%s': ", nettoStr, lp));
+             log.info(String.format("45 exPay 1: nettoStr='%s' lp='%s' isAdvance='%s'", nettoStr, lp, p.isAdvance()));
              double kw = parseDoubleSafe(bruttoStr);
              if (kw < 0) { out.setKierunek("rozchód"); } else { out.setKierunek("przychód"); }
              // zawsze dodatnia kwota płatności
              bruttoStr = String.format(Locale.US, "%.2f", Math.abs(kw));
-             log.info(String.format("2 extractPayments: bruttoStr='%s': ,kw='%s': ", bruttoStr, kw));
+             log.info(String.format("45 exPay 2: bruttoStr='%s': ,kw='%s': ", bruttoStr, kw));
              p.setKwota(bruttoStr);
              double kwn = parseDoubleSafe(nettoStr);
              dSumAdvanceNet = dSumAdvanceNet + kwn;
-             log.info(String.format("3 extractPayments: dSumAdvanceNet='%s': ,kwn='%s': ", dSumAdvanceNet, kwn));
+             log.info(String.format("45 exPay 3: dSumAdvanceNet='%s': ,kwn='%s': ", dSumAdvanceNet, kwn));
              nettoStr = String.format(Locale.US, "%.2f", Math.abs(kwn));
              sSumAdvanceNet = String.format(Locale.US, "%.2f", Math.abs(dSumAdvanceNet));
              String advanceNet = sSumAdvanceNet;
@@ -819,7 +877,7 @@ public class DmsParserDS implements DmsParser{
                  double netto  = nettoStr != null && !nettoStr.isEmpty() ? parseDoubleSafe(nettoStr) : 0.0;
                  double vatZaliczki = brutto - netto;
                  dSumAdvanceVat = dSumAdvanceVat + vatZaliczki;
-                 log.info(String.format("3 extractPayments: dSumAdvanceVat='%s': ,vatZaliczki='%s': ", dSumAdvanceVat, vatZaliczki));
+                 log.info(String.format("45 exPay 4: dSumAdvanceVat='%s': ,vatZaliczki='%s': ", dSumAdvanceVat, vatZaliczki));
                  String vatZ = String.format(Locale.US, "%.2f", vatZaliczki);
                  p.setVatZ(vatZ);
                  out.setVatZ(vatZ);
@@ -839,7 +897,7 @@ public class DmsParserDS implements DmsParser{
              p.setKierunek(out.getKierunek());
 
              //log.info("2 extractPayment Kierunek: " + p.getKierunek());
-            //listOut.add(p);
+            listOut.add(p);
          }
             }
         }

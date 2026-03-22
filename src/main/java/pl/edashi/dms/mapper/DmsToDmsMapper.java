@@ -145,7 +145,7 @@ public class DmsToDmsMapper {
                    else if ("KPD".equalsIgnoreCase(code)) typeKey = "KPD";
                    else if ("DW".equalsIgnoreCase(code)) typeKey = "DW";
                    String suffix = "";
-                   log.info(String.format("MAPPER BEFORE INC: mapped='%s ' raw='%s ' getOpis1='%s ' typeKey='%s ' countersd='%s '", mapped, k.getDowodNumber(), k.getOpis1(), typeKey, countersd));
+                   //log.info(String.format("MAPPER BEFORE INC: mapped='%s ' raw='%s ' getOpis1='%s ' typeKey='%s ' countersd='%s '", mapped, k.getDowodNumber(), k.getOpis1(), typeKey, countersd));
                    suffix = nextCounter(countersd, typeKey, 3);
                    //log.info(String.format("MAPPER  NrRep()='%s ' suffix='%s '", src.getNrRep(), suffix));
                    String finalMapped = replaceSuffixWithCounter(mapped, suffix);
@@ -164,7 +164,7 @@ public class DmsToDmsMapper {
            }
               log.info(String.format("3 Mapper c krajowy='%s'",c.getExpKrajowy()));
      if ("DZ".equals(srcType) || "FVZ".equals(srcType)) {
-    	 log.info(String.format( "[MAPPER][DZ] file='%s' vatEntries=%d vatBase='%s' vatAmount='%s' vatRate='%s'", safe(src.getSourceFileName()), src.getVatEntries() == null ? -1 : src.getVatEntries().size(), doc.getVatBase(), doc.getVatAmount(), doc.getVatRate() ));
+    	 //log.info(String.format( "[MAPPER][DZ] file='%s' vatEntries=%d vatBase='%s' vatAmount='%s' vatRate='%s'", safe(src.getSourceFileName()), src.getVatEntries() == null ? -1 : src.getVatEntries().size(), doc.getVatBase(), doc.getVatAmount(), doc.getVatRate() ));
          // DZ → VAT liczymy z vatEntries (typ 06)
          double base = 0.0;
          double vat = 0.0;
@@ -177,10 +177,7 @@ public class DmsToDmsMapper {
          doc.setVatBase(String.format(Locale.US, "%.2f", base));
          doc.setVatAmount(String.format(Locale.US, "%.2f", vat));
          for (DmsOutputPosition op : doc.getPozycje()) {
-        	    log.info(String.format(
-        	        "[MAPPER][POS] netto=%s vat=%s stawka=%s",
-        	        op.getNetto(), op.getVat(), op.getStawkaVat(), op.getStatusVat()
-        	    ));
+        	    log.info(String.format("[MAPPER][POS] netto=%s vat=%s stawka=%s",op.getNetto(), op.getVat(), op.getStawkaVat(), op.getStatusVat()));
         	}
 
          // DZ może mieć wiele stawek → Optima wymaga jednej → MIX
@@ -197,6 +194,7 @@ public class DmsToDmsMapper {
         doc.setPlatnosci(new ArrayList<>());
         List<DmsPayment> payments = src.getPayments();
         if (payments != null && !payments.isEmpty()) {
+        	log.info(String.format("payments='%s'",src.getPayments()));
             doc.getPlatnosci().addAll(payments);
         }
         // FAKTURA
@@ -220,6 +218,7 @@ public class DmsToDmsMapper {
             case "CC" -> "ZAKUP";
             case "001" -> "001";
             case "002" -> "002";
+            case "003" -> "003";
             case "040" -> "040" ;
             case "041" -> "041" ;
             case "070" -> "070" ;

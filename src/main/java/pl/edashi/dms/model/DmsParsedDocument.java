@@ -31,6 +31,7 @@ public class DmsParsedDocument {
     private String vatBase = "";
     private String vatAmount = "";
     private String vatZ = "";
+    private boolean advance = false;
     private String advanceNet = "";
     private String advanceVat = "";
     private String kwotaRk = "";
@@ -84,7 +85,7 @@ public class DmsParsedDocument {
     private String uwzglProp = "";
     public DmsParsedDocument() { }
     // --- Settery używane przez parsery ---
-
+    public void setAdvance(boolean advance) { this.advance = advance; }
     public void setNrKsef(String nrKsef) {this.nrKsef = nrKsef; }
     public void setMetadata(DocumentMetadata metadata) {
         this.metadata = metadata;
@@ -285,6 +286,7 @@ public class DmsParsedDocument {
     public String getOddzial() { return oddzial; }
     public String getOpis1() { return opis1; }
     public boolean isHasVatDocument() { return hasVatDocument; }
+    public boolean isAdvance() { return advance; }
     public String getUwzglProp() { return uwzglProp; }
     public String getKierunek() { return kierunek; }
     public String getDokumentFiskalny() {return dokumentFiskalny;}
