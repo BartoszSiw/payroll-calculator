@@ -128,6 +128,7 @@ public class DmsParserDZ implements DmsParser{
         // ============================
         Contractor c = extractContractor(doc);
         out.setContractor(c);
+        log.info(String.format("ParserDZ 1: END expKraj=%s ", out.getContractor().expKrajowy));
         // ============================
         // 3. DMS (typ dokumentu)
         // ============================
@@ -163,8 +164,9 @@ public class DmsParserDZ implements DmsParser{
 
         out.setContractor(c);
         out.setPodmiot(podmiot);
+        log.info(String.format("ParserDZ: END expKraj=%s ", out.getContractor().expKrajowy));
         /*log.info(String.format(Locale.US,
-                "ParserDZ: END file=%s type=%s nr=%s positions=%d",
+                "ParserDZ: END expKraj=%s file=%s type=%s nr=%s positions=%d", out.getContractor().expKrajowy,
                 fileName, out.getDocumentType(), out.getInvoiceShortNumber(), out.getPositions().size()));*/
         String numerFa = out.getInvoiceNumber();
         String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, numerFa, 36);
@@ -213,7 +215,7 @@ public class DmsParserDZ implements DmsParser{
                     	statusVat = "opodatkowana";
                     	stawka = "8";
                     } else if ("99".equals(kodVat)) {
-                    	statusVat = "nie podlega";
+                    	statusVat = "opodatkowana";
                     	stawka = "0";
                     } else if ("51".equals(kodVat)) {
                     	statusVat = "zwolniona";
@@ -258,9 +260,7 @@ public class DmsParserDZ implements DmsParser{
 
         for (DmsPosition p : list) {
             String stawka = p.getStawkaVat();// String stawka = vatRates.get(p.getStawkaVat());
-            log.info(String.format(
-            	    "[DZ][POS]  stawka=%s p=%s ",
-            	    p.getStawkaVat(), p));
+            //log.info(String.format("[DZ][POS]  stawka=%s p=%s ",  p.getStawkaVat(), p));
             if (stawka != null && !stawka.isBlank()) {
                 // ustaw stawkę VAT
                 p.stawkaVat = stawka;
@@ -274,10 +274,7 @@ public class DmsParserDZ implements DmsParser{
 
                 p.vat = String.format(Locale.US, "%.2f", vat);
                 p.brutto = String.format(Locale.US, "%.2f", brutto);
-                log.info(String.format(
-                	    "[DZ][POS] lp=%s kodVat=%s stawka=%s netto=%s vat=%s brutto=%s stawkaVal=%s",
-                	    p.getLp(), p.getKodVat(), p.getStawkaVat(), p.getNetto(), p.getVat(), p.getBrutto(), stawkaVal
-                	));
+                //log.info(String.format("[DZ][POS] lp=%s kodVat=%s stawka=%s netto=%s vat=%s brutto=%s stawkaVal=%s", p.getLp(), p.getKodVat(), p.getStawkaVat(), p.getNetto(), p.getVat(), p.getBrutto(), stawkaVal 	));
             } else {
                 // fallback — brak stawki VAT
                 p.stawkaVat = vatRates.get(p.stawkaVat);//"0";
@@ -431,7 +428,7 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
                 	statusVat = "opodatkowana";
                 	stawka = "8";
                 } else if ("99".equals(kodVat)) {
-                	statusVat = "nie podlega";
+                	statusVat = "opodatkowana";
                 	stawka = "0";
                 } else if ("51".equals(kodVat)) {
                 	statusVat = "zwolniona";
@@ -503,7 +500,7 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
             	statusVat = "opodatkowana";
             	stawka = "8";
             } else if ("99".equals(kodVat)) {
-            	statusVat = "nie podlega";
+            	statusVat = "opodatkowana";
             	stawka = "0";
             } else if ("51".equals(kodVat)) {
             	statusVat = "zwolniona";
@@ -547,7 +544,7 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
             case "KAWA/HERBATA": p.rodzajKoszty = "Inne";break; 
             case "MATERIAŁY": p.rodzajKoszty = "Towary";p.kategoria2="MATERIAŁY";break;
         }
-            log.info("[DZ][POS] idx=" + i + " rawKategoria2=" + rawK);
+            //log.info("[DZ][POS] idx=" + i + " rawKategoria2=" + rawK);
             list.add(p);
         }
 
@@ -629,25 +626,25 @@ log.info("76 doc in positions From VAT list='%s' doc='%s'"+list76+ doc);
             }
         }
         if (doc02 == null) {
-            log.info("[DZ][POS] document typ=02 NOT FOUND");
+            //log.info("[DZ][POS] document typ=02 NOT FOUND");
             return;
         }
      // 2) Pobierz PIERWSZE <dane> pod document typ=02 (to jest nagłówek)
         NodeList daneList = doc02.getElementsByTagName("dane");
         if (daneList.getLength() == 0) {
-            log.info("[DZ][POS] no <dane> under document typ=02");
+            //log.info("[DZ][POS] no <dane> under document typ=02");
             return;
         }
         Element daneRoot = (Element) daneList.item(0);
         // 3) Pobierz PIERWSZE <rozszerzone> pod tym <dane>
         NodeList rozsList = daneRoot.getElementsByTagName("rozszerzone");
         if (rozsList.getLength() == 0) {
-            log.info("[DZ][POS] no <rozszerzone> under dane[0]");
+            //log.info("[DZ][POS] no <rozszerzone> under dane[0]");
             return;
         }
         Element rozszerzone = (Element) rozsList.item(0);
 
-        log.info("[DZ][POS] rozszerzone FOUND");
+        //log.info("[DZ][POS] rozszerzone FOUND");
         // 4) Wewnątrz rozszerzone znajdź document typ="03"
         Element doc03 = null;
         NodeList docsInside = rozszerzone.getElementsByTagName("document");
@@ -659,7 +656,7 @@ log.info("76 doc in positions From VAT list='%s' doc='%s'"+list76+ doc);
             }
         }
         if (doc03 == null) {
-            log.info("[DZ][POS] document typ=03 NOT FOUND inside rozszerzone");
+            //log.info("[DZ][POS] document typ=03 NOT FOUND inside rozszerzone");
             return;
         }
 
@@ -764,7 +761,7 @@ log.info("76 doc in positions From VAT list='%s' doc='%s'"+list76+ doc);
             case "KAWA/HERBATA": p.rodzajKoszty = "Inne";break; 
             case "MATERIAŁY": p.rodzajKoszty = "Towary";p.kategoria2="MATERIAŁY";break;//Wartości: Materiały handlowe tutaj w typ 03
         }
-            log.info("[DZ][POS] idx=" + j + " rawKategoria2=" + rawK);
+            //log.info("[DZ][POS] idx=" + j + " rawKategoria2=" + rawK);
 
             /*if (!rawK.isBlank()) {
                 p.kategoria2 = "MATERIAŁY";
@@ -1033,8 +1030,11 @@ log.info("76 doc in positions From VAT list='%s' doc='%s'"+list76+ doc);
                 c.city = rozs.getAttribute("miejscowosc");
                 c.zip = rozs.getAttribute("kod_poczta");
                 c.street = rozs.getAttribute("ulica");
-                if(c.country!="PL") {
+                //log.info(String.format("kod_kraju=%s", c.country));
+                if(!"PL".equals(c.country)) {
                 	c.setExpKrajowy("wewnątrzunijny");
+                } else {
+                	c.setExpKrajowy("nie");
                 }
              // pełna nazwa
                 c.fullName = buildFullName(c);

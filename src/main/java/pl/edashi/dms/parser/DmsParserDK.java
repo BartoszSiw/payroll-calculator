@@ -212,7 +212,11 @@ public class DmsParserDK implements DmsParser{
                 c.city = rozs.getAttribute("miejscowosc");
                 c.zip = rozs.getAttribute("kod_poczta");
                 c.street = rozs.getAttribute("ulica");
-
+                if(!"PL".equals(c.country)) {
+                	c.setExpKrajowy("wewnątrzunijny");
+                } else {
+                	c.setExpKrajowy("nie");
+                }
              // pełna nazwa
                 c.fullName = buildFullName(c);
                 if (c.isCompany) {

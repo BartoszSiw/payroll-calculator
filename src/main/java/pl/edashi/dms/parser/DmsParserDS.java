@@ -258,8 +258,10 @@ public class DmsParserDS implements DmsParser{
                 c.city = rozs.getAttribute("miejscowosc");
                 c.zip = rozs.getAttribute("kod_poczta");
                 c.street = rozs.getAttribute("ulica");
-                if(c.country!="PL") {
+                if(!"PL".equals(c.country)) {
                 	c.setExpKrajowy("wewnątrzunijny");
+                } else {
+                	c.setExpKrajowy("nie");
                 }
              // pełna nazwa
                 c.fullName = buildFullName(c);
@@ -748,7 +750,7 @@ public class DmsParserDS implements DmsParser{
                 	statusVat = "opodatkowana";
                 	stawka = "8";
                 } else if ("99".equals(kodVat)) {
-                	statusVat = "nie podlega";
+                	statusVat = "opodatkowana";
                 	stawka = "0";
                 } else if ("41".equals(kodVat)) {
                 	statusVat = "nie podlega";

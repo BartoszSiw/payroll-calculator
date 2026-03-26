@@ -74,7 +74,7 @@ public class DmsToDmsMapper {
             doc.setCzynny(safe(c.getCzynny()));
             doc.setExpKrajowy(safe(c.getExpKrajowy()));
         }
-        //log.info(String.format("1 Mapper c krajowy='%s'",c.getExpKrajowy()));
+        log.info(String.format("1 Mapper c krajowy='%s'",c.getExpKrajowy()));
         doc.setDokumentFiskalny(safe(src.getDokumentFiskalny())); 
         doc.setDokumentDetaliczny(safe(src.getDokumentDetaliczny()));
         doc.setKorekta(safe(src.getKorekta()));
@@ -145,7 +145,7 @@ public class DmsToDmsMapper {
                    else if ("KPD".equalsIgnoreCase(code)) typeKey = "KPD";
                    else if ("DW".equalsIgnoreCase(code)) typeKey = "DW";
                    String suffix = "";
-                   //log.info(String.format("MAPPER BEFORE INC: mapped='%s ' raw='%s ' getOpis1='%s ' typeKey='%s ' countersd='%s '", mapped, k.getDowodNumber(), k.getOpis1(), typeKey, countersd));
+                   log.info(String.format("MAPPER BEFORE INC: mapped='%s ' raw='%s ' getOpis1='%s ' typeKey='%s ' countersd='%s '", mapped, k.getDowodNumber(), k.getOpis1(), typeKey, countersd));
                    suffix = nextCounter(countersd, typeKey, 3);
                    //log.info(String.format("MAPPER  NrRep()='%s ' suffix='%s '", src.getNrRep(), suffix));
                    String finalMapped = replaceSuffixWithCounter(mapped, suffix);
@@ -177,7 +177,7 @@ public class DmsToDmsMapper {
          doc.setVatBase(String.format(Locale.US, "%.2f", base));
          doc.setVatAmount(String.format(Locale.US, "%.2f", vat));
          for (DmsOutputPosition op : doc.getPozycje()) {
-        	    log.info(String.format("[MAPPER][POS] netto=%s vat=%s stawka=%s",op.getNetto(), op.getVat(), op.getStawkaVat(), op.getStatusVat()));
+        	    //log.info(String.format("[MAPPER][POS] netto=%s vat=%s stawka=%s",op.getNetto(), op.getVat(), op.getStawkaVat(), op.getStatusVat()));
         	}
 
          // DZ może mieć wiele stawek → Optima wymaga jednej → MIX
