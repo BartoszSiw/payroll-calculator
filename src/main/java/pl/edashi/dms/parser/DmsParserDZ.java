@@ -37,6 +37,7 @@ public class DmsParserDZ implements DmsParser{
         Element daty = (Element) doc.getElementsByTagName("daty").item(0);
         Element warto = (Element) doc.getElementsByTagName("wartosci").item(0);
         String bruttoUmowa = warto.getAttribute("brutto");
+        String rejestrDZ = "";
         /*if (root == null) {
             log.error("ParserDZ: brak root w pliku: " + fileName);
             return out;
@@ -94,6 +95,7 @@ public class DmsParserDZ implements DmsParser{
                     if (klas!= null && klas.hasAttribute("wyr")) {
                         String wyrDoc = klas != null ? klas.getAttribute("wyr") : "";
                         // wyrDoc = "EX"
+                        rejestrDZ = wyrDoc;
                         out.setDaneRejestr(wyrDoc);} // upewnij się, że DmsParsedDocument ma setter
                     out.setOddzial(oddzial);
                     break; // zwykle tylko jeden rekord 02
@@ -134,7 +136,7 @@ public class DmsParserDZ implements DmsParser{
         // 3. POZYCJE (typ 50)
         // ============================
         extractVat(doc, out);
-        out.setPositions(extractPositionsDZ(doc, out,bruttoUmowa));
+        out.setPositions(extractPositionsDZ(doc, out,bruttoUmowa,rejestrDZ));
         // 2) Wartości stawka / netto / vat (document typ="06")
         // ============================
 
@@ -358,10 +360,10 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
 }
 
 
-    private List<DmsPosition> extractPositionsDZ(Document doc, DmsParsedDocument out, String bruttoUmowa) {
+    private List<DmsPosition> extractPositionsDZ(Document doc, DmsParsedDocument out, String bruttoUmowa,String rejestrDZ) {
 
     	    // 1) Pozycje z typ="50"
-    	    List<DmsPosition> list = extractPositions50(doc);
+    	    List<DmsPosition> list = extractPositions50(doc,rejestrDZ);
     	 // sprawdź, czy istnieje document typ=03
     	    boolean has03 = false;
     	    NodeList allDocs = doc.getElementsByTagName("document");
@@ -394,7 +396,7 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
     	}
 
   
-    private List<DmsPosition> extractPositions50(Document doc) {
+    private List<DmsPosition> extractPositions50(Document doc, String rejestrDZ) {
         List<DmsPosition> list = new ArrayList<>();
 
         NodeList docs = doc.getElementsByTagName("document");
@@ -447,15 +449,12 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
                 String rawK = klas != null ? klas.getAttribute("klasyfikacja") : "";
                 p.kategoria2 = rawK;
                 String category = p.kategoria2;
-                if(p.kategoria2.isBlank()) {category="MATERIAŁY";}
+                if(p.kategoria2.isBlank()) {category="TOWARY";}
                 switch (category) {
                 case "KAWA/HERBATA": p.rodzajKoszty = "Inne";break; 
-                case "MATERIAŁY": p.rodzajKoszty = "Towary";p.kategoria2="MATERIAŁY";break;
+                case "TOWARY": p.rodzajKoszty = "Towary";p.kategoria2="TOWARY";break;
                 case "INNE USŁUGI 550": p.rodzajKoszty = "Usługi";p.kategoria2="INNE USŁUGI 550";break;}
-                log.info(String.format(
-                	    "[DZ][POS_50] lp=%s kodVat=%s stawka=%s netto=%s vat=%s brutto=%s statusVat=%s",
-                	    p.getLp(), p.getKodVat(), p.getStawkaVat(), p.getNetto(), p.getVat(), p.getBrutto(), p.getStatusVat()
-                	));
+                //log.info(String.format("[DZ][POS_50] wyrDoc=%s lp=%s kodVat=%s stawka=%s netto=%s vat=%s brutto=%s statusVat=%s",rejestrDZ, p.getLp(), p.getKodVat(), p.getStawkaVat(), p.getNetto(), p.getVat(), p.getBrutto(), p.getStatusVat()));
                 list.add(p);
             }
         }

@@ -44,6 +44,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.math.BigDecimal;
 public class ConverterService {
 
     private final DocumentRepository repository;
@@ -98,6 +99,11 @@ public class ConverterService {
         String numer = d.getInvoiceNumber();
         String hash = d.getHash();
         String docKey = d.getDocKey();
+        String dateDoc = docDate.toString();
+        BigDecimal kwNet = new BigDecimal(0);
+        BigDecimal kwVat = new BigDecimal(0);
+        BigDecimal kwBru = new BigDecimal(0);
+        BigDecimal kwPla = new BigDecimal(d.getPayments().get(0).kwota.replace(",", "."));
     	log.info(String.format("DEBUG pre-filter: docType='%s' fullKey='%s' docDate='%s'",
         	    docType, fullKey, docDate));
         //log.info(String.format("fullKey='%s ' nrIdPlat='%s ' podmiot='%s ' numer='%s ' hash='%s '",fullKey, nrIdPlat, podmiot, numer, hash));
@@ -148,7 +154,7 @@ public class ConverterService {
             		log.info(String.format("2 DEBUG BEFORE INSERT: fullKey='%s' docKey='%s' thread='%s' parsedHash='%s'",
             			    fullKey, docKey, Thread.currentThread().getName(), System.identityHashCode(d)));
 
-                rejestrDao.insertMapping(fullKey, podmiot, numer, nrIdPlat, hash, docKey, target);
+                rejestrDao.insertMapping(fullKey, podmiot, numer, nrIdPlat, hash, docKey, dateDoc, kwNet, kwVat, kwBru, kwPla, docRejestr, target);
                 log.info(String.format("insertMapping zakończone pomyślnie dla nrIdPlat='%s ' podmiot='%s '", nrIdPlat, podmiot));
             } catch (SQLException ex) {
                 log.error(String.format("SQL Error Code: ='%s ', Message: ='%s '", ex.getErrorCode(), ex.getMessage()), ex);
@@ -246,7 +252,7 @@ public class ConverterService {
         		    String type = doc.getDocumentType() != null
         		            ? doc.getDocumentType().toUpperCase()
         		            : "";
-        		    if (Set.of("FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG", "FH", "UMUZ").contains(type)) {
+        		    if (Set.of("FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG", "FH", "UMUZ","FHK").contains(type)) {
         		        String nr = firstNonBlank(
         		                doc.getInvoiceShortNumber(),
         		                doc.getInvoiceNumber()

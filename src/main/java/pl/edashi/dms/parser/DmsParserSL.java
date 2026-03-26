@@ -31,7 +31,7 @@ public class DmsParserSL {
 
                     DmsParsedContractor c = new DmsParsedContractor();
                     c.id = UUID.randomUUID().toString();
-
+                    String oddzialCon = d.getAttribute("przeds");
                     String wyr = d.getAttribute("wyr");
                     c.wyrRaw = wyr;
                     c.isCompany = "F".equals(wyr);
@@ -75,7 +75,7 @@ public class DmsParserSL {
 
                     String krajKod = d.getAttribute("kod_kraju");
                     c.kraj = "PL".equalsIgnoreCase(krajKod) ? "Polska" : krajKod;
-
+                    c.oddzialCon = oddzialCon;
                     result.add(c);
                 }
             }

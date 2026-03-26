@@ -19,14 +19,19 @@ import javax.xml.parsers.DocumentBuilderFactory;
 public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
 	private final AppLogger log = new AppLogger("SalesBuilder");
     private static final String NS = "http://www.comarch.pl/cdn/optima/offline";
+    private String idKsiegOddzial;
     private final DmsDocumentOut doc;
     public DmsOfflineXmlBuilder(DmsDocumentOut doc) {
         if (doc == null) throw new IllegalArgumentException("DmsOfflineXmlBuilder: doc is null");
-        Set<String> DS_TYPES = Set.of("DS", "FV", "PR", "FZL", "FVK", "RWS","PRK", "FZLK", "FVU", "FVM", "FVG", "FH");
+        Set<String> DS_TYPES = Set.of("DS", "FV", "PR", "FZL", "FVK", "RWS","PRK", "FZLK", "FVU", "FVM", "FVG", "FH","FHK");
     	 if (!DS_TYPES.contains(doc.getTyp())) {
             throw new IllegalArgumentException("DmsOfflineXmlBuilder: obsługiwany jest tylko typ DS, otrzymano: " + safe(doc.getTyp()));
         }
         this.doc = doc;
+    }
+    @Override
+    public void setIdKsiegOddzial(String id) {
+        this.idKsiegOddzial = id;
     }
     @Override 
     public void build(Document docXml, Element root) {
@@ -44,11 +49,10 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         // SEKCJA REJESTRY_SPRZEDAZY_VAT
         Element rejSekcja = docXml.createElementNS(NS, "REJESTRY_SPRZEDAZY_VAT");
         root.appendChild(rejSekcja);
-
         // Nagłówek sekcji
         rejSekcja.appendChild(make(docXml, "WERSJA", "2.00"));
         rejSekcja.appendChild(make(docXml, "BAZA_ZRD_ID", "KSIEG"));   // możesz potem wyciągnąć to z konfiguracji
-        rejSekcja.appendChild(make(docXml, "BAZA_DOC_ID", "DMS_1"));   // j.w.
+        rejSekcja.appendChild(make(docXml, "BAZA_DOC_ID", idKsiegOddzial));   // j.w.
 
         // Główny dokument: REJESTR_SPRZEDAZY_VAT
         Element rs = docXml.createElementNS(NS, "REJESTR_SPRZEDAZY_VAT");
@@ -83,7 +87,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         rs.appendChild(make(docXml, "FISKALNA", doc.getDokumentFiskalny()));
         rs.appendChild(make(docXml, "DETALICZNA", doc.getDokumentDetaliczny()));
         rs.appendChild(make(docXml, "WEWNETRZNA", doc.getDocumentWewne()));
-        rs.appendChild(make(docXml, "EKSPORT", "nie"));
+        rs.appendChild(make(docXml, "EKSPORT", safe(doc.getExpKrajowy())));
         rs.appendChild(make(docXml, "FINALNY", "Nie"));
         rs.appendChild(make(docXml, "PODATNIK_CZYNNY", doc.getCzynny()));
 

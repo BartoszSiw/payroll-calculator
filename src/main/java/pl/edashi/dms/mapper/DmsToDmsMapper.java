@@ -162,8 +162,8 @@ public class DmsToDmsMapper {
                    //log.info(String.format("reportNr='%s ' nrRKB='%s ' kierunek='%s '", k.getReportNumber(), k.getNrRKB(), k.getKierunek()));
                }
            }
-              log.info(String.format("3 Mapper c krajowy='%s'",c.getExpKrajowy()));
-     if ("DZ".equals(srcType) || "FVZ".equals(srcType)) {
+              log.info(String.format("3 Mapper srcType=%s c krajowy='%s'",srcType, c.getExpKrajowy()));
+     if ("DZ".equals(srcType) || "FVZ".equals(srcType) || "DS".equals(srcType)) {
     	 //log.info(String.format( "[MAPPER][DZ] file='%s' vatEntries=%d vatBase='%s' vatAmount='%s' vatRate='%s'", safe(src.getSourceFileName()), src.getVatEntries() == null ? -1 : src.getVatEntries().size(), doc.getVatBase(), doc.getVatAmount(), doc.getVatRate() ));
          // DZ → VAT liczymy z vatEntries (typ 06)
          double base = 0.0;

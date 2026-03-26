@@ -28,6 +28,7 @@ import javax.xml.xpath.XPathFactory;
 
 public class DmsParserDS implements DmsParser{
 	private final AppLogger log = new AppLogger("DmsParserDS");
+	private static final BigDecimal PERCENT_TOL = new BigDecimal("0.5"); // tolerance in percent
     public DmsParsedDocument parse(Document doc, String fileName) {
         DmsParsedDocument out = new DmsParsedDocument();
         out.setSourceFileName(fileName);
@@ -257,7 +258,9 @@ public class DmsParserDS implements DmsParser{
                 c.city = rozs.getAttribute("miejscowosc");
                 c.zip = rozs.getAttribute("kod_poczta");
                 c.street = rozs.getAttribute("ulica");
-
+                if(c.country!="PL") {
+                	c.setExpKrajowy("wewnątrzunijny");
+                }
              // pełna nazwa
                 c.fullName = buildFullName(c);
                 if (c.isCompany) {
@@ -290,16 +293,20 @@ public class DmsParserDS implements DmsParser{
         NodeList allDocs = doc.getElementsByTagName("document");
         for (int k = 0; k < allDocs.getLength(); k++) {
     	    Element el = (Element) allDocs.item(k);
-    	    //log.info("DS: document[" + k + "] typ=" + el.getAttribute("typ"));
-    	    if ("66".equals(el.getAttribute("typ"))) {
+    	    log.info("DS document[" + k + "] typ=" + el.getAttribute("typ"));
+    	    if ("66".equals(el.getAttribute("typ")) || "61".equals(el.getAttribute("typ"))) {
     	        NodeList daneList66 = el.getElementsByTagName("dane");
-    	        //log.info("DS: typ 66, daneList length = " + daneList66.getLength());
+    	        log.info("DS typ 66 61, daneList length = " + daneList66.getLength());
     	        for (int j = 0; j < daneList66.getLength(); j++) { 
     	        	Element dane = (Element) daneList66.item(j); 
     	        	Element wart = (Element) dane.getElementsByTagName("wartosci").item(0); 
     	        	Element rozs = (Element) dane.getElementsByTagName("rozszerzone").item(0);
-    	        	//log.info("DS: typ 66, wart node = " + (wart != null));
-	        	if (wart == null) continue;
+    	        	log.info("DS typ 66 61, wart node = " + (wart != null) + "rozs node="+(rozs != null));
+	        	if (wart == null) {
+	        		if(rozs == null) continue;
+	        		//addIfPositive(kwoty66, "10", "CZĘŚCI-SERWIS-GWARAN", "", "","705-1-11",rozs.getAttribute("vin"),"");
+	        	} else {
+	        	log.info(String.format("DS extKwoty66 66 61 -> size=%s",kwoty66.toString()));
 	        	//log.info("DS: typ 66, netto_koszt='" + wart.getAttribute("netto_koszt_mat") + "'");
 	            //addIfPositive(kwoty66, wart.getAttribute("netto_koszt"),"KOSZT","KOSZT", "", "737-01",rozs.getAttribute("vin"),"");
 	            //addIfPositive(kwoty66, wart.getAttribute("netto_koszt_rob"), "KOSZT_ROB", "KOSZT_ROB", "","737-02",rozs.getAttribute("vin"),"");
@@ -309,9 +316,10 @@ public class DmsParserDS implements DmsParser{
 	            addIfPositive(kwoty66, wart.getAttribute("netto_gwar_rob"), "ROBOCIZNA-GWARANCJA","","","705-1-18",rozs.getAttribute("vin"),"");
 	            //addIfPositive(kwoty66, wart.getAttribute("netto_dlr_mat"), "DLR_MAT", "", "401-01","310-1",rozs.getAttribute("vin"),"");
 	            addIfPositive(kwoty66, wart.getAttribute("netto_gwar_mat"), "CZĘŚCI-SERWIS-GWARAN", "", "","705-1-11",rozs.getAttribute("vin"),"");
+	        	}
             }
         } }
-        //log.info("DS: extractKwoty66 -> size=" + kwoty66.size());
+        log.info(String.format("DS extractKwoty66 -> size=%s",kwoty66.toString()));
         return kwoty66;
     }
 
@@ -367,16 +375,74 @@ public class DmsParserDS implements DmsParser{
                 boolean hasVat = out.isHasVatDocument();
                 String vatRate = out.getVatRate();
              // when building a position p, find matching vat entry (by kod or by nearest match)
-                DmsParsedDocument.DmsVatEntry vatEntry = out.getVatEntries() != null && !out.getVatEntries().isEmpty()
+                /*DmsParsedDocument.DmsVatEntry vatEntry = out.getVatEntries() != null && !out.getVatEntries().isEmpty()
                 	    ? out.getVatEntries().get(0)
                 	    : null;
-                /*DmsParsedDocument.DmsVatEntry vatEntry = out.getVatEntries().stream()
+                DmsParsedDocument.DmsVatEntry vatEntry = out.getVatEntries().stream()
                 	    .filter(e -> approxEquals(parseAmount(e.podstawa), parseAmount(p.netto)))
-                	    .findFirst().orElse(null);*/
+                	    .findFirst().orElse(null);
+                BigDecimal tol = new BigDecimal("0.01");
+                DmsParsedDocument.DmsVatEntry vatEntry = out.getVatEntries().stream()
+                    .filter(e -> {
+                        BigDecimal eb = parseAmount(e.podstawa);
+                        BigDecimal pn = parseAmount(p.netto);
+                        return approxEqualsAbs(eb, pn, tol);
+                    })
+                    .findFirst()
+                    .orElse(null);
+
 
                 	String stawka = (vatEntry != null && vatEntry.stawka != null) ? vatEntry.stawka.trim() : "0";
-                	String statusVat = (vatEntry != null && vatEntry.statusVat != null) ? vatEntry.statusVat.trim() : "nie podlega";
-                    log.info(LogUtils.safeFormat("vatEntry=%s hasVat=%s vatRate=%s stawka=%s statusVat=%s", vatEntry, hasVat, vatRate, stawka,statusVat));
+                	String statusVat = (vatEntry != null && vatEntry.statusVat != null) ? vatEntry.statusVat.trim() : "nie podlega";*/
+                // zastąp swój vatEntry = ... tym:
+             // pomocnicze (raz w klasie)
+
+
+                // wybór vatEntry zgodnie z regułą: jeśli istnieje 0% z podstawa≈netto -> 0%, inaczej pierwsza nie-zerowa
+                BigDecimal tol = new BigDecimal("0.01");
+                List<DmsParsedDocument.DmsVatEntry> entries = out.getVatEntries();
+                DmsParsedDocument.DmsVatEntry vatEntry = null;
+
+                if (entries != null && !entries.isEmpty()) {
+                    // 1) szukamy 0% dopasowanego do netto (porównanie po wartościach bezwzględnych)
+                    vatEntry = entries.stream()
+                        .filter(e -> {
+                            String s = e.stawka == null ? "" : e.stawka.trim();
+                            if (!"0".equals(s) && !"0%".equals(s)) return false;
+                            return approxEqualsAbs(parseAmount(e.podstawa), parseAmount(p.netto), tol);
+                        })
+                        .findFirst()
+                        .orElse(null);
+
+                    // 2) jeśli nie znaleziono 0% dopasowanego, wybierz pierwszą nie-zerową stawkę (np. 23)
+                    if (vatEntry == null) {
+                        vatEntry = entries.stream()
+                            .filter(e -> {
+                                String s = e.stawka == null ? "" : e.stawka.trim();
+                                return !s.isEmpty() && !"0".equals(s) && !"0%".equals(s);
+                            })
+                            .findFirst()
+                            .orElse(entries.get(0)); // fallback: pierwszy wpis
+                    }
+                }
+
+                // przypisz do pozycji
+                String stawka = (vatEntry != null && vatEntry.stawka != null) ? vatEntry.stawka.trim() : "0";
+                String statusVat = (vatEntry != null && vatEntry.statusVat != null) ? vatEntry.statusVat.trim() : "nie podlega";
+                p.stawkaVat = stawka;
+                p.statusVat = statusVat;
+
+                // debug log — pokaże, dlaczego wybrano dany wpis
+                log.info(String.format("VAT chosen for pos.netto=%s -> stawka=%s podstawa=%s entry=%s allEntries=%s",
+                    p.netto, stawka, vatEntry == null ? "" : vatEntry.podstawa, vatEntry, entries.stream()
+                        .map(e -> String.format("[podstawa=%s stawka=%s]", e.podstawa, e.stawka))
+                        .collect(Collectors.toList())));
+
+
+                log.info(String.format("VAT chosen for pos.netto=%s -> stawka=%s podstawa=%s entry=%s",
+                    p.netto, stawka, vatEntry == null ? "" : vatEntry.podstawa, vatEntry));
+
+                    //log.info(LogUtils.safeFormat("getVatEntries=%s vatEntry=%s hasVat=%s vatRate=%s stawka=%s statusVat=%s", out.getVatEntries(), vatEntry, hasVat, vatRate, stawka,statusVat));
                 if (!hasVat) {
                 	double nettoVal = 0.0;
                     p.stawkaVat = "0";
@@ -410,6 +476,7 @@ public class DmsParserDS implements DmsParser{
                 }
                 p.kategoria = "PRZYCHODY";
                 String readRejestr = out.getDaneRejestr();
+                log.info(String.format("DS readRejestr='%s': ", readRejestr));
              // 1) Rodzaj sprzedaży wg typ
              switch (typ) {
                  case "03": p.rodzajSprzedazy = "Towary"; break;
@@ -424,7 +491,7 @@ public class DmsParserDS implements DmsParser{
              boolean isRejCzesciSklep = readRejestr.equals("200");
              boolean isRejSamochUzyw = readRejestr.equals("070");
              boolean isRejSamochNowe = readRejestr.equals("001") || readRejestr.equals("002");
-
+             boolean isRejSamochody = readRejestr.equals("003");
              // 3) Kategoria zależna od typ + rejestr
              if (isRejSerwis) {
                  switch (typ) {
@@ -474,8 +541,17 @@ public class DmsParserDS implements DmsParser{
                  case "04": p.kategoria = "PRZYCHODY"; p.rodzajSprzedazy = "Usługi"; break;
                  case "05": p.kategoria = "PRZYCHODY"; p.rodzajSprzedazy = "Usługi"; break;
              }
-                 
              }
+                 if (isRejSamochody) {
+                     switch (typ) {
+                     case "03": addIfPositive(localKwoty, wart.getAttribute("netto_zakup"), "TOWARY-SAM.NOWE","","","",safeAttr(rozs, "vin"),""); 
+                     p.kategoria = "TOWARY-SAM.NOWE"; 
+                     p.rodzajSprzedazy = "Towary"; break;
+                     case "04": p.kategoria = "PRZYCHODY"; p.rodzajSprzedazy = "Usługi"; break;
+                     case "05": p.kategoria = "PRZYCHODY"; p.rodzajSprzedazy = "Usługi"; break;
+                 }
+                 }
+             
              //log.info(String.format("4 kategoria='%s': ", p.kategoria));
              if(hasType66 && isRejCzesci) {
              //p.kategoria = "SPRZEDAŻ MATERIAŁÓW";
@@ -547,8 +623,9 @@ public class DmsParserDS implements DmsParser{
             // uzupełnij pola, których mapper oczekuje (kategoria/kanal/stawka itp.)
             advPos.setKategoria("SPRZEDAŻ ZALICZKA"); // lub "" jeśli builder filtruje po kategoriach
             advPos.setKanalKategoria("");
-            advPos.statusVat = out.getStatusVat();
-            advPos.setStawkaVat("23"); // jeśli znasz stawkę VAT, wpisz ją
+            String stawka = detectVatRateFromNumbers(advanceNet, (advanceNet + advanceVat));
+            advPos.stawkaVat = stawka;
+            advPos.statusVat = "0".equals(stawka) ? "nie podlega" : "opodatkowana";
             try { advPos.setAdvance(true); } catch (Throwable ignored) {}
             // Dodajemy zaliczkę na koniec listy pozycji
             listOut.add(advPos);
@@ -631,11 +708,11 @@ public class DmsParserDS implements DmsParser{
         boolean foundVat = false;
         for (int i = 0; i < list.getLength(); i++) {
             Element el = (Element) list.item(i);
-
-            if ("06".equals(el.getAttribute("typ"))) {
-                Element dane = firstElementByTag(el, "dane");
+            if (!"06".equals(el.getAttribute("typ"))) continue;
+            NodeList daneNodes = el.getElementsByTagName("dane");
+            for (int j = 0; j < daneNodes.getLength(); j++) {
                 Map<String, String> vatRates = new HashMap<>();
-                if (dane == null) continue;
+                Element dane = (Element) daneNodes.item(j);
                 Element wart = firstElementByTag(dane, "wartosci");
                 
                 String kodVat = safeAttr(dane, "kod");
@@ -692,15 +769,18 @@ public class DmsParserDS implements DmsParser{
                 entry.stawka = stawka;//safeAttr(dane, "stawka");
                 entry.podstawa = wart != null ? safeAttr(wart, "podstawa") : "";
                 entry.vat = wart != null ? safeAttr(wart, "vat") : "";
-                out.addVatEntry(entry);
-                kodVat = safeAttr(dane, "kod");      // 02, 22
+                out.getVatEntries().add(entry);
+
+                //kodVat = safeAttr(dane, "kod");      // 02, 22
                 //stawka = stawka;//safeAttr(dane, "stawka"); // 23.00, 8.00
                 vatRates.put(kodVat, stawka);
                 foundVat = true;
-                log.info(String.format("exVat: stawka=%s podstawa=%s vat=%s status=%s", stawka, podstawa, vat, statusVat));
-                break;
+                
+                log.info(String.format("exVat: stawka=%s podstawa=%s vat=%s status=%s entry=%s", stawka, podstawa, vat, statusVat, entry));
+                //break;
             }
-        }
+        }     
+
         out.setHasVatDocument(foundVat);
     }
     // ------------------------------
@@ -831,10 +911,10 @@ public class DmsParserDS implements DmsParser{
                 if (dane == null) continue;
                 if (dane.getParentNode() != el) continue;
                 Element wart = firstElementByTag(dane, "wartosci");
-                /*kodVat = safeAttr(dane, "kod_vat");
+                //kodVat = safeAttr(dane, "kod_vat");
                 if (wart == null) continue;
                 // 🔥 Zapisz mapę VAT dla całego dokumentu
-                if ("02".equals(kodVat)) {
+                /*if ("02".equals(kodVat)) {
                     statusVat = "opodatkowana";
                     stawka = "23";
                 } else if ("22".equals(kodVat)) {
@@ -1053,6 +1133,7 @@ public class DmsParserDS implements DmsParser{
     }
     private void addIfPositive(List<DmsKwotaDodatkowa> list, String valueStr, String category,  String category2, String kontoWn, String kontoMa, String opis, String opis1) {
         double val = parseDoubleSafe(valueStr);
+        log.info(String.format("DS AddKwoty61 or 66 val=%s", val));
         if (val != 0) {
             DmsKwotaDodatkowa kd = new DmsKwotaDodatkowa();
             kd.kwota = f2(val);
@@ -1078,6 +1159,43 @@ public class DmsParserDS implements DmsParser{
 
         public DmsKwotaDodatkowa() {
         }
+    }
+
+    public static String detectVatRateFromNumbers(double nettoD, double bruttoD) {
+        return detectVatRateFromNumbers(BigDecimal.valueOf(nettoD), BigDecimal.valueOf(bruttoD));
+    }
+
+    public static String detectVatRateFromNumbers(BigDecimal netto, BigDecimal brutto) {
+        if (netto == null || brutto == null) return "0";
+        if (netto.compareTo(BigDecimal.ZERO) == 0) return "0";
+
+        BigDecimal diff = brutto.subtract(netto);
+        BigDecimal impliedPercent = diff.multiply(new BigDecimal("100"))
+                                       .divide(netto, 6, RoundingMode.HALF_UP)
+                                       .abs();
+
+        if (impliedPercent.subtract(new BigDecimal("23")).abs().compareTo(PERCENT_TOL) <= 0) return "23";
+        if (impliedPercent.subtract(new BigDecimal("8")).abs().compareTo(PERCENT_TOL) <= 0)  return "8";
+        if (impliedPercent.subtract(new BigDecimal("5")).abs().compareTo(PERCENT_TOL) <= 0)  return "5";
+        if (impliedPercent.compareTo(new BigDecimal("0.5")) <= 0)                            return "0";
+
+        return impliedPercent.setScale(0, RoundingMode.HALF_UP).toPlainString();
+    }
+
+
+    private static BigDecimal parseAmount(String s) {
+        if (s == null) return null;
+        try {
+            String cleaned = s.trim().replace(",", ".").replaceAll("\\s+", "");
+            if (cleaned.isEmpty()) return null;
+            return new BigDecimal(cleaned);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+    private static boolean approxEqualsAbs(BigDecimal a, BigDecimal b, BigDecimal tol) {
+        if (a == null || b == null) return false;
+        return a.abs().subtract(b.abs()).abs().compareTo(tol) <= 0;
     }
 
    /* public class DmsKwotaDodatkowa {

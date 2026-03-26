@@ -6,11 +6,11 @@ import pl.edashi.dms.model.MappingTarget;
 
 import java.sql.*;
 import java.util.Optional;
-
+import java.math.BigDecimal;
 public class RejestrDaoImpl implements RejestrDao {
 	    //private final DataSource ds;
 		private final AppLogger log = new AppLogger("RejestrDaoImpl");
-	    //private final String url = "jdbc:sqlserver://10.10.70.30:1433/CONVERTER?useSSL=false&serverTimezone=UTC";
+	    //private final String url = "jdbc:sqlserver://10.10.70.30:1433/CON_AUTO_JDG?useSSL=false&serverTimezone=UTC";
 	    private final String url = "jdbc:sqlserver://10.10.70.30:1433;databaseName=CONVERTER;encrypt=false;trustServerCertificate=true";
 	    private final String user = "sa";
 	    private final String pass = "Enova2023@^";
@@ -45,13 +45,13 @@ public class RejestrDaoImpl implements RejestrDao {
 	            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
 	            //log.info(String.format("Sterownik JDBC zarejestrowany: %s", "com.microsoft.sqlserver.jdbc.SQLServerDriver"));
 	        } catch (ClassNotFoundException cnfe) {
-	            log.error(String.format("Sterownik JDBC nie znaleziony: %s", cnfe.getMessage()), cnfe);
+	            //log.error(String.format("Sterownik JDBC nie znaleziony: %s", cnfe.getMessage()), cnfe);
 	            throw new SQLException("Driver not found", cnfe);
 	        }
 
 	        try (Connection c = DriverManager.getConnection(url, user, pass);
 	             PreparedStatement ps = c.prepareStatement(sql)) {
-	        	log.info(String.format("Uzyskano połączenie DB (autocommit=%s) dla url='%s '", c.getAutoCommit(), url));
+	        	//log.info(String.format("Uzyskano połączenie DB (autocommit=%s) dla url='%s '", c.getAutoCommit(), url));
 	            ps.setString(1, nrIdPlat);
 	            try (ResultSet rs = ps.executeQuery()) {
 	                return rs.next();
@@ -60,15 +60,16 @@ public class RejestrDaoImpl implements RejestrDao {
 	    }
 
 	    @Override
-	    public void insertMapping(String fullKey, String podmiot, String nrFaktury, String nrIdPlat,String hash, String docKey, MappingTarget target) throws SQLException {
-	    	final String SQL_INSERT_SALES = "INSERT INTO dbo.rejestr_sprzedazy(full_key, podmiot, nr_faktury, nr_id_plat, hash_val, created_at, collision_cnt, doc_id) " +
-                    "VALUES (?, ?, ?, ?, ?, SYSUTCDATETIME(), 0, ?)";
-	        final String SQL_INSERT_PURCHASES = "INSERT INTO dbo.rejestr_zakupow(full_key, podmiot, nr_faktury, nr_id_plat, hash_val, created_at, collision_cnt, doc_id) VALUES (?, ?, ?, ?, ?, SYSUTCDATETIME(), 0, ?)";
-	    	log.info(String.format("RejestrDaoImpl fullKey='%s' nrIdPlat='%s' podmiot='%s' nrFaktury='%s' hash='%s' docKey='%s'",fullKey, nrIdPlat, podmiot, nrFaktury, hash, docKey));
+	    public void insertMapping(String fullKey, String podmiot, String nrFaktury, String nrIdPlat,String hash, String docKey, String dateDoc, BigDecimal kwNetto, BigDecimal kwVat,
+	    		BigDecimal kwBrutto, BigDecimal kwPlatn, String docRejestr, MappingTarget target) throws SQLException {
+	    	final String SQL_INSERT_SALES = "INSERT INTO dbo.rejestr_sprzedazy(full_key, podmiot, nr_faktury, nr_id_plat, hash_val, created_at, collision_cnt, doc_id, date_document,kw_netto, kw_vat, kw_brutto, kwota_platn, rejestr) " +
+                    "VALUES (?, ?, ?, ?, ?, SYSUTCDATETIME(), 0, ?, ?, ?, ?, ?, ?, ?)";
+	        final String SQL_INSERT_PURCHASES = "INSERT INTO dbo.rejestr_zakupow(full_key, podmiot, nr_faktury, nr_id_plat, hash_val, created_at, collision_cnt, doc_id,date_document,kw_netto, kw_vat, kw_brutto, kwota_platn, rejestr) VALUES (?, ?, ?, ?, ?, SYSUTCDATETIME(), 0, ?, ?, ?, ?, ?, ?, ?)";
+	    	//log.info(String.format("RejestrDaoImpl fullKey='%s' nrIdPlat='%s' podmiot='%s' nrFaktury='%s' hash='%s' docKey='%s'",fullKey, nrIdPlat, podmiot, nrFaktury, hash, docKey));
     	    String sql = (target == MappingTarget.PURCHASES)
 	    	        ? SQL_INSERT_PURCHASES
 	    	        : SQL_INSERT_SALES;
-	        log.info(String.format("Ins SQL: ='%s '", sql));
+	        //log.info(String.format("Ins SQL: ='%s '", sql));
 	        try (Connection conn = DriverManager.getConnection(url, user, pass);
 	        		PreparedStatement ps = conn.prepareStatement(sql)) {
 	                //CallableStatement cs = conn.prepareCall(sql)) {
@@ -78,6 +79,12 @@ public class RejestrDaoImpl implements RejestrDao {
 	            ps.setString(4, nrIdPlat);
 	            ps.setString(5, hash);
 	            ps.setString(6, docKey);
+	            ps.setString(7, dateDoc);
+	            ps.setBigDecimal(8, kwNetto);
+	            ps.setBigDecimal(9, kwVat);
+	            ps.setBigDecimal(10, kwBrutto);
+	            ps.setBigDecimal(11, kwPlatn);
+	            ps.setString(12, docRejestr);
 	            //ps.registerOutParameter(5, Types.INTEGER); // out_status
 	            //ps.registerOutParameter(6, Types.INTEGER); // out_err_num
 	            //ps.registerOutParameter(7, Types.NVARCHAR); // out_err_msg

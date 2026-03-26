@@ -96,6 +96,7 @@ public class ConverterServlet extends HttpServlet {
         List<DmsParsedDocument> allParsedDocs = new ArrayList<>();
         Set<String> filtrRejestry = new HashSet<>();
         String filtrOddzial = "01"; 
+        String IdKsiegOddzial = "DMS_1"; 
         for (FileItem item : items) {
             if (!item.isFormField()) continue;
             String name = item.getFieldName();
@@ -112,6 +113,7 @@ public class ConverterServlet extends HttpServlet {
                 }
             } else if ("oddzial".equals(name)) {
             	filtrOddzial = value.isBlank() ? "01" : value;
+            	IdKsiegOddzial = "DMS_" + ( "02".equals(filtrOddzial) ? "2" : "1" );
                 //log.info(String.format("Selected oddzial='%s'", filtrOddzial));
             } else if ("fromDate".equals(name)) {
                 DateFilterRegistry.getInstance().setFromDate(
@@ -125,6 +127,7 @@ public class ConverterServlet extends HttpServlet {
             	log.debug(String.format("Ignored form field: %s", name));
             }
         }
+        root.setIdKsiegOddzial(IdKsiegOddzial);
         // log.info(String.format("Collected rejestry: %s", filtrRejestry.isEmpty() ? "ALL" : filtrRejestry.toString()));
         for (FileItem item : items) {
             if (item.isFormField()) continue; // pomijamy pola formularza
@@ -196,7 +199,7 @@ public class ConverterServlet extends HttpServlet {
         	 String docType = rawDocType != null ? rawDocType.trim().toUpperCase() : "";
         	 String msg = String.format("Processing: file=%s, rawDocType='%s', docType='%s', invoice='%s'",fileName, rawDocType, docType, invoice);
         	 //log.info(msg);
-        	 Set<String> DS_TYPES = Set.of("DS", "FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG", "FH");
+        	 Set<String> DS_TYPES = Set.of("DS", "FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG", "FH", "FHK");
  		    Set<String> DK_TYPES = Set.of("KO", "KZ", "DK", "RO", "RZ", "RD"); //"02"
  		   Set<String> DD_TYPES = Set.of("DM","PO"); //"02"
  		   Set<String> DZ_TYPES = Set.of("DZ","FVZ","FVZK","FVZk", "FZK", "FZk","FS", "FK","UMUZ");

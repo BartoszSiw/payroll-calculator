@@ -24,4 +24,5 @@ public class DmsParsedContractor {
     public String regon;
     public String pesel;
     public String wyrRaw;        // oryginalne wyr z DMS ("F" / "O")
+	public String oddzialCon;
 }

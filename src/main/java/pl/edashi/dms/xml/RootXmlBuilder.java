@@ -12,11 +12,9 @@ import javax.xml.parsers.DocumentBuilderFactory;
 public class RootXmlBuilder {
 
     private final List<XmlSectionBuilder> sections = new ArrayList<>();
-
     public void addSection(XmlSectionBuilder section) {
         sections.add(section);
     }
-
     public Document build() throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
@@ -26,9 +24,13 @@ public class RootXmlBuilder {
         doc.appendChild(root);
 
         for (XmlSectionBuilder section : sections) {
+        	section.setIdKsiegOddzial(this.idKsiegOddzial);
             section.build(doc, root);
         }
 
         return doc;
     }
+    private String idKsiegOddzial;
+    public void setIdKsiegOddzial(String id) { this.idKsiegOddzial = id; }
+    public String getIdKsiegOddzial() { return idKsiegOddzial; }
 }
