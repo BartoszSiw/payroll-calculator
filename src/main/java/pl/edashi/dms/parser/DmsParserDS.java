@@ -144,7 +144,7 @@ public class DmsParserDS implements DmsParser{
         //String defaultVatRate = out.getVatRate();
         //if (defaultVatRate == null) defaultVatRate = "";
         List<DmsKwotaDodatkowa> kwoty66 = extractKwoty66(doc);
-        List<DmsPosition> positions = extractPositions(doc, out, kwoty66);
+        List<DmsPosition> positions = extractPositionsDS(doc, out, kwoty66);
         out.setPositions(positions);
         // ============================
         // 5. PŁATNOŚCI (typ 40 + 43)
@@ -287,6 +287,41 @@ public class DmsParserDS implements DmsParser{
         //c.fullName = ""; 
         return c;
     }
+    private List<DmsPosition> extractPositionsDS(Document doc, DmsParsedDocument out, List<DmsKwotaDodatkowa> kwoty66) {
+
+	    // 1) Pozycje z typ="50"
+	    List<DmsPosition> list = extractPositions(doc,out,kwoty66);
+	 // sprawdź, czy istnieje document typ=03
+	    log.info(String.format("list size=%s | entry size=%s", list.size(), out.getVatEntries().size()));
+	    boolean has03 = false;
+	    NodeList allDocs = doc.getElementsByTagName("document");
+	    for (int i = 0; i < allDocs.getLength(); i++) {
+	        Element el = (Element) allDocs.item(i);
+	        if ("03".equals(el.getAttribute("typ"))) {
+	            has03 = true;
+	            break;
+	        }
+	    }
+
+	    // jeśli brak 03 i brak 50 → twórz pozycje z VAT 06
+	    /*if (!has03 && list.isEmpty()) {
+	        list = createPositionsFromVat06(doc);
+	        if(list.isEmpty()) {
+	        	list = createPositionsFrom76(doc,bruttoUmowa);
+	        }
+	    }*/
+
+	    // 2) Uzupełnienie z typ="03"
+	    //apply03ToPositions(doc, list);
+
+	    // 3) VAT z typ="06"
+	    //applyVatToPositions(out, list);
+
+	    // 4) Korekty
+	    //applyCorrectionsDZ(out, list);
+
+	    return list;
+	}
     // ------------------------------
     // POZYCJE 
     // ------------------------------
@@ -695,7 +730,98 @@ public class DmsParserDS implements DmsParser{
         //log.info("extractPositions Kierunek: " + out.getKierunek());
         return listOut;
     }
+    private List<DmsPosition> createPositionsFromVat06(Document doc) {
+        List<DmsPosition> list = new ArrayList<>();
+log.info("1 doc in positions From VAT doc='%s '"+ doc);
+        // znajdź document typ="06"
+        Element doc06 = null;
+        
+        NodeList allDocs = doc.getElementsByTagName("document");
+        for (int i = 0; i < allDocs.getLength(); i++) {
+            Element el = (Element) allDocs.item(i);
+            if ("06".equals(el.getAttribute("typ"))) {
+                doc06 = el;
+                break;
+            }
+        }
+        log.info("2 doc in positions From VAT doc='%s '"+ doc);
+        if (doc06 == null) {
+            return list; // brak rejestru VAT
+        }
+        String statusVat = "";
+        String stawka = "";
+        // każdy <dane> w typ=06 = jedna pozycja
+        NodeList daneList = doc06.getElementsByTagName("dane");
+        for (int i = 0; i < daneList.getLength(); i++) {
+            Element dane = (Element) daneList.item(i);
 
+            DmsPosition p = new DmsPosition();
+            p.lp = dane.getAttribute("lp");
+            if (p.lp == null || p.lp.isBlank()) {
+                p.lp = String.valueOf(i + 1);
+            }
+
+            // kod VAT i stawka z <dane>
+            String kodVat = safeAttr(dane, "kod");
+            p.kodVat = kodVat;    // np. 41
+            p.stawkaVat = dane.getAttribute("stawka"); // np. 0.00, 23.00, 8.00
+            if ("02".equals(kodVat)) {
+                statusVat = "opodatkowana";
+                stawka = "23";
+            } else if ("22".equals(kodVat)) {
+            	statusVat = "opodatkowana";
+            	stawka = "8";
+            } else if ("99".equals(kodVat)) {
+            	statusVat = "opodatkowana";
+            	stawka = "0";
+            } else if ("51".equals(kodVat)) {
+            	statusVat = "zwolniona";
+            	stawka = "0";
+            } else {
+            	statusVat = "nie podlega";
+            	stawka = "0";
+            }
+            p.statusVat = statusVat;
+            p.stawkaVat = stawka;
+            // <wartosci podstawa="..." vat="..."/>
+            Element wart = null;
+            NodeList wartList = dane.getElementsByTagName("wartosci");
+            if (wartList.getLength() > 0) {
+                wart = (Element) wartList.item(0);
+            }
+
+            String podstawa = wart != null ? wart.getAttribute("podstawa") : "0.00";
+            String vat = wart != null ? wart.getAttribute("vat") : "0.00";
+
+            // netto = podstawa, brutto = podstawa + vat
+            double nettoVal = parseDoubleSafe(podstawa);
+            double vatVal = parseDoubleSafe(vat);
+            double bruttoVal = nettoVal + vatVal;
+
+            p.netto = String.format(Locale.US, "%.2f", nettoVal);
+            p.vat = String.format(Locale.US, "%.2f", vatVal);
+            p.brutto = String.format(Locale.US, "%.2f", bruttoVal);
+
+            p.podstawaVat = p.netto; // jeśli masz takie pole
+            p.opis = "Pozycja z rejestru VAT (typ 06)";
+            Element klas = null;
+            NodeList kl = dane.getElementsByTagName("klasyfikatory");
+            if (kl.getLength() > 0) klas = (Element) kl.item(0);
+            // klasyfikacja
+            String rawK = klas != null ? klas.getAttribute("klasyfikacja") : "";
+            p.kategoria2 = rawK;
+            String category = p.kategoria2;
+            if(p.kategoria2.isBlank()) {category="MATERIAŁY";}
+            switch (category) {
+            case "KAWA/HERBATA": p.rodzajKoszty = "Inne";break; 
+            case "MATERIAŁY": p.rodzajKoszty = "Towary";p.kategoria2="MATERIAŁY";break;
+        }
+            //log.info("[DZ][POS] idx=" + i + " rawKategoria2=" + rawK);
+            list.add(p);
+        }
+
+        return list;
+    }
 
 
 
@@ -778,7 +904,7 @@ public class DmsParserDS implements DmsParser{
                 vatRates.put(kodVat, stawka);
                 foundVat = true;
                 
-                log.info(String.format("exVat: stawka=%s podstawa=%s vat=%s status=%s entry=%s", stawka, podstawa, vat, statusVat, entry));
+                log.info(String.format("exVat: stawka=%s podstawa=%s vat=%s status=%s", stawka, podstawa, vat, statusVat));
                 //break;
             }
         }     

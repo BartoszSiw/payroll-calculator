@@ -85,6 +85,7 @@ public class DmsParserRD implements DmsParser{
         // ============================
         Contractor contractor = extractContractor(doc);
         out.setContractor(contractor);
+        out.setTypDocAnalizer("RD");
         // ============================
         // 6. POZYCJE (typ 49)
         // ============================

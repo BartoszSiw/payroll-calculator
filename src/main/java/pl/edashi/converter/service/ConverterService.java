@@ -1,6 +1,8 @@
 package pl.edashi.converter.service;
 import pl.edashi.common.dao.RejestrDao;
 import pl.edashi.common.logging.AppLogger;
+
+import org.apache.poi.hpsf.Decimal;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import pl.edashi.converter.repository.DocumentRepository;
@@ -100,12 +102,14 @@ public class ConverterService {
         String hash = d.getHash();
         String docKey = d.getDocKey();
         String dateDoc = docDate.toString();
-        BigDecimal kwNet = new BigDecimal(0);
-        BigDecimal kwVat = new BigDecimal(0);
-        BigDecimal kwBru = new BigDecimal(0);
-        BigDecimal kwPla = new BigDecimal(d.getPayments().get(0).kwota.replace(",", "."));
-    	log.info(String.format("DEBUG pre-filter: docType='%s' fullKey='%s' docDate='%s'",
-        	    docType, fullKey, docDate));
+        BigDecimal kwNet = BigDecimal.ZERO;
+        BigDecimal kwVat = BigDecimal.ZERO;
+        BigDecimal kwBru = BigDecimal.ZERO;
+        BigDecimal kwPla = BigDecimal.ZERO;
+        if (d.getPayments() != null && !d.getPayments().isEmpty()) {
+            kwPla = new BigDecimal(d.getPayments().get(0).kwota.replace(",", "."));
+        }
+    	//log.info(String.format("DEBUG pre-filter: docType='%s' fullKey='%s' docDate='%s'", docType, fullKey, docDate));
         //log.info(String.format("fullKey='%s ' nrIdPlat='%s ' podmiot='%s ' numer='%s ' hash='%s '",fullKey, nrIdPlat, podmiot, numer, hash));
         //LocalDate docDate = parseDateFromPossibleFormats(d.getMetadata() == null ? null : d.getMetadata().getDate()
         if (!filtrRejestry.isEmpty() && (docRejestr.isEmpty() || !filtrRejestry.contains(docRejestr))) {

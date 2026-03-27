@@ -245,8 +245,8 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
                 plat.appendChild(make(docXml, "PLATNOSC_PODMIOT", safe(removeHyphensBetweenDigits(doc.getPodmiotAkronim()))));
                 //plat.appendChild(make(docXml, "PLATNOSC_PODMIOT_ID", doc.podmiotId));
                 plat.appendChild(make(docXml, "PLATNOSC_PODMIOT_NIP", safe(removeHyphensBetweenDigits(doc.getPodmiotNip()))));
-                plat.appendChild(make(docXml, "PLAT_ELIXIR_O1", safe(p.getOpis())));
-                plat.appendChild(make(docXml, "PLAT_ELIXIR_O2", ""));
+                plat.appendChild(make(docXml, "PLAT_ELIXIR_O1", safe(doc.getInvoiceNumber())));
+                plat.appendChild(make(docXml, "PLAT_ELIXIR_O2", safe(p.getOpis())));
                 plat.appendChild(make(docXml, "PLAT_ELIXIR_O3", ""));
                 plat.appendChild(make(docXml, "PLAT_ELIXIR_O4", ""));
                 plat.appendChild(make(docXml, "PLAT_FA_Z_PA", "Nie"));

@@ -213,8 +213,8 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
                 plat.appendChild(makeCdata(docXml, "PLATNOSC_PODMIOT", safe(removeHyphensBetweenDigits(doc.getPodmiotAkronim()))));
                 //plat.appendChild(makeCdata(docXml, "PLATNOSC_PODMIOT_ID", safe(doc.getPodmiotId())));
                 plat.appendChild(makeCdata(docXml, "PLATNOSC_PODMIOT_NIP", safe(removeHyphensBetweenDigits(doc.getPodmiotNip()))));
-                plat.appendChild(makeCdata(docXml, "PLAT_ELIXIR_O1", safe(p.getOpis())));
-                plat.appendChild(makeCdata(docXml, "PLAT_ELIXIR_O2", ""));
+                plat.appendChild(makeCdata(docXml, "PLAT_ELIXIR_O1", safe(doc.getInvoiceNumber())));
+                plat.appendChild(makeCdata(docXml, "PLAT_ELIXIR_O2", safe(p.getOpis())));
                 plat.appendChild(makeCdata(docXml, "PLAT_ELIXIR_O3", ""));
                 plat.appendChild(makeCdata(docXml, "PLAT_ELIXIR_O4", ""));
                 plat.appendChild(makeCdata(docXml, "PLAT_FA_Z_PA", "Nie"));
