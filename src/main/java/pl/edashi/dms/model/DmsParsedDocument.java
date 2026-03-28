@@ -1,4 +1,5 @@
 package pl.edashi.dms.model;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -373,6 +374,15 @@ public class DmsParsedDocument {
         public String podstawa;
         public String vat;
         public String statusVat;
+        public BigDecimal remainingPodstawa;
+        public BigDecimal podstawaParsed; // parsed original podstawa from extractVat
+        public boolean consumed = false;  // mark when fully used
+
+    
+    public void initRemaining() {
+        this.remainingPodstawa = parseAmount(this.podstawa);
+        if (this.remainingPodstawa == null) this.remainingPodstawa = BigDecimal.ZERO;
+    }
     }
     public static class DmsNetBruEntry{
     	public String base;
@@ -383,18 +393,14 @@ public class DmsParsedDocument {
     private static String safe(String s) {
         return s == null ? "" : s;
     }
-    /*public class DmsPositionDS {
-        private String klasyfikacja;
-        private String numer;
-
-        public String getKlasyfikacja() { return klasyfikacja; }
-        public void setKlasyfikacja(String k) { this.klasyfikacja = k; }
-
-        public String getNumer() { return numer; }
-        public void setNumer(String n) { this.numer = n; }
-    }*/
-	/*public void setAdvancePosition(DmsPosition advancePos) {
-		// TODO Auto-generated method stub
-		
-	}*/
+    private static BigDecimal parseAmount(String s) {
+        if (s == null) return null;
+        try {
+            String cleaned = s.trim().replace(",", ".").replaceAll("\\s+", "");
+            if (cleaned.isEmpty()) return null;
+            return new BigDecimal(cleaned);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
 }

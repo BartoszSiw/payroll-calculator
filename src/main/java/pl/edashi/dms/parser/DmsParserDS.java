@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 //import javax.xml.parsers.DocumentBuilderFactory;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -134,6 +135,10 @@ public class DmsParserDS implements DmsParser{
         // 3. VAT (typ 06)
         // ============================
         extractVat(doc, out);
+        for (DmsParsedDocument.DmsVatEntry e : out.getVatEntries()) {
+            e.initRemaining();
+        }
+
         // ============================
         // 4. PŁATNOŚCI (typ 40 + 43)
         // ============================
@@ -288,40 +293,29 @@ public class DmsParserDS implements DmsParser{
         return c;
     }
     private List<DmsPosition> extractPositionsDS(Document doc, DmsParsedDocument out, List<DmsKwotaDodatkowa> kwoty66) {
+        // 1) Zbuduj surową listę pozycji (istniejąca metoda)
+        List<DmsPosition> list = extractPositions(doc, out, kwoty66);
 
-	    // 1) Pozycje z typ="50"
-	    List<DmsPosition> list = extractPositions(doc,out,kwoty66);
-	 // sprawdź, czy istnieje document typ=03
-	    log.info(String.format("list size=%s | entry size=%s", list.size(), out.getVatEntries().size()));
-	    boolean has03 = false;
-	    NodeList allDocs = doc.getElementsByTagName("document");
-	    for (int i = 0; i < allDocs.getLength(); i++) {
-	        Element el = (Element) allDocs.item(i);
-	        if ("03".equals(el.getAttribute("typ"))) {
-	            has03 = true;
-	            break;
-	        }
-	    }
+        // 2) Po przypisaniu sprawdź pozostałości VAT i dodaj dodatkowe pozycje
+        BigDecimal tol = new BigDecimal("0.01");
+        if (out.getVatEntries() != null) {
+            for (DmsParsedDocument.DmsVatEntry e : out.getVatEntries()) {
+                if (e == null || e.remainingPodstawa == null) continue;
+                if (e.remainingPodstawa.abs().compareTo(tol) > 0) {
+                    // createPositionFromVatEntry kopiuje remaining przed wyzerowaniem
+                    DmsPosition extra = createPositionFromVatEntry(e);
+                    computeVatAndBruttoForPosition(extra);
+                    list.add(extra);
+                    log.info("Added extra position from remaining VAT: " + extra.netto + " stawka=" + extra.stawkaVat);
+                    // createPositionFromVatEntry powinien już ustawić e.remainingPodstawa = 0
+                }
+            }
+        }
 
-	    // jeśli brak 03 i brak 50 → twórz pozycje z VAT 06
-	    /*if (!has03 && list.isEmpty()) {
-	        list = createPositionsFromVat06(doc);
-	        if(list.isEmpty()) {
-	        	list = createPositionsFrom76(doc,bruttoUmowa);
-	        }
-	    }*/
 
-	    // 2) Uzupełnienie z typ="03"
-	    //apply03ToPositions(doc, list);
-
-	    // 3) VAT z typ="06"
-	    //applyVatToPositions(out, list);
-
-	    // 4) Korekty
-	    //applyCorrectionsDZ(out, list);
-
-	    return list;
-	}
+        // 5) Zwróć kompletną listę (oryginalne + dodatkowe)
+        return list;
+    }
     // ------------------------------
     // POZYCJE 
     // ------------------------------
@@ -330,7 +324,7 @@ public class DmsParserDS implements DmsParser{
         NodeList allDocs = doc.getElementsByTagName("document");
         for (int k = 0; k < allDocs.getLength(); k++) {
     	    Element el = (Element) allDocs.item(k);
-    	    log.info("DS document[" + k + "] typ=" + el.getAttribute("typ"));
+    	    //log.info("DS document[" + k + "] typ=" + el.getAttribute("typ"));
     	    if ("66".equals(el.getAttribute("typ")) || "61".equals(el.getAttribute("typ"))) {
     	        NodeList daneList66 = el.getElementsByTagName("dane");
     	        log.info("DS typ 66 61, daneList length = " + daneList66.getLength());
@@ -363,6 +357,7 @@ public class DmsParserDS implements DmsParser{
     private List<DmsPosition> extractPositions(Document doc, DmsParsedDocument out, List<DmsKwotaDodatkowa> kwoty66){
     	boolean hasType66 = !kwoty66.isEmpty();
     	//log.info(String.format("1 kwoty66 p.getKwotyDodatkowe()='%s': ", kwoty66));
+    	
         List<DmsPosition> listOut = new ArrayList<>();
         //if (doc == null || out == null) return listOut;
         NodeList list = doc.getElementsByTagName("document");
@@ -371,7 +366,7 @@ public class DmsParserDS implements DmsParser{
             Element document = (Element) list.item(i);
             String typ = document.getAttribute("typ");
             if (!"03".equals(typ) && !"04".equals(typ) && !"05".equals(typ) ) continue;
-            log.info(String.format("1 kwoty66 p.getKwotyDodatkowe()='%s': typ='%s '", kwoty66, typ));
+            //log.info(String.format("1 kwoty66 p.getKwotyDodatkowe()='%s': typ='%s '", kwoty66, typ));
             NodeList daneList = document.getElementsByTagName("dane");
             for (int j = 0; j < daneList.getLength(); j++) {
                 Element dane = (Element) daneList.item(j);
@@ -435,82 +430,24 @@ public class DmsParserDS implements DmsParser{
              // pomocnicze (raz w klasie)
 
 
-                // wybór vatEntry zgodnie z regułą: jeśli istnieje 0% z podstawa≈netto -> 0%, inaczej pierwsza nie-zerowa
-                BigDecimal tol = new BigDecimal("0.01");
-                List<DmsParsedDocument.DmsVatEntry> entries = out.getVatEntries();
-                DmsParsedDocument.DmsVatEntry vatEntry = null;
-
-                if (entries != null && !entries.isEmpty()) {
-                    // 1) szukamy 0% dopasowanego do netto (porównanie po wartościach bezwzględnych)
-                    vatEntry = entries.stream()
-                        .filter(e -> {
-                            String s = e.stawka == null ? "" : e.stawka.trim();
-                            if (!"0".equals(s) && !"0%".equals(s)) return false;
-                            return approxEqualsAbs(parseAmount(e.podstawa), parseAmount(p.netto), tol);
-                        })
-                        .findFirst()
-                        .orElse(null);
-
-                    // 2) jeśli nie znaleziono 0% dopasowanego, wybierz pierwszą nie-zerową stawkę (np. 23)
-                    if (vatEntry == null) {
-                        vatEntry = entries.stream()
-                            .filter(e -> {
-                                String s = e.stawka == null ? "" : e.stawka.trim();
-                                return !s.isEmpty() && !"0".equals(s) && !"0%".equals(s);
-                            })
-                            .findFirst()
-                            .orElse(entries.get(0)); // fallback: pierwszy wpis
-                    }
-                }
-
-                // przypisz do pozycji
-                String stawka = (vatEntry != null && vatEntry.stawka != null) ? vatEntry.stawka.trim() : "0";
-                String statusVat = (vatEntry != null && vatEntry.statusVat != null) ? vatEntry.statusVat.trim() : "nie podlega";
-                p.stawkaVat = stawka;
-                p.statusVat = statusVat;
-
-                // debug log — pokaże, dlaczego wybrano dany wpis
-                log.info(String.format("VAT chosen for pos.netto=%s -> stawka=%s podstawa=%s entry=%s allEntries=%s",
-                    p.netto, stawka, vatEntry == null ? "" : vatEntry.podstawa, vatEntry, entries.stream()
-                        .map(e -> String.format("[podstawa=%s stawka=%s]", e.podstawa, e.stawka))
-                        .collect(Collectors.toList())));
-
-
-                log.info(String.format("VAT chosen for pos.netto=%s -> stawka=%s podstawa=%s entry=%s",
-                    p.netto, stawka, vatEntry == null ? "" : vatEntry.podstawa, vatEntry));
-
-                    //log.info(LogUtils.safeFormat("getVatEntries=%s vatEntry=%s hasVat=%s vatRate=%s stawka=%s statusVat=%s", out.getVatEntries(), vatEntry, hasVat, vatRate, stawka,statusVat));
-                if (!hasVat) {
-                	double nettoVal = 0.0;
-                    p.stawkaVat = "0";
-                    p.vat = "0.00";
-                    p.statusVat = "nie podlega";
-                    if (p.netto != null && !p.netto.isBlank()) {
-                        nettoVal = parseDoubleSafe(p.netto.replace(",", "."));
-                    }
-                    String bruttoStr = String.format(Locale.US, "%.2f", nettoVal);
-                    p.brutto = bruttoStr;
-                    //p.brutto = String.format(Locale.US, "%.2f", p.netto);
-                    //log.info(String.format("1 hasVat p.statusVat='%s': ", p.statusVat));
-                } else {
-                    p.stawkaVat = stawka != null ? stawka : "";
-                    p.statusVat = statusVat;
-                    //log.info(String.format("2 hasVat p.statusVat='%s': ", p.statusVat));
-                    if (p.netto != null && !p.netto.isBlank()) {
-                        try {
-                            double netto = parseDoubleSafe(p.netto);
-                            double vat = netto * (parseDoubleSafe(stawka) / 100.0);
-                            double brutto = netto + vat;
-                            p.brutto = String.format(Locale.US, "%.2f", brutto);
-                            p.vat = String.format(Locale.US, "%.2f", vat);
-                            log.info(String.format("3 hasVat p.statusVat='%s': ", p.statusVat));
-                        } catch (Exception ex) {
-                            p.vat = "0.00";
-                        }
-                    } else {
+                // --- tutaj przypisujemy VAT natychmiast dla tej pozycji ---
+                try {
+                    assignVatToPosition(p, out, hasVat); // mutuje p i zmniejsza remainingPodstawa w out.getVatEntries()
+                } catch (Exception ex) {
+                    log.error("Błąd przypisywania VAT dla pozycji: " + ex.getMessage(), ex);
+                    // w razie błędu ustaw domyły, ale nie przerywamy całej metody
+                    if (!hasVat) {
+                        double nettoVal = p.netto != null && !p.netto.isBlank() ? parseDoubleSafe(p.netto.replace(",", ".")) : 0.0;
+                        p.stawkaVat = "0";
+                        p.statusVat = "nie podlega";
                         p.vat = "0.00";
+                        p.brutto = String.format(Locale.US, "%.2f", nettoVal);
+                    } else {
+                        computeVatAndBruttoForPosition(p);
                     }
                 }
+
+
                 p.kategoria = "PRZYCHODY";
                 String readRejestr = out.getDaneRejestr();
                 log.info(String.format("DS readRejestr='%s': ", readRejestr));
@@ -730,6 +667,171 @@ public class DmsParserDS implements DmsParser{
         //log.info("extractPositions Kierunek: " + out.getKierunek());
         return listOut;
     }
+    private void assignVatToPosition(DmsPosition p, DmsParsedDocument out, boolean hasVat) {
+        BigDecimal tol = new BigDecimal("0.01");
+        List<DmsParsedDocument.DmsVatEntry> entries = out.getVatEntries();
+        if (p == null) return;
+
+        if (entries == null || entries.isEmpty()) {
+            p.stawkaVat = "0";
+            p.statusVat = "nie podlega";
+            if (!hasVat) {
+                double nettoVal = p.netto != null && !p.netto.isBlank() ? parseDoubleSafe(p.netto.replace(",", ".")) : 0.0;
+                p.vat = "0.00";
+                p.brutto = String.format(Locale.US, "%.2f", nettoVal);
+            } else {
+                computeVatAndBruttoForPosition(p);
+            }
+            return;
+        }
+
+        // Ensure original parsed bases exist
+        for (DmsParsedDocument.DmsVatEntry e : entries) {
+            if (e == null) continue;
+            if (e.podstawaParsed == null) e.podstawaParsed = parseAmount(e.podstawa) == null ? BigDecimal.ZERO : parseAmount(e.podstawa);
+            if (e.remainingPodstawa == null) e.remainingPodstawa = e.podstawaParsed;
+        }
+
+        // Build ordered available list
+        List<DmsParsedDocument.DmsVatEntry> available = new ArrayList<>();
+        for (DmsParsedDocument.DmsVatEntry e : entries) {
+            if (e != null && e.remainingPodstawa != null && e.remainingPodstawa.abs().compareTo(tol) > 0) available.add(e);
+        }
+
+        final BigDecimal pNet = parseAmount(p.netto) == null ? BigDecimal.ZERO : parseAmount(p.netto);
+        final BigDecimal pZakup = parseAmount(p.nettoZakup) == null ? null : parseAmount(p.nettoZakup);
+
+        // 1) If nettoZakup matches an original base -> assign that base
+        if (pZakup != null) {
+            for (DmsParsedDocument.DmsVatEntry e : available) {
+                if (approxEqualsAbs(e.podstawaParsed, pZakup, tol)) {
+                    BigDecimal assigned = e.podstawaParsed.min(e.remainingPodstawa);
+                    p.stawkaVat = trimOrEmpty(e.stawka);
+                    p.statusVat = trimOrEmpty(e.statusVat);
+                    e.remainingPodstawa = e.remainingPodstawa.subtract(assigned);
+                    if (e.remainingPodstawa.compareTo(BigDecimal.ZERO) <= 0) { e.remainingPodstawa = BigDecimal.ZERO; e.consumed = true; }
+                    p.netto = assigned.toPlainString();
+                    computeVatAndBruttoForPosition(p);
+                    log.info("Assigned by nettoZakup match: assigned=" + assigned + " rate=" + e.stawka);
+                    return;
+                }
+            }
+        }
+
+        // 2) Single exact match against original podstawaParsed (ordered)
+        for (DmsParsedDocument.DmsVatEntry e : available) {
+            if (approxEqualsAbs(e.podstawaParsed, pNet, tol)) {
+                BigDecimal assigned = e.podstawaParsed.min(e.remainingPodstawa);
+                p.stawkaVat = trimOrEmpty(e.stawka);
+                p.statusVat = trimOrEmpty(e.statusVat);
+                e.remainingPodstawa = e.remainingPodstawa.subtract(assigned);
+                if (e.remainingPodstawa.compareTo(BigDecimal.ZERO) <= 0) { e.remainingPodstawa = BigDecimal.ZERO; e.consumed = true; }
+                p.netto = assigned.toPlainString();
+                computeVatAndBruttoForPosition(p);
+                log.info("Assigned by single original base match: assigned=" + assigned + " rate=" + e.stawka);
+                return;
+            }
+        }
+
+        // 3) Pair-sum detection: pNet == ai + aj
+        if (available.size() >= 2) {
+            outer:
+            for (int i = 0; i < available.size(); i++) {
+                for (int j = i + 1; j < available.size(); j++) {
+                    DmsParsedDocument.DmsVatEntry ei = available.get(i);
+                    DmsParsedDocument.DmsVatEntry ej = available.get(j);
+                    BigDecimal ai = ei.podstawaParsed;
+                    BigDecimal aj = ej.podstawaParsed;
+                    if (ai == null || aj == null) continue;
+                    if (approxEqualsAbs(ai.add(aj), pNet, tol)) {
+                        // prefer nettoZakup if it matches one component
+                        Integer pickIdx = null;
+                        if (pZakup != null) {
+                            if (approxEqualsAbs(pZakup, ai, tol)) pickIdx = i;
+                            else if (approxEqualsAbs(pZakup, aj, tol)) pickIdx = j;
+                        }
+                        // if not decided, keep larger component in current position
+                        if (pickIdx == null) pickIdx = (ai.compareTo(aj) >= 0) ? i : j;
+
+                        DmsParsedDocument.DmsVatEntry primary = (pickIdx == i) ? ei : ej;
+                        DmsParsedDocument.DmsVatEntry secondary = (pickIdx == i) ? ej : ei;
+
+                        BigDecimal primaryBase = primary.podstawaParsed.min(primary.remainingPodstawa);
+                        // assign primary to current position
+                        p.stawkaVat = trimOrEmpty(primary.stawka);
+                        p.statusVat = trimOrEmpty(primary.statusVat);
+                        p.netto = primaryBase.toPlainString();
+                        computeVatAndBruttoForPosition(p);
+
+                        // consume primary
+                        primary.remainingPodstawa = primary.remainingPodstawa.subtract(primaryBase);
+                        if (primary.remainingPodstawa.compareTo(BigDecimal.ZERO) <= 0) { primary.remainingPodstawa = BigDecimal.ZERO; primary.consumed = true; }
+
+                        log.info(String.format("Pair-sum deterministic assign: originalNet=%s primaryBase=%s primaryRate=%s -> p.netto=%s; secondary.remaining=%s",
+                                pNet, primaryBase, primary.stawka, p.netto, secondary.remainingPodstawa));
+                        return;
+                    }
+                }
+            }
+        }
+
+        // 4) Single match against remainingPodstawa (ordered)
+        for (DmsParsedDocument.DmsVatEntry e : available) {
+            if (approxEqualsAbs(e.remainingPodstawa, pNet, tol)) {
+                BigDecimal assigned = e.remainingPodstawa.min(pNet);
+                p.stawkaVat = trimOrEmpty(e.stawka);
+                p.statusVat = trimOrEmpty(e.statusVat);
+                e.remainingPodstawa = e.remainingPodstawa.subtract(assigned);
+                if (e.remainingPodstawa.compareTo(BigDecimal.ZERO) <= 0) { e.remainingPodstawa = BigDecimal.ZERO; e.consumed = true; }
+                p.netto = assigned.toPlainString();
+                computeVatAndBruttoForPosition(p);
+                log.info("Assigned by single remaining match: assigned=" + assigned + " rate=" + e.stawka);
+                return;
+            }
+        }
+
+        // 5) Fallbacks: first with enough remaining, else partial from first available
+        for (DmsParsedDocument.DmsVatEntry e : available) {
+            if (e.remainingPodstawa.compareTo(pNet) >= 0) {
+                BigDecimal assigned = pNet;
+                p.stawkaVat = trimOrEmpty(e.stawka);
+                p.statusVat = trimOrEmpty(e.statusVat);
+                e.remainingPodstawa = e.remainingPodstawa.subtract(assigned);
+                if (e.remainingPodstawa.compareTo(BigDecimal.ZERO) <= 0) { e.remainingPodstawa = BigDecimal.ZERO; e.consumed = true; }
+                p.netto = assigned.toPlainString();
+                computeVatAndBruttoForPosition(p);
+                log.info("Fallback full assign: assigned=" + assigned + " rate=" + e.stawka);
+                return;
+            }
+        }
+
+        if (!available.isEmpty()) {
+            DmsParsedDocument.DmsVatEntry e = available.get(0);
+            BigDecimal assigned = e.remainingPodstawa;
+            p.stawkaVat = trimOrEmpty(e.stawka);
+            p.statusVat = trimOrEmpty(e.statusVat);
+            e.remainingPodstawa = BigDecimal.ZERO;
+            e.consumed = true;
+            BigDecimal newNet = pNet.subtract(assigned);
+            p.netto = newNet.toPlainString();
+            computeVatAndBruttoForPosition(p);
+            log.info("Partial fallback assign: assigned=" + assigned + " rate=" + e.stawka + " new p.netto=" + p.netto);
+            return;
+        }
+
+        // 6) No available entries
+        p.stawkaVat = "0";
+        p.statusVat = "nie podlega";
+        if (!hasVat) {
+            double nettoVal = p.netto != null && !p.netto.isBlank() ? parseDoubleSafe(p.netto.replace(",", ".")) : 0.0;
+            p.vat = "0.00";
+            p.brutto = String.format(Locale.US, "%.2f", nettoVal);
+        } else {
+            computeVatAndBruttoForPosition(p);
+        }
+    }
+
+
     private List<DmsPosition> createPositionsFromVat06(Document doc) {
         List<DmsPosition> list = new ArrayList<>();
 log.info("1 doc in positions From VAT doc='%s '"+ doc);
@@ -848,27 +950,6 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
                 String podstawa = wart != null ? safeAttr(wart, "podstawa") : "";
                 String vat = wart != null ? safeAttr(wart, "vat") : "";
                 String statusVat="";
-             // Ustal status VAT wg kodu i stawki
-               /* if ("51".equals(kodVat)) {
-                    // 51 = ZW
-                    out.setStatusVat("zwolniona");
-                    out.setVatRate("ZW");
-                } 
-                else if ("99".equals(kodVat) && "0.00".equals(stawka)) {
-                    // 99 + 0.00 = 0% (ale nie ZW)
-                    out.setStatusVat("opodatkowana");
-                    out.setVatRate("0.00");
-                }
-                else if ("02".equals(kodVat)) {
-                    // 02 = 23%
-                    out.setStatusVat("opodatkowana");
-                    out.setVatRate("23.00");
-                }
-                else {
-                    // fallback – normalizacja stawki
-                    out.setStatusVat(stawka);
-                    out.setVatRate(normalizeVatRate(stawka));
-                }*/
                 if ("02".equals(kodVat)) {
                     statusVat = "opodatkowana";
                     stawka = "23";
@@ -890,8 +971,8 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
                 }
                 //out.setVatRate(normalizeVatRate(stawka));
                 //out.setStatusVat(statusVat);
-                //out.setVatBase(podstawa);
-                //out.setVatAmount(vat);
+                out.setVatBase(podstawa);
+                out.setVatAmount(vat);
                 DmsVatEntry entry = new DmsVatEntry();
                 entry.statusVat = statusVat;
                 entry.stawka = stawka;//safeAttr(dane, "stawka");
@@ -1212,6 +1293,21 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
     // ------------------------------
     // Pomocnicze metody
     // ------------------------------
+ // Tworzy pozycję z pozostałej podstawy VAT (dostosuj pola według potrzeb)
+    private DmsPosition createPositionFromVatEntry(DmsParsedDocument.DmsVatEntry e) {
+        BigDecimal remaining = e.remainingPodstawa == null ? BigDecimal.ZERO : e.remainingPodstawa;
+        DmsPosition p = new DmsPosition();
+        p.netto = remaining.toPlainString();
+        p.stawkaVat = e.stawka != null ? e.stawka.trim() : "0";
+        p.statusVat = e.statusVat != null ? e.statusVat.trim() : "nie podlega";
+        p.type = "AUTO_FROM_VAT";
+        p.setKwotyDodatkowe(new ArrayList<>());
+        // teraz wyzeruj źródło
+        e.remainingPodstawa = BigDecimal.ZERO;
+        return p;
+    }
+
+
     private static Element firstElementByTag(Node parent, String tagName) {
         if (parent == null) return null;
         NodeList list;
@@ -1234,10 +1330,24 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
         if (raw.contains(".")) raw = raw.substring(0, raw.indexOf('.'));
         return raw;
     }
-
-    private double parseDoubleSafe(String s) {
-        try { return s != null && !s.isBlank() ? Double.parseDouble(s) : 0.0; }
-        catch (Exception e) { return 0.0; }
+    private static String normRate(String raw) {
+        if (raw == null) return "";
+        String s = raw.trim().replace("%", "");
+        try {
+            BigDecimal bd = new BigDecimal(s.replace(",", "."));
+            bd = bd.stripTrailingZeros();
+            return bd.toPlainString();
+        } catch (Exception ex) {
+            return s;
+        }
+    }
+    private static double parseDoubleSafe(String s) {
+        if (s == null) return 0.0;
+        try {
+            return Double.parseDouble(s.replace(",", "."));
+        } catch (Exception ex) {
+            return 0.0;
+        }
     }
     private String buildFullName(Contractor c) {
 
@@ -1288,7 +1398,7 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
         public DmsKwotaDodatkowa() {
         }
     }
-
+    
     public static String detectVatRateFromNumbers(double nettoD, double bruttoD) {
         return detectVatRateFromNumbers(BigDecimal.valueOf(nettoD), BigDecimal.valueOf(bruttoD));
     }
@@ -1309,8 +1419,6 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
 
         return impliedPercent.setScale(0, RoundingMode.HALF_UP).toPlainString();
     }
-
-
     private static BigDecimal parseAmount(String s) {
         if (s == null) return null;
         try {
@@ -1325,31 +1433,29 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
         if (a == null || b == null) return false;
         return a.abs().subtract(b.abs()).abs().compareTo(tol) <= 0;
     }
-
-   /* public class DmsKwotaDodatkowa {
-    	public String nettoDlRob;
-    	public String nettoKoMat;
-    	public String nettoGwMat;
-    	public String nettoKoszt;
-    	public String nettoZakup;
-        public String kategoria;
-        public String kategoria2;
-    	public String kontoMa;
-    	public String kontoWn;
-
-        public DmsKwotaDodatkowa(String nettoDlRob, String nettoKoMat,String nettoGwMat,String nettoKoszt, String nettoZakup, String kategoria, String kategoria2,String kontoWn, String kontoMa) {
-        	this.nettoDlRob = nettoDlRob;
-        	this.nettoKoMat = nettoKoMat;
-        	this.nettoGwMat = nettoGwMat;
-        	this.nettoKoszt = nettoKoszt;
-        	this.nettoZakup = nettoZakup;
-            this.kategoria = kategoria;
-            this.kategoria2 = kategoria2;
-            this.kontoWn = kontoWn;
-            this.kontoMa = kontoMa;
+    private void computeVatAndBruttoForPosition(DmsPosition p) {
+        if (p == null) return;
+        if (p.netto == null || p.netto.isBlank()) {
+            p.vat = "0.00";
+            p.brutto = "0.00";
+            return;
         }
-    }*/
-
-
-
+        try {
+            double netto = parseDoubleSafe(p.netto);
+            if (p.stawkaVat == null || p.stawkaVat.isBlank()) {
+                p.vat = "0.00";
+                p.brutto = String.format(Locale.US, "%.2f", netto);
+                return;
+            }
+            log.info("compute stawka"+p.stawkaVat);
+            double st = parseDoubleSafe(p.stawkaVat);
+            double vat = netto * (st / 100.0);
+            double brutto = netto + vat;
+            p.vat = String.format(Locale.US, "%.2f", vat);
+            p.brutto = String.format(Locale.US, "%.2f", brutto);
+        } catch (Exception ex) {
+            p.vat = "0.00";
+            p.brutto = p.netto != null ? p.netto : "0.00";
+        }
+    }
 }
