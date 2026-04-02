@@ -1,4 +1,4 @@
-<%@ page language="java" import="java.util.*" pageEncoding="ISO-8859-1"%>
+<%@ page language="java" import="java.util.*" pageEncoding="UTF-8"%>
 <%@ page import="pl.edashi.converter.service.DateFilterRegistry" %>
 <%@ page import="java.time.LocalDate" %>
 <%
@@ -22,6 +22,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
+<meta charset="UTF-8">
     <meta http-equiv="pragma" content="no-cache">
 	<meta http-equiv="cache-control" content="no-cache">
 	<meta http-equiv="expires" content="0">    
@@ -33,9 +34,11 @@
 <body>
 <h2>Konwerter XML AUTO TIM</h2>
 <jsp:include page="/menu.jsp" />
-<form action="../ConverterServlet" method="post" enctype="multipart/form-data" class="conv-form">
+<form action="../ConverterServlet" method="post" enctype="multipart/form-data" class="conv-form" accept-charset="UTF-8">
+<div class="two-columns">
+<div class="column">
 <div class="form-section">
-    <label class="field-label"><strong>Filtr dat (opcjonalnie)</strong></label>
+    <label class="field-label"><strong>Filtrowanie po dacie wystawienia</strong></label>
 
     <div class="date-filter-group">
         <label for="fromDate">Data od:</label>
@@ -46,9 +49,25 @@
     </div>
 
     <div class="field-help">
-        Jeśli pozostawisz puste — przetworzymy wszystkie daty.
+        Brak wybranych dat —> przetworzone zostaną wszystkie daty.
     </div>
 </div>
+</div>
+<div class="column">
+    <div class="form-section">
+    <label for="xmlFile" class="field-label"><strong>Wybierz pliki XML</strong></label>
+    <input type="file" id="xmlFile" name="xmlFile" accept=".xml" multiple class="file-input" aria-describedby="fileHelp">
+    <div id="fileHelp" class="field-help">Możesz wybrać wiele plikow.</div>
+    <div id="selectedFiles" class="selected-files" aria-live="polite" style="margin-top:8px;font-size:0.95em;color:#333;"></div>
+  </div>
+</div>
+</div>
+<c:if test="${not empty fullKey}">
+    <div style="margin-top:10px;">
+        <label for="allowUpdate">Zezwól na ponowne wczytanie wybranych dokumentów</label>
+        <input type="checkbox" id="allowUpdate" name="allowUpdate" value="true">
+    </div>
+</c:if>
     <div class="form-section">
         <label for="rejestr" class="field-label"><strong>Wybierz rejestry</strong></label>
         <select name="rejestr" id="rejestr" multiple size="8" class="select-control" aria-describedby="rejestrHelp">
@@ -102,12 +121,6 @@
       <label class="radio-item"><input type="radio" name="oddzial" value="01" checked> Oddzial 01</label>
       <label class="radio-item"><input type="radio" name="oddzial" value="02"> Oddzial 02</label>
     </div>
-  </div>
-    <div class="form-section">
-    <label for="xmlFile" class="field-label"><strong>Wybierz pliki XML</strong></label>
-    <input type="file" id="xmlFile" name="xmlFile" accept=".xml" multiple class="file-input" aria-describedby="fileHelp">
-    <div id="fileHelp" class="field-help">Mozesz wybrac wiele plikow. Maksymalny rozmiar zalezy od ustawien serwera.</div>
-    <div id="selectedFiles" class="selected-files" aria-live="polite" style="margin-top:8px;font-size:0.95em;color:#333;"></div>
   </div>
   <div class="form-section">
     <button type="submit" id="submitBtn" class="btn-primary">Konwertuj</button>

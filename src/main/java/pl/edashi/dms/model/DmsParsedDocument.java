@@ -403,4 +403,19 @@ public class DmsParsedDocument {
             return null;
         }
     }
+ // new field
+    private final List<DmsPosition> pendingExtras = new ArrayList<>();
+
+    // helper
+    public void addPendingExtra(DmsPosition p) {
+        if (p == null) return;
+        this.pendingExtras.add(p);
+    }
+
+    public List<DmsPosition> drainPendingExtras() {
+        List<DmsPosition> copy = new ArrayList<>(this.pendingExtras);
+        this.pendingExtras.clear();
+        return copy;
+    }
+
 }

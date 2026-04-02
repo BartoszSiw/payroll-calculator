@@ -106,7 +106,7 @@ public class DmsParserKZ implements DmsParser{
         // ============================
         // 3. PUSTE POLA (KZ ich nie ma)
         // ============================
-        out.setContractor(null);
+        //out.setContractor(null);
         return out;
     }
     private static Element firstElementByTag(Node parent, String tagName) {

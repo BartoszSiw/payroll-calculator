@@ -1,6 +1,8 @@
 package pl.edashi.dms.parser;
 import pl.edashi.common.logging.AppLogger;
+import pl.edashi.common.util.MappingIdDocs;
 import pl.edashi.dms.model.DmsParsedDocument;
+import pl.edashi.dms.model.DmsPayment;
 import pl.edashi.dms.model.DocumentMetadata;
 import pl.edashi.dms.model.MappingTarget;
 import pl.edashi.dms.model.Contractor;
@@ -32,7 +34,7 @@ public class DmsParserRD implements DmsParser{
         DmsParsedDocument out = new DmsParsedDocument();
         out.setDocumentType("RD");
         out.setSourceFileName(fileName);
-        String code = "S";
+        String code = "C";
         out.setMappingTarget(MappingTarget.fromCode(code));
         Element root = doc.getDocumentElement();
         Element document = (Element) doc.getElementsByTagName("document").item(0);
@@ -476,8 +478,22 @@ public class DmsParserRD implements DmsParser{
 
 
     private List<DmsRapKasa> extractPositionsRD(Document doc, DmsParsedDocument out) {
+    	String podmiot ="";
     	Contractor contractor = extractContractor(doc); 
     	out.setContractor(contractor);
+        if (contractor != null) {
+            if (contractor.getNip() != null && !contractor.getNip().isBlank()) {
+                podmiot = contractor.getNip();
+            } else {
+                podmiot = contractor.getFullName() == null ? "" : contractor.getFullName();
+            }
+            contractor.setPodmiot(podmiot);
+            // c.podmiot = podmiot;
+        } else {
+            podmiot = "";
+        }
+    	out.setContractor(contractor);
+    	out.setPodmiot(podmiot);
 	    // 1) Pozycje z typ="48"
 	    List<DmsRapKasa> list = new ArrayList<>();
 	    extractPositions48(doc,list,contractor);   // istniejące pozycje na poziomie 48
@@ -495,6 +511,25 @@ public class DmsParserRD implements DmsParser{
 	            r.setDowodNumber(dowod); // pole używane do zapisu NR_RAPORTU / NR_DOWODU w XML
 	            //r.setReportNumberPos(removeLeadingZeroInFirstSegment(dowod)); // jeśli chcesz formatowany wariant
 	            //r.setReportNumber(removeLeadingZeroInFirstSegment(dowod));
+	            String numerFa = dowod;
+	            String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, "D",numerFa, 36);
+	            String fullKey = MappingIdDocs.buildFullKey(podmiot, numerFa);
+	            String hash = MappingIdDocs.shortHashFromFullKey(fullKey, 6);
+	            String docKey = MappingIdDocs.generateDocId(podmiot, "K" ,numerFa, 36);
+
+	            r.setFullKey(fullKey);
+	            out.setFullKey(fullKey);
+	            r.setDocKey(docKey);
+	            out.setDocKey(docKey);
+	            r.setNrIdPlat(nrIdPlat);
+	            out.setNrIdPlat(nrIdPlat);
+	            r.setHash(hash);
+	            out.setHash(hash);
+	            List<DmsPayment> payId = out.getPayments();
+	            if (payId != null && !payId.isEmpty()) {
+	            	log.info("payments size="+out.getPayments().size());
+	                payId.get(0).setIdPlatn(nrIdPlat); // setIdPlatn zwraca void — wykonaj to osobno
+	            }
 	            log.info("ext RD parser: przypisano dowodNumber='" + dowod + "' kwotaRk='" + r.getKwotaRk() + "' do pozycji; nrDokumentu='" + r.getNrDokumentu() + "' file=" + out.getSourceFileName());
 	        }
 	    } else {

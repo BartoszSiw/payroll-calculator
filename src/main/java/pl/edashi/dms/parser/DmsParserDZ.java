@@ -169,10 +169,10 @@ public class DmsParserDZ implements DmsParser{
                 "ParserDZ: END expKraj=%s file=%s type=%s nr=%s positions=%d", out.getContractor().expKrajowy,
                 fileName, out.getDocumentType(), out.getInvoiceShortNumber(), out.getPositions().size()));*/
         String numerFa = out.getInvoiceNumber();
-        String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, numerFa, 36);
+        String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, "Z", numerFa, 36);
         String fullKey = MappingIdDocs.buildFullKey(podmiot, numerFa);
         String hash = MappingIdDocs.shortHashFromFullKey(fullKey, 6);
-        String docKey = MappingIdDocs.generateDocId(podmiot, "Z" ,numerFa, 36);
+        String docKey = MappingIdDocs.generateDocId(podmiot, "D" ,numerFa, 36);
 
         out.setFullKey(fullKey);
         out.setDocKey(docKey);

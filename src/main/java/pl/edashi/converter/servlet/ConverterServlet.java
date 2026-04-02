@@ -97,6 +97,7 @@ public class ConverterServlet extends HttpServlet {
         Set<String> filtrRejestry = new HashSet<>();
         String filtrOddzial = "01"; 
         String IdKsiegOddzial = "DMS_1"; 
+        boolean allowUpdate = false;
         for (FileItem item : items) {
             if (!item.isFormField()) continue;
             String name = item.getFieldName();
@@ -123,7 +124,9 @@ public class ConverterServlet extends HttpServlet {
                     DateFilterRegistry.getInstance().setToDate(
                         value.isBlank() ? null : LocalDate.parse(value)
                     );
-                }else {
+                } else if ("allowUpdate".equals(item.getFieldName())) {
+                	allowUpdate = "true".equals(item.getString(StandardCharsets.UTF_8));
+                } else {
             	log.debug(String.format("Ignored form field: %s", name));
             }
         }
@@ -147,7 +150,7 @@ public class ConverterServlet extends HttpServlet {
         String xml = Files.readString(savedFile, StandardCharsets.UTF_8);
         //log.info(String.format("fileName='%s'", fileName));
         try {
-        	Object parsed = converterService.processSingleDocument(xml, fileName,filtrRejestry, filtrOddzial);
+        	Object parsed = converterService.processSingleDocument(xml, fileName,filtrRejestry, filtrOddzial, allowUpdate);
         	if (parsed instanceof SkippedDocument skipped) {
         	    results.add("Pominięto: " + fileName + " (typ=" + skipped.getType() + ")");
         	    continue;
@@ -174,8 +177,8 @@ public class ConverterServlet extends HttpServlet {
         	    try {
         	    	docOut = new DmsToDmsMapper().map(d);
         	    } catch (Exception e) {
-        	        log.error("Błąd mapowania dokumentu " + fileName + ": " + e.getMessage(), e);
-        	        results.add("Błąd mapowania: " + fileName + " -> " + e.getMessage());
+        	        //log.error("Błąd mapowania dokumentu " + fileName + ": " + e.getMessage(), e);
+        	        //results.add("Błąd mapowania: " + fileName + " -> " + e.getMessage());
         	        continue; // przejdź do następnego pliku
         	    }
         	    if (docOut == null) {

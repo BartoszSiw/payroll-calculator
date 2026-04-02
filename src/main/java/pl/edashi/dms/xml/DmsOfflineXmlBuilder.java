@@ -153,7 +153,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         rs.appendChild(make(docXml, "FA_Z_PA", "Nie"));
         rs.appendChild(make(docXml, "VAN_FA_Z_PA", "Nie"));
         rs.appendChild(make(docXml, "VAN_RODZAJ", "0"));
-        rs.appendChild(make(docXml, "MPP", "Nie"));
+        rs.appendChild(make(docXml, "MPP", "Tak"));
         rs.appendChild(make(docXml, "NR_KSEF", ""));
         rs.appendChild(make(docXml, "DODATKOWY_OPIS", doc.getDodatkowyOpis()));
 

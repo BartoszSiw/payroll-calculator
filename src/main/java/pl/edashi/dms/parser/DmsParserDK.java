@@ -32,41 +32,15 @@ public class DmsParserDK implements DmsParser{
         DmsParsedDocument out = new DmsParsedDocument();
         out.setDocumentType("DK");
         out.setSourceFileName(fileName);
-        String podmiot = "";
+        
         Contractor c = extractContractor(doc);
         out.setContractor(c);
-        if (c != null) {
-            if (c.getNip() != null && !c.getNip().isBlank()) {
-                podmiot = c.getNip();
-            } else {
-                podmiot = c.getFullName() == null ? "" : c.getFullName();
-            }
-            // jeśli masz setter, użyj go; jeśli nie, odkomentuj bezpośredni dostęp
-            c.setPodmiot(podmiot);
-            // c.podmiot = podmiot;
-        } else {
-            podmiot = "";
-        }
 
-        out.setContractor(c);
-        out.setPodmiot(podmiot);
+        out.setTypDocAnalizer("DK");
         /*log.info(String.format(Locale.US,
                 "ParserDZ: END file=%s type=%s nr=%s positions=%d",
                 fileName, out.getDocumentType(), out.getInvoiceShortNumber(), out.getPositions().size()));*/
-        String numerFa = out.getInvoiceNumber();
-        String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, numerFa, 36);
-        String fullKey = MappingIdDocs.buildFullKey(podmiot, numerFa);
-        String hash = MappingIdDocs.shortHashFromFullKey(fullKey, 6);
-        String docKey = MappingIdDocs.generateDocId(podmiot, "Z" ,numerFa, 36);
 
-        out.setFullKey(fullKey);
-        out.setDocKey(docKey);
-        out.setNrIdPlat(nrIdPlat);
-        out.setHash(hash);
-        List<DmsPayment> payId = out.getPayments();
-        if (payId != null && !payId.isEmpty()) {
-            payId.get(0).setIdPlatn(nrIdPlat); // setIdPlatn zwraca void — wykonaj to osobno
-        }
         String code = "K";
         out.setMappingTarget(MappingTarget.fromCode(code));
         Element root = doc.getDocumentElement();
@@ -141,7 +115,7 @@ public class DmsParserDK implements DmsParser{
         out.setReportNumber(raw); // BEZ dalszej normalizacji
         out.setReportNumberPos(raw);
         out.setNrRKB(attrNr);*/
-        log.info("Last Parser DK ustawiono NrDokumentu='" + out.getNrDokumentu()+ "'getReportNumber='" + out.getReportNumber() + "' out.reportNumberPos='" + out.getReportNumberPos() + "' file= '" + out.getSourceFileName());
+        //log.info("Last Parser DK ustawiono NrDokumentu='" + out.getNrDokumentu()+ "'getReportNumber='" + out.getReportNumber() + "' out.reportNumberPos='" + out.getReportNumberPos() + "' file= '" + out.getSourceFileName());
         log.info("Last Parser DK ustawiono getRapKasa='" + out.getRapKasa());
         //log.info("DK parser: ustawiono out.reportNumber (raw) = '" + raw + "' file=" + out.getSourceFileName());
 
@@ -396,7 +370,7 @@ public class DmsParserDK implements DmsParser{
         }
     	return list;
     }
-    private void extractPositions49(Document doc, List<DmsRapKasa> list) {
+    private void extractPositions49(Document doc, List<DmsRapKasa> list,DmsParsedDocument out) {
         if (doc == null) return;
         NodeList docs = doc.getElementsByTagName("document");
 
@@ -483,6 +457,7 @@ public class DmsParserDK implements DmsParser{
                 match.setLp(lpAttr);
                 match.setOpis1(opis1);
                 match.setKierunek(existingKierunek);
+
                 //match.setNrDokKasowego(lpAttr);
                 // opcjonalny log debugowy
                 log.info(String.format("49 DK-> filled skeleton id='%s' nrDokumentu='%s' kwotaRk='%s' opis1='%s ' kierunek='%s '",
@@ -492,12 +467,27 @@ public class DmsParserDK implements DmsParser{
     }
 
     private List<DmsRapKasa> extractPositionsDK(Document doc, DmsParsedDocument out) {
-        Contractor contractor = extractContractor(doc);
-        out.setContractor(contractor);
+  String podmiot ="";
+        Contractor cont = extractContractor(doc);
+        out.setContractor(cont);
+        if (cont != null) {
+            if (cont.getNip() != null && !cont.getNip().isBlank()) {
+                podmiot = cont.getNip();
+            } else {
+                podmiot = cont.getFullName() == null ? "" : cont.getFullName();
+            }
+            cont.setPodmiot(podmiot);
+            // c.podmiot = podmiot;
+        } else {
+            podmiot = "";
+        }
+
+        out.setContractor(cont);
+        out.setPodmiot(podmiot);
 	    // 1) Pozycje z typ="48"
 	    List<DmsRapKasa> list = new ArrayList<>();
-	    extractPositions48(doc,list,contractor);   // istniejące pozycje na poziomie 48
-	    extractPositions49(doc,list);   // nowe: pozycje z dokumentów 49
+	    extractPositions48(doc,list,cont);   // istniejące pozycje na poziomie 48
+	    extractPositions49(doc,list,out);   // nowe: pozycje z dokumentów 49
 	    //log.info(String.format("ext DK list='%s '", list));
 	 // po zebraniu listy rapKasa (po extractPositions48 i extractPositions49)
 	    String dowod = null;
@@ -508,10 +498,30 @@ public class DmsParserDK implements DmsParser{
 	    if (dowod != null && !dowod.isBlank()) {
 	        for (DmsRapKasa r : list) {
 	            // ustawiamy numer dowodu KP/KW w polach pozycji
+	        	r.setPodmiot(podmiot);
 	            r.setDowodNumber(dowod); // pole używane do zapisu NR_RAPORTU / NR_DOWODU w XML
 	            //r.setReportNumberPos(removeLeadingZeroInFirstSegment(dowod)); // jeśli chcesz formatowany wariant
 	            //r.setReportNumber(removeLeadingZeroInFirstSegment(dowod));
-	            log.info("ext DK parser: przypisano dowodNumber='" + dowod + "' do pozycji; nrDokumentu='" + r.getNrDokumentu() + "' file=" + out.getSourceFileName());
+	            String numerFa = dowod;
+	            String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, "D",numerFa, 36);
+	            String fullKey = MappingIdDocs.buildFullKey(podmiot, numerFa);
+	            String hash = MappingIdDocs.shortHashFromFullKey(fullKey, 6);
+	            String docKey = MappingIdDocs.generateDocId(podmiot, "K" ,numerFa, 36);
+
+	            r.setFullKey(fullKey);
+	            out.setFullKey(fullKey);
+	            r.setDocKey(docKey);
+	            out.setDocKey(docKey);
+	            r.setNrIdPlat(nrIdPlat);
+	            out.setNrIdPlat(nrIdPlat);
+	            r.setHash(hash);
+	            out.setHash(hash);
+	            List<DmsPayment> payId = out.getPayments();
+	            if (payId != null && !payId.isEmpty()) {
+	            	log.info("payments size="+out.getPayments().size());
+	                payId.get(0).setIdPlatn(nrIdPlat); // setIdPlatn zwraca void — wykonaj to osobno
+	            }
+	            log.info("ext DK parser dowodNumber='" + dowod + "' do pozycji; nrDokumentu='" + r.getNrDokumentu() + "' file=" + out.getSourceFileName());
 	        }
 	    } else {
 	        log.info("ext DK parser: brak dowodNumber w out — nie przypisano do pozycji; file=" + out.getSourceFileName());

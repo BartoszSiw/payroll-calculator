@@ -75,7 +75,7 @@ public class XmlWatcher implements Runnable {
             Set<String> filtrRejestry = Set.of("ZK"); // tymczasowo dla działania tylko
             // 2. Parsowanie dokumentu DMS (DS, KO, DK, WZ, KZ, SL ...)
             Object parsed =
-                    converterService.processSingleDocument(xml, file.getFileName().toString(),filtrRejestry, "02");
+                    converterService.processSingleDocument(xml, file.getFileName().toString(),filtrRejestry, "02",false);
 
          // ============================
             // 3. Obsługa DS (sprzedaż)

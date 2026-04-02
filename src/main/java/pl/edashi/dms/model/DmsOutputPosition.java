@@ -45,6 +45,8 @@ public class DmsOutputPosition {
     private String nrDokumentu ="";
     private String mappedDowodNumber;
     private String odliczenia="";
+    private String docKey = "";
+    private String fullKey = "";
     private boolean advance = false;
 	private List<DmsKwotaDodatkowa> kwotyDodatkowe = new ArrayList<>();
 	private Contractor contractor;
@@ -85,11 +87,13 @@ public class DmsOutputPosition {
     public String getReportNumber() { return reportNumber; }
     public String getReportNumberPos() { return reportNumberPos; }
     public String getDowodNumber () { return dowodNumber; }
+    public String getDocKey() { return docKey; }
     public String getDataWystawienia () { return dataWystawienia; }
     public String getSymbolKPW () { return symbolKPW; }
     public String getNrDokumentu() { return nrDokumentu; }
     public String getMappedDowodNumber() { return mappedDowodNumber; } 
     public String getOdliczenia() { return odliczenia;}
+    public String getFullKey() { return fullKey;}
    	public boolean isAdvance() { return advance; }
 	public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {return kwotyDodatkowe;}
     public Contractor getContractor() { return contractor; }
@@ -131,11 +135,13 @@ public class DmsOutputPosition {
     public void setReportNumberPos(String reportNumberPos) { this.reportNumberPos = safe(reportNumberPos); }
 	public void setAdvance(boolean advance) { this.advance = advance; }
 	public void setDowodNumber(String dowodNumber) {this.dowodNumber = safe(dowodNumber); }
+	public void setDocKey(String docKey) {this.docKey = safe(docKey); }
 	public void setDataWystawienia(String dataWystawienia) {this.dataWystawienia = safe(dataWystawienia); }
 	public void setSymbolKPW(String symbolKPW) { this.symbolKPW = safe(symbolKPW); }
     public void setContractor(Contractor contractor) { this.contractor = contractor; }
     public void setMappedDowodNumber(String mappedDowodNumber) { this.mappedDowodNumber = mappedDowodNumber; }
     public void setOdliczenia(String odliczenia) { this.odliczenia = safe(odliczenia);}
+    public void setFullKey(String fullKey) { this.fullKey = safe(fullKey);}
     // --- Helper ---
     private static String safe(String s) {
         return s == null ? "" : s;
@@ -189,6 +195,7 @@ public class DmsOutputPosition {
 		// TODO Auto-generated method stub
 		return null;
 	}
+
 
 }
 

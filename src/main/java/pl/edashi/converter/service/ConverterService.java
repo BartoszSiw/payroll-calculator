@@ -2,50 +2,33 @@ package pl.edashi.converter.service;
 import pl.edashi.common.dao.RejestrDao;
 import pl.edashi.common.logging.AppLogger;
 
-import org.apache.poi.hpsf.Decimal;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import pl.edashi.converter.repository.DocumentRepository;
-import pl.edashi.dms.mapper.DmsToDmsMapper;
 import pl.edashi.dms.model.DmsParsedContractorList;
 import pl.edashi.dms.parser.DmsParser;
-import pl.edashi.dms.parser.DmsParserDK;
-import pl.edashi.dms.parser.DmsParserDS;
-import pl.edashi.dms.parser.DmsParserDZ;
-import pl.edashi.dms.parser.DmsParserKO;
-import pl.edashi.dms.parser.DmsParserKZ;
-import pl.edashi.dms.parser.DmsParserRD;
-import pl.edashi.dms.parser.DmsParserRO;
-import pl.edashi.dms.parser.DmsParserRZ;
 import pl.edashi.dms.parser.DmsParserSL;
-import pl.edashi.dms.parser.DmsParserWZ;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.StringReader;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.time.YearMonth;
-
 import org.xml.sax.InputSource;
-
 //import com.sun.org.apache.xerces.internal.impl.dv.dtd.StringDatatypeValidator;
-
 import pl.edashi.converter.analysis.DocumentRelationAnalyzer;
 import pl.edashi.converter.analysis.DocumentRelationAnalyzer.ExtractedNumber;
-import pl.edashi.converter.analysis.DocumentRelationAnalyzer.DocumentMeta;
 import pl.edashi.dms.model.DmsParsedDocument;
 import pl.edashi.dms.model.DmsPosition;
-import pl.edashi.dms.model.DocumentMetadata;
 import pl.edashi.dms.model.MappingTarget;
-
 import java.util.ArrayList; 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.math.BigDecimal;
 public class ConverterService {
 
@@ -59,7 +42,7 @@ public class ConverterService {
         this.rejestrDao = rejestrDao;
         this.structureComparator = new XmlStructureComparator();
     }
-    public Object processSingleDocument(String xml, String sourceFile,Set<String> filtrRejestry, String filtrOddzial) throws Exception {
+    public Object processSingleDocument(String xml, String sourceFile,Set<String> filtrRejestry, String filtrOddzial, boolean allowUpdate) throws Exception {
         // 1. parsowanie
         Document doc = load(xml);
         if (doc == null) {
@@ -102,6 +85,8 @@ public class ConverterService {
         String hash = d.getHash();
         String docKey = d.getDocKey();
         String dateDoc = docDate.toString();
+        String datUpd = LocalDateTime.now()
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         BigDecimal kwNet = BigDecimal.ZERO;
         BigDecimal kwVat = BigDecimal.ZERO;
         BigDecimal kwBru = BigDecimal.ZERO;
@@ -140,12 +125,34 @@ public class ConverterService {
             }
         */ 
         //log.info(String.format("RejestrDao implementation: ='%s '", rejestrDao.getClass().getName()));
-
+        boolean wasUpdated = false;
         try {
         	MappingTarget target = d.getMappingTarget();
             log.info(String.format("fullKey='%s' nrIdPlat='%s' podmiot='%s' target='%s'", fullKey, nrIdPlat, podmiot, target));
+            Optional<String> existing = rejestrDao.findByFullKey(fullKey, target);
+            if (existing.isPresent()) {
+                log.info("Record with fullKey exists (nr_id_plat=" + existing.get() + ")");
+                if (allowUpdate) {
+                    log.info("allowUpdate=true -> performing UPDATE for fullKey=" + fullKey);
+                    int updatedRows = rejestrDao.updateMapping(fullKey, podmiot, numer, nrIdPlat, hash, docKey,
+                                             dateDoc, kwNet, kwVat, kwBru, kwPla, docRejestr, datUpd, target);
+                    if (updatedRows > 0) {
+                        log.info("DB update succeeded for fullKey=" + fullKey + " rows=" + updatedRows);
+                        wasUpdated = true;
+                    //return new ProcessedDocument(docType, "updated existing record");
+                    } else {
+                        log.warn("Update affected 0 rows for fullKey=" + fullKey + " — treating as collision");
+                        rejestrDao.incrementCollision(fullKey, target);
+                        return new SkippedDocument(docType, "update affected 0 rows");
+                    }
+                } else {
+                    rejestrDao.incrementCollision(fullKey, target);
+                    log.warn("Insert skipped: record exists and allowUpdate=false for fullKey=" + fullKey);
+                    return new SkippedDocument(docType, "nrIdPlat conflict on insert");
+                }
+            }
             try {
-                // jedna próba insertu — jeśli rekord już istnieje, złapiemy to po kodzie SQL
+            	 // jedna próba insertu — jeśli rekord już istnieje, złapiemy to po kodzie SQL
             	log.info(String.format("DEBUG pre-filter: docType='%s' fullKey='%s' docDate='%s' parsedClass='%s'",
             		    docType, fullKey, docDate, d.getClass().getName()));
 
@@ -158,31 +165,43 @@ public class ConverterService {
             		log.info(String.format("2 DEBUG BEFORE INSERT: fullKey='%s' docKey='%s' thread='%s' parsedHash='%s'",
             			    fullKey, docKey, Thread.currentThread().getName(), System.identityHashCode(d)));
 
-                rejestrDao.insertMapping(fullKey, podmiot, numer, nrIdPlat, hash, docKey, dateDoc, kwNet, kwVat, kwBru, kwPla, docRejestr, target);
+                rejestrDao.insertMapping(fullKey, podmiot, numer, nrIdPlat, hash, docKey, dateDoc, kwNet, kwVat, kwBru, kwPla, docRejestr, datUpd, target);
                 log.info(String.format("insertMapping zakończone pomyślnie dla nrIdPlat='%s ' podmiot='%s '", nrIdPlat, podmiot));
             } catch (SQLException ex) {
-                log.error(String.format("SQL Error Code: ='%s ', Message: ='%s '", ex.getErrorCode(), ex.getMessage()), ex);
+                //log.error(String.format("SQL Error Code: ='%s ', Message: ='%s '", ex.getErrorCode(), ex.getMessage()), ex);
                 int code = ex.getErrorCode();
                 if (code == 2627 || code == 2601) { // SQL Server unique violation
-                	rejestrDao.incrementCollision(fullKey, target);
-                    log.warn(String.format("Insert ignored: unique constraint violation for nrIdPlat='%s ' sourceFile='%s '", nrIdPlat, sourceFile));
-                    return new SkippedDocument(docType, "nrIdPlat conflict on insert");
-                } else {
-                    log.error(String.format("Błąd SQL przy pliku sourceFile='%s ': SQLState=%s, ErrorCode=%d, Message=%s",
-                            sourceFile, ex.getSQLState(), ex.getErrorCode(), ex.getMessage()), ex);
-                    return new SkippedDocument(docType, "DB error");
+                        //log.warn("Unique violation — performing UPDATE instead of skipping");
+                	if (allowUpdate) {
+                        int updatedRows = rejestrDao.updateMapping(fullKey, podmiot, numer, nrIdPlat, hash, docKey, dateDoc, kwNet, kwVat, kwBru, kwPla, docRejestr, datUpd, target);
+                        if (updatedRows > 0) {
+                            log.info("Race: update succeeded for fullKey=" + fullKey);
+                            wasUpdated = true;
+                        } else {
+                            rejestrDao.incrementCollision(fullKey, target);
+                            return new SkippedDocument(docType, "nrIdPlat conflict on insert (race, update 0 rows)");
+                        }
+                        //return new ProcessedDocument(docType, "updated existing record");
+                    } else {
+                        rejestrDao.incrementCollision(fullKey, target);
+                        return new SkippedDocument(docType, "nrIdPlat conflict on insert");
+                    }
+                    } else {
+                        rejestrDao.incrementCollision(fullKey, target);
+                        //log.warn("Insert ignored: unique constraint violation");
+                        return new SkippedDocument(docType, "nrIdPlat conflict on insert");
+                    }
                 }
-            }
         } catch (Throwable t) {
             log.error(String.format("Nieoczekiwany błąd przy pliku sourceFile='%s ': %s", sourceFile, t.getMessage()), t);
             return new SkippedDocument(docType, "DB runtime error");
         }
-        
+        return d;
      // SL obsługujemy osobno, bo zwraca inny typ
 
 
         // wszystkie inne typy idą przez fabrykę
-        return d;
+        
 
         // wszystkie inne typy idą przez fabrykę
         //DmsParser parser = DmsParserFactory.getParser(type);

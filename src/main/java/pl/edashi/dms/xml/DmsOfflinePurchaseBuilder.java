@@ -129,7 +129,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         rz.appendChild(makeCdata(docXml, "AKCYZA_NA_WEGIEL", safe(doc.getAkcyzaNaWegiel())));
         rz.appendChild(makeCdata(docXml, "AKCYZA_NA_WEGIEL_KOLUMNA_KPR", safe(doc.getAkcyzaKolumnaKpr())));
         rz.appendChild(makeCdata(docXml, "JPK_FA", "Nie"));
-        rz.appendChild(makeCdata(docXml, "MPP", safe(doc.getMpp() != null ? doc.getMpp() : "Nie")));
+        rz.appendChild(makeCdata(docXml, "MPP", safe(doc.getMpp() != null ? doc.getMpp() : "Tak")));
         rz.appendChild(makeCdata(docXml, "NR_KSEF", safe(doc.getNrKsef())));
         if (doc.getNrKsef() != null && !doc.getNrKsef().isEmpty()) {
         	rz.appendChild(makeCdata(docXml, "KSEF_DATA_PRZYJECIA", safe(doc.getDataWystawienia())));

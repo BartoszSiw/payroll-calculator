@@ -1,5 +1,6 @@
 package pl.edashi.dms.mapper;
 import pl.edashi.common.logging.AppLogger;
+import pl.edashi.common.util.MappingIdDocs;
 import pl.edashi.dms.model.*;
 import pl.edashi.dms.model.DmsParsedDocument.DmsVatEntry;
 
@@ -74,7 +75,7 @@ public class DmsToDmsMapper {
             doc.setCzynny(safe(c.getCzynny()));
             doc.setExpKrajowy(safe(c.getExpKrajowy()));
         }
-        log.info(String.format("1 Mapper c krajowy='%s'",c.getExpKrajowy()));
+        //log.info(String.format("1 Mapper c krajowy='%s'",c.getExpKrajowy()));
         doc.setDokumentFiskalny(safe(src.getDokumentFiskalny())); 
         doc.setDokumentDetaliczny(safe(src.getDokumentDetaliczny()));
         doc.setKorekta(safe(src.getKorekta()));
@@ -137,6 +138,7 @@ public class DmsToDmsMapper {
                    outRk.setKierunek(k.getKierunek());
                    outRk.setOpis1(k.getOpis1());
                    outRk.setSymbolKPW(mapSymbolDokumentuZapisu(k.getDowodNumber()));
+                   outRk.setDocKey(k.getDocKey());
                    String code = null;
                    String mapped = safe(mapDowodNumber(k.getDowodNumber(),src.getNrRep()));
                    code = mapped.split("/")[0].trim();
@@ -145,12 +147,25 @@ public class DmsToDmsMapper {
                    else if ("KPD".equalsIgnoreCase(code)) typeKey = "KPD";
                    else if ("DW".equalsIgnoreCase(code)) typeKey = "DW";
                    String suffix = "";
-                   log.info(String.format("MAPPER BEFORE INC: mapped='%s ' raw='%s ' getOpis1='%s ' typeKey='%s ' countersd='%s '", mapped, k.getDowodNumber(), k.getOpis1(), typeKey, countersd));
+                   log.info(String.format("MAPPER BEFORE: k.getDocKey=%s mapped=%s raw=%s getOpis1=%s typeKey=%s countersd=%s", k.getDocKey(),mapped, k.getDowodNumber(), k.getOpis1(), typeKey, countersd));
                    suffix = nextCounter(countersd, typeKey, 3);
                    //log.info(String.format("MAPPER  NrRep()='%s ' suffix='%s '", src.getNrRep(), suffix));
                    String finalMapped = replaceSuffixWithCounter(mapped, suffix);
                    outRk.setDowodNumber(finalMapped);
+                   // For assign docKey special cash and card only, not for DS, DZ
+   	            String numerFa = finalMapped;
+   	            String podmiot = k.getPodmiot();
+   	            //String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, numerFa, 36);
+   	            String fullKey = MappingIdDocs.buildFullKey(podmiot, numerFa);
+   	            //String hash = MappingIdDocs.shortHashFromFullKey(fullKey, 6);
+   	            String docKey = MappingIdDocs.generateDocId(podmiot, "D" ,numerFa, 36);
+   	            //src.setFullKey(fullKey);//need to update and insert sql
+   	            outRk.setFullKey(fullKey);
+   	            //src.setDocKey(docKey);
+   	            outRk.setDocKey(docKey);
+   	            
                    doc.getRapKasa().add(outRk);
+                log.info(String.format("MAPPER AFTER: fullKey=%s docKey=%s mapped=%s raw=%s",fullKey, docKey,mapped, k.getDowodNumber()));
                    /*log.info(String.format("MAPPER CHECK: out id='%s' mapped='%s' rapKasaList id='%s' size='%s'",
                 		    System.identityHashCode(src), mapped, src.getRapKasa()==null?0:System.identityHashCode(src.getRapKasa()), src.getRapKasa()==null?0:src.getRapKasa().size()));
                 		log.info(String.format("MAPPER CHECK: processing k id='%s' nrDokumentu='%s' kwotaRk='%s' dowod='%s' NrRKB='%s'",

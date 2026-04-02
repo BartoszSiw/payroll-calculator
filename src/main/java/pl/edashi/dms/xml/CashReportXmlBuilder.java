@@ -6,6 +6,7 @@ import java.util.regex.Pattern;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import org.apache.commons.collections4.trie.analyzer.StringKeyAnalyzer;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -101,7 +102,7 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	        	//LOG.info(String.format("mapped='%s ' nrLp='%s ' numeratorValue='%s '", mapped, nrLp,numeratorValue));
             	Element rap = docXml.createElementNS(NS, "ZAPIS_KB");
             	rapKasa.appendChild(rap);
-        		rap.appendChild(makeCdata(docXml, "ID_ZRODLA_ZAPISU", ""));
+        		rap.appendChild(makeCdata(docXml, "ID_ZRODLA_ZAPISU", k.getDocKey()));
     	        rap.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU_ZAPISU", safe(k.getSymbolKPW())));
     	        rap.appendChild(makeCdata(docXml, "SYMBOL_DOKUMENTU_ZAPISU_ID", ""));
     	        rap.appendChild(makeCdata(docXml, "DATA_DOK", safe(k.getDataWystawienia())));

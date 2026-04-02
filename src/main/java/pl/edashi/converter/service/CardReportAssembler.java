@@ -1,4 +1,5 @@
 package pl.edashi.converter.service;
+import pl.edashi.common.util.MappingIdDocs;
 import pl.edashi.dms.model.Contractor;
 import pl.edashi.dms.model.DmsDocumentOut;
 import pl.edashi.dms.model.DmsOutputPosition;
@@ -118,13 +119,21 @@ public class CardReportAssembler {
 
             pos.setDowodNumber(finalMapped);
             pos.setLp(suffix);
-
+            String numerFa = finalMapped;
+            String podmiot = rd.getPodmiot();
+            String nrLewyDoc = MappingIdDocs.generateCandidate(podmiot, "D",pos.getNrDokumentu(), 36);
+            String fullKey = MappingIdDocs.buildFullKey(podmiot, numerFa);
+            String hash = MappingIdDocs.shortHashFromFullKey(fullKey, 6);
+            String docKey = MappingIdDocs.generateDocId(podmiot, "K" ,numerFa, 36);
+            pos.setDocKey(docKey);
+             pos.setFullKey(fullKey);
             out.getRapKasa().add(pos);
+            
             Rozliczenie r = new Rozliczenie();
             r.setKwotaRk(pos.getKwotaRk());
             r.setDataDokumentu(pos.getDataWystawienia());
-            r.setNumerLewegoDokumentu(pos.getNrDokumentu());
-            r.setNumerPrawegoDokumentu(pos.getDowodNumber());
+            r.setNumerLewegoDokumentu(nrLewyDoc);
+            r.setNumerPrawegoDokumentu(pos.getDocKey());
             r.setTypLewegoDokumentu("zdarzenie");
             r.setTypPrawegoDokumentu("zapis");
             r.setIdZrodla("");

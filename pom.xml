@@ -5,6 +5,31 @@
   <version>1.0</version>
   <packaging>war</packaging>
   <name>Kalkulator2025</name>
+      <profiles>
+        <profile>
+            <id>with-logs</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>ch.qos.logback</groupId>
+                    <artifactId>logback-classic</artifactId>
+                    <version>1.5.6</version>
+                </dependency>
+            </dependencies>
+        </profile>
+  			<profile>
+            <id>no-logs</id>
+            <dependencies>
+                <dependency>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-nop</artifactId>
+                    <version>2.0.12</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        </profiles>
   <description/>
   <properties>
     <webVersion>4.0</webVersion>

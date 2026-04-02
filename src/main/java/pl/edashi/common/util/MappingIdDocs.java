@@ -21,7 +21,7 @@ import java.util.zip.CRC32;
 	        return String.format("%1$" + length + "s", base36).replace(' ', '0');
 	    }
 
-	    public static String generateCandidate(String podmiot, String numer, int maxLen) {
+	    public static String generateCandidate(String podmiot, String typeChar, String numer, int maxLen) {
 	        String a = sanitize(podmiot);
 	        String b = sanitize(numer);
 	        int hashLen = 6;
@@ -32,7 +32,31 @@ import java.util.zip.CRC32;
 	        String partA = a.length() <= prefLen ? a : a.substring(0, prefLen);
 	        String partB = b.length() <= numLen ? b : b.substring(Math.max(0, b.length() - numLen));
 	        String hash = shortHashBase36(a + "|" + b, hashLen);
-	        return String.join("_", partA, partB, hash);
+	        String candidate = String.join("_", partA, partB, hash);
+	        if (candidate.length() > maxLen) {
+	            candidate = candidate.substring(0, maxLen);
+	        } else if (candidate.length() < maxLen) {
+	            StringBuilder sb = new StringBuilder(candidate);
+	            while (sb.length() < maxLen) sb.append('X');
+	            candidate = sb.toString();
+	        }
+	        int idx = candidate.indexOf('_');
+	        String docId;
+	        if (idx == -1) {
+	            // brak separatora — zastąp pierwszy znak
+	            docId = typeChar + candidate.substring(1);
+	        } else {
+	            docId = candidate.substring(0, idx) + typeChar + candidate.substring(idx + 1);
+	        }
+	        if (docId.length() > maxLen) docId = docId.substring(0, maxLen);
+	        else if (docId.length() < maxLen) {
+	            StringBuilder sb = new StringBuilder(docId);
+	            while (sb.length() < maxLen) sb.append('X');
+	            docId = sb.toString();
+	        }
+
+	        return docId;
+	        //return String.join("_", partA, partB, hash); was first logic when platnosc not need S or Z
 	    }
 	    public static String generateDocId(String podmiot, String typeChar, String numer, int maxLen) {
 	        String a = sanitize(podmiot);

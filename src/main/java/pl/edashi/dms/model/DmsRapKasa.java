@@ -26,6 +26,11 @@ public class DmsRapKasa {
 	public String dowodNumber = "";
 	public String nrDokumentu = "";
 	public String dataWystawienia = "";
+    private String nrIdPlat = "";
+    private String fullKey = "";
+    private String docKey = "";
+    private String hash = "";
+    private String podmiot = "";
     public DmsRapKasa() { }
 
     // --- Gettery ---
@@ -50,6 +55,11 @@ public class DmsRapKasa {
 	public String getKwotaRk() { return kwotaRk; }
 	public String getDowodNumber() { return dowodNumber;}
 	public String getDataWystawienia() { return dataWystawienia;}
+    public String getNrIdPlat() { return nrIdPlat;}
+    public String getFullKey() { return fullKey;}
+    public String getDocKey() { return docKey;}
+    public String getHash() { return hash;}
+    public String getPodmiot() { return podmiot;}
     public Contractor getContractor() {return contractor;}
 	//public List<DmsKwotaDodatkowa> getKwotyDodatkowe() {return kwotyDodatkowe;}
     // --- Settery (null-safe) ---
@@ -74,6 +84,11 @@ public class DmsRapKasa {
 	public void setNrDokumentu(String nrDokumentu) { this.nrDokumentu = nrDokumentu != null ? nrDokumentu : ""; }
 	public void setDataWystawienia(String dataWystawienia) {this.dataWystawienia = dataWystawienia; }
     public void setContractor(Contractor contractor) {this.contractor = contractor; }
+	public void setNrIdPlat(String nrIdPlat) {	 this.nrIdPlat = safe(nrIdPlat); }
+	public void setFullKey(String fullKey) {this.fullKey = safe(fullKey);	}
+	public void setDocKey(String docKey) {this.docKey = safe(docKey);	}
+	public void setHash(String hash) {this.hash = safe(hash);	}
+	public void setPodmiot(String podmiot) {this.podmiot = safe(podmiot);	}
 	//public void setKwotyDodatkowe(List<DmsKwotaDodatkowa> list) {this.kwotyDodatkowe = list;}
 	
     @Override
@@ -81,6 +96,7 @@ public class DmsRapKasa {
         return "DmsRapKasa{" +
         		"contractor='" + contractor + '\'' +
         		", nrDokumentu='" + nrDokumentu + '\'' +
+        		", docKey='" + docKey + '\'' +
         		", dataWystawienia='" + dataWystawienia + '\'' +
         		", reportNumber='" + reportNumber + '\'' +
                 ", reportNumberPos='" + reportNumberPos + '\'' +
@@ -89,6 +105,9 @@ public class DmsRapKasa {
                 ", nrRKB='" + nrRKB + '\'' +
                 ", kierunek='" + kierunek + '\'' +
                 '}';
+    }
+    private static String safe(String s) {
+        return s == null ? "" : s;
     }
 
 }
