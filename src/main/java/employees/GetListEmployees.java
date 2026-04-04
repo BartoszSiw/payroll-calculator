@@ -16,7 +16,7 @@ import org.json.JSONObject;
 public class GetListEmployees extends HttpServlet {
 	ZoneId zoneId = ZoneId.of("UTC");
 	private static final long serialVersionUID = 1L;
-	private static final String DB_URL = "jdbc:mysql://10.10.40.126:3306/dbkalkulator2025?useSSL=false&serverTimezone=UTC";//?useSSL=false&serverTimezone=UTC
+	private static final String DB_URL = "";//"jdbc:mysql://10.10.40.126:3306/dbkalkulator2025?useSSL=false&serverTimezone=UTC";//?useSSL=false&serverTimezone=UTC
     private static final String DB_USER = "EDASHI";
     private static final String DB_PASS = "Egas2025@)@%";
 

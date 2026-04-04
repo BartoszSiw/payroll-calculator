@@ -5,7 +5,7 @@ import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-
+import java.lang.reflect.Method;
 import pl.edashi.dms.parser.util.DocumentNumberExtractor;
 
 public class AppLogger {
@@ -50,9 +50,37 @@ public class AppLogger {
     }
 
         // ... inne metody ...
+    public String getName() {
+        return logger.getName();
+    }
 
+    public String getEffectiveLevel() {
+        try {
+            // sprawdź, czy klasa Logbacka jest dostępna
+            Class<?> lbLoggerClass = Class.forName("ch.qos.logback.classic.Logger");
+            if (lbLoggerClass.isInstance(logger)) {
+                // wywołaj metodę getLevel() przez refleksję
+                Method getLevelMethod = lbLoggerClass.getMethod("getLevel");
+                Object level = getLevelMethod.invoke(logger);
+                return level == null ? "NULL" : level.toString();
+            } else {
+                return "NOT_LOGBACK";
+            }
+        } catch (ClassNotFoundException e) {
+            // Logback nie jest na classpath (np. w profilu prod)
+            return "LOGBACK_MISSING";
+        } catch (Exception e) {
+            // inne błędy refleksji
+            return "UNKNOWN";
+        }
+    }
+
+    // przykładowe wrappery logujące przez SLF4J
+    /*public static void info(String module, String msg) {
+        logger.info(msg);
+    }*/
         // DODAJ:
-        public String getName() {
+        /*public String getName() {
             return logger.getName();
         }
 
@@ -62,7 +90,7 @@ public class AppLogger {
                 return lb.getLevel() == null ? "NULL" : lb.getLevel().toString();
             }
             return "UNKNOWN";
-        }
+        }*/
 
 
 }
