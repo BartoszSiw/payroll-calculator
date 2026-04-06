@@ -11,6 +11,8 @@ import pl.edashi.dms.parser.DmsParserSL;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+
+import java.io.File;
 import java.io.StringReader;
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -30,6 +32,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 public class ConverterService {
 
     private final DocumentRepository repository;
@@ -42,7 +46,59 @@ public class ConverterService {
         this.rejestrDao = rejestrDao;
         this.structureComparator = new XmlStructureComparator();
     }
-    public Object processSingleDocument(String xml, String sourceFile,Set<String> filtrRejestry, String filtrOddzial, boolean allowUpdate) throws Exception {
+    public ProcessingResult processFile(File file, boolean allowUpdate, Set<String> filtrRejestry, String filtrOddzial) {
+        try {
+            String xml = Files.readString(file.toPath(), StandardCharsets.UTF_8);
+
+            // call your existing parser/processor
+            Object parsed = processSingleDocument(xml, file.getName(), allowUpdate, filtrRejestry, filtrOddzial);
+            log.info("processFile: file=" + file.getName() + " allowUpdate=" + allowUpdate);
+            if (parsed instanceof SkippedDocument skipped) {
+                return new ProcessingResult(ProcessingResult.Status.SKIPPED, parsed, Optional.empty());
+            }
+
+            // if your processSingleDocument sometimes returns an XML fragment string, keep it
+            if (parsed instanceof String s && s != null && !s.isBlank()) {
+                return new ProcessingResult(ProcessingResult.Status.OK, parsed, Optional.of(s));
+            }
+
+            // if it returns a DmsParsedDocument or DmsParsedContractorList, build optional fragment if needed
+            if (parsed instanceof DmsParsedDocument d) {
+                String fragment = toXmlFragment(d); // implement toXmlFragment as you need
+                return new ProcessingResult(ProcessingResult.Status.OK, d, Optional.ofNullable(fragment).filter(str -> !str.isBlank()));
+            }
+
+            if (parsed instanceof DmsParsedContractorList sl) {
+                // you may want to produce a fragment or not; here we return the object
+                return new ProcessingResult(ProcessingResult.Status.OK, sl, Optional.empty());
+            }
+
+            // default: return object as OK but no fragment
+            return new ProcessingResult(ProcessingResult.Status.OK, parsed, Optional.empty());
+
+        } catch (Throwable t) {
+            log.error("Error processing file " + file.getName(), t);
+            return new ProcessingResult(ProcessingResult.Status.ERROR, null, Optional.empty());
+        }
+    }
+
+    // przykładowy helper do budowy fragmentu; dopasuj pola do swoich potrzeb
+    private String toXmlFragment(DmsParsedDocument d) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<document>");
+        sb.append("<type>").append(escapeXml(d.getDocumentType())).append("</type>");
+        sb.append("<fullKey>").append(escapeXml(d.getFullKey())).append("</fullKey>");
+        sb.append("<filename>").append(escapeXml(d.getSourceFileName())).append("</filename>");
+        sb.append("</document>");
+        return sb.toString();
+    }
+
+    private String escapeXml(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;").replace("'", "&apos;");
+    }
+    public Object processSingleDocument(String xml, String sourceFile,boolean allowUpdate,Set<String> filtrRejestry, String filtrOddzial) throws Exception {
         // 1. parsowanie
         Document doc = load(xml);
         if (doc == null) {
@@ -147,7 +203,7 @@ public class ConverterService {
                     }
                 } else {
                     rejestrDao.incrementCollision(fullKey, target);
-                    log.warn("Insert skipped: record exists and allowUpdate=false for fullKey=" + fullKey);
+                    log.warn(String.format("Insert skipped: record exists and allowUpdate=%s for fullKey=",allowUpdate,fullKey));
                     return new SkippedDocument(docType, "nrIdPlat conflict on insert");
                 }
             }
@@ -197,6 +253,7 @@ public class ConverterService {
             return new SkippedDocument(docType, "DB runtime error");
         }
         return d;
+    }
      // SL obsługujemy osobno, bo zwraca inny typ
 
 
@@ -235,7 +292,7 @@ public class ConverterService {
         default:
             throw new IllegalArgumentException("Nieobsługiwany typ dokumentu: " + type);
     }*/
-    }
+    
     public DmsParsedContractorList processContractorDictionary(String xml, String sourceFile) throws Exception {
     	
         Document doc = load(xml);

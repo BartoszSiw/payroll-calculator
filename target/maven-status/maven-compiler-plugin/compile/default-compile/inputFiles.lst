@@ -43,8 +43,10 @@ C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\employees\ImportEmployees.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\parser\DmsParserDZ.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\parser\DmsParser.java
+C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\converter\service\DailyXmlWatcher.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\model\DocumentMetadata.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\common\logging\MdcFilter.java
+C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\converter\service\AppStartupListener.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\optima\builder\ContractorsXmlBuilder.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\model\DmsPosition.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\parser\DmsParserSL.java
@@ -71,6 +73,7 @@ C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\parser\DmsParserDM.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\xml\DmsOfflinePurchaseBuilder.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\common\dao\RejestrDao.java
+C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\converter\service\ProcessingResult.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\parser\DmsParserDS.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\payroll\model\WorkHours.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\converter\service\XmlWatcher.java

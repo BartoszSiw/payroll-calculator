@@ -1,183 +1,220 @@
 package pl.edashi.converter.service;
 import pl.edashi.common.logging.AppLogger;
-import pl.edashi.dms.mapper.DmsToDmsMapper;
-import pl.edashi.dms.model.DmsDocumentOut;
-import pl.edashi.dms.model.DmsParsedContractorList;
-import pl.edashi.dms.model.DmsParsedDocument;
-import pl.edashi.dms.model.DocumentMetadata;
-import pl.edashi.dms.xml.DmsOfflineXmlBuilder;
-import pl.edashi.dms.xml.DmsXmlValidator;
-
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.List;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.Set;
+import java.util.concurrent.*;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class XmlWatcher implements Runnable {
-
-    private final Path directory;
-    private final XmlSplitter splitter;
+public class XmlWatcher {
+    private final AppLogger log = new AppLogger("Converter-Watcher");
+    private final Path watchDir;
     private final ConverterService converterService;
-    private final AppLogger log = new AppLogger("WATCHER");
-    public XmlWatcher(String dir, ConverterService converterService) {
-        this.directory = Paths.get(dir);
-        this.splitter = new XmlSplitter();
+    private final Pattern filenamePattern; // regex for filename filter
+    private final Predicate<Path> dateFilter; // custom date filter
+    private final WatchService watchService;
+    private final ExecutorService workerPool;
+    private final ScheduledExecutorService scheduler;
+    private final int maxConcurrent;
+    private volatile boolean running = false;
+
+    public XmlWatcher(Path watchDir,
+                      ConverterService converterService,
+                      Pattern filenamePattern,
+                      Predicate<Path> dateFilter,
+                      int maxConcurrent) throws IOException {
+        this.watchDir = watchDir;
         this.converterService = converterService;
+        this.filenamePattern = filenamePattern;
+        this.dateFilter = dateFilter;
+        this.watchService = FileSystems.getDefault().newWatchService();
+        this.maxConcurrent = Math.max(1, maxConcurrent);
+        this.workerPool = Executors.newFixedThreadPool(this.maxConcurrent);
+        this.scheduler = Executors.newSingleThreadScheduledExecutor();
     }
 
-    @Override
-    public void run() {
+    public void start() throws IOException {
+        if (running) return;
+        running = true;
+        // register directory
+        watchDir.register(watchService, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_MODIFY);
+        // initial scan to pick up existing files
+        initialScan();
+        // start watcher loop in background
+        Thread watcherThread = new Thread(this::watchLoop, "XmlWatcher-Thread");
+        watcherThread.setDaemon(true);
+        watcherThread.start();
+        log.info(String.format("XmlWatcher started for dir=%s", watchDir));
+    }
+
+    public void stop() {
+        running = false;
+        try { watchService.close(); } catch (IOException ignored) {}
+        workerPool.shutdown();
+        scheduler.shutdown();
+        log.info("XmlWatcher stopped");
+    }
+
+    private void initialScan() {
         try {
-            WatchService watchService = FileSystems.getDefault().newWatchService();
-            directory.register(watchService, StandardWatchEventKinds.ENTRY_CREATE);
-
-            log.info("Watching directory: " + directory.toAbsolutePath());
-
-            while (!Thread.currentThread().isInterrupted()) {
-                WatchKey key;
-                try {
-                    key = watchService.take(); // blokuje do momentu zdarzenia
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    log.info("XmlWatcher interrupted, stopping.");
-                    break;
-                }
-                for (WatchEvent<?> event : key.pollEvents()) {
-                    WatchEvent.Kind<?> kind = event.kind();
-                    if (kind == StandardWatchEventKinds.OVERFLOW) {
-                        log.warn("WatchService overflow event");
-                        continue;
-                    }
-                    Path fileName = (Path) event.context();
-                    if (fileName != null && fileName.toString().toLowerCase().endsWith(".xml")) {
-                        Path fullPath = directory.resolve(fileName);
-                        log.info("New XML file detected: " + fullPath);
-                        handleNewXmlFile(fullPath);
-                    }
-                }
-                boolean valid = key.reset();
-                if (!valid) {
-                    log.warn("WatchKey no longer valid, stopping watcher for directory: " + directory);
-                    break;
-                }
-            }
+            Files.list(watchDir)
+                 .filter(p -> p.toString().toLowerCase().endsWith(".xml"))
+                 .forEach(this::scheduleIfMatches);
         } catch (IOException e) {
-            log.error("I/O error while watching directory: " + directory + " - " + e.getMessage(), e);
-        } catch (Exception e) {
-            log.error("Unexpected error in XmlWatcher: " + e.getMessage(), e);
+            log.warn(String.format("Initial scan failed", e));
         }
     }
 
-    private void handleNewXmlFile(Path file) {
-        try {
-            // 1. Wczytanie całego pliku XML jako String
-            String xml = Files.readString(file);
-            Set<String> filtrRejestry = Set.of("ZK"); // tymczasowo dla działania tylko
-            // 2. Parsowanie dokumentu DMS (DS, KO, DK, WZ, KZ, SL ...)
-            Object parsed =
-                    converterService.processSingleDocument(xml, file.getFileName().toString(),filtrRejestry, "02",false);
-
-         // ============================
-            // 3. Obsługa DS (sprzedaż)
-            // ============================
-            if (parsed instanceof DmsParsedDocument ds) {
-
-                // Mapowanie DS → DMS
-                DmsDocumentOut dms = new DmsToDmsMapper().map(ds);
-
-                // Generowanie finalnego XML zgodnego z Comarch OFFLINE
-                // Uwaga: dopasuj wywołanie do rzeczywistej sygnatury DmsOfflineXmlBuilder
-                // Jeśli klasa ma konstruktor bezargumentowy i metodę build(DmsDocumentOut) — poniżej OK.
-                // Jeśli konstruktor wymaga parametrów, użyj odpowiedniej sygnatury.
-                String finalXml;
-                try {
-                    DmsOfflineXmlBuilder builder = new DmsOfflineXmlBuilder(dms); // sprawdź, czy istnieje konstruktor bez-arg
-                    // Utwórz nowy Document do wypełnienia przez buildera
-                    javax.xml.parsers.DocumentBuilderFactory dbFactory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
-                    dbFactory.setNamespaceAware(true);
-                    javax.xml.parsers.DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-                    org.w3c.dom.Document docXml = dBuilder.newDocument();
-
-                    // Stwórz root element (builder może oczekiwać konkretnego root; używamy namespace z buildera)
-                    // Jeśli DmsOfflineXmlBuilder sam tworzy root, możesz przekazać null lub pusty element — sprawdź implementację.
-                    org.w3c.dom.Element root = docXml.createElementNS("http://www.comarch.pl/cdn/optima/offline", "DMS");
-                    docXml.appendChild(root);
-
-                    // Wypełnij dokument przez buildera
-                    builder.build(docXml, root);
-
-                    // Serializacja Document -> String
-                    javax.xml.transform.TransformerFactory tf = javax.xml.transform.TransformerFactory.newInstance();
-                    javax.xml.transform.Transformer transformer = tf.newTransformer();
-                    transformer.setOutputProperty(javax.xml.transform.OutputKeys.ENCODING, "UTF-8");
-                    transformer.setOutputProperty(javax.xml.transform.OutputKeys.INDENT, "yes");
-
-                    java.io.StringWriter writer = new java.io.StringWriter();
-                    transformer.transform(new javax.xml.transform.dom.DOMSource(docXml), new javax.xml.transform.stream.StreamResult(writer));
-                    finalXml = writer.toString();
-                } catch (IllegalArgumentException iae) {
-                    log.error("DmsOfflineXmlBuilder rejected document: " + iae.getMessage(), iae);
-                    return;
-                } catch (javax.xml.parsers.ParserConfigurationException pce) {
-                    log.error("Parser configuration error while building offline XML: " + pce.getMessage(), pce);
-                    return;
-                } catch (javax.xml.transform.TransformerException te) {
-                    log.error("Error serializing offline XML: " + te.getMessage(), te);
-                    return;
-                } catch (Exception ex) {
-                    log.error("Unexpected error while building offline XML: " + ex.getMessage(), ex);
-                    return;
-                }
-
-                // Walidacja XSD
-                //DmsXmlValidator.validate(finalXml, "xsd/optima_offline.xsd");
-
-                // Zapis do katalogu output/
-                Path outputDir = Paths.get("output");
-                if (!Files.exists(outputDir)) {
-                    Files.createDirectories(outputDir);
-                }
-                // Pobierz genDocId bezpośrednio z metadata (bez dostępu do pola)
-                DocumentMetadata meta = ds.getMetadata();
-                String baseName = (meta != null && meta.getGenDocId() != null && !meta.getGenDocId().isBlank())
-                        ? meta.getGenDocId()
-                        : file.getFileName().toString().replaceAll("\\.xml$", "");
-                Path outFile = outputDir.resolve(baseName + ".xml");
-                Files.writeString(outFile, finalXml);
-
-                log.info("Processed DMS file: " + file.getFileName() + " → saved as " + outFile.getFileName());
-
-                // opcjonalnie: przenieś oryginalny plik do katalogu processed/
-                try {
-                    Path processedDir = directory.resolve("processed");
-                    if (!Files.exists(processedDir)) Files.createDirectories(processedDir);
-                    Files.move(file, processedDir.resolve(file.getFileName()), StandardCopyOption.REPLACE_EXISTING);
-                    log.info("Moved original file to: " + processedDir.resolve(file.getFileName()));
-                } catch (IOException moveEx) {
-                    log.warn("Could not move original file to processed/: " + moveEx.getMessage());
-                }
-                return;
+    private void watchLoop() {
+        while (running) {
+            WatchKey key;
+            try {
+                key = watchService.poll(1, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            } catch (ClosedWatchServiceException cwse) {
+                break;
             }
-
-            // ============================
-            // 4. Obsługa SL (słownik kontrahentów)
-            // ============================
-            if (parsed instanceof DmsParsedContractorList) {
-                log.info("Plik SL wykryty: " + file.getFileName() + " — słownik kontrahentów nie jest przetwarzany przez XmlWatcher.");
-                // opcjonalnie: przenieś plik do innego katalogu lub usuń
-                return;
+            if (key == null) continue;
+            for (WatchEvent<?> ev : key.pollEvents()) {
+                WatchEvent.Kind<?> kind = ev.kind();
+                if (kind == StandardWatchEventKinds.OVERFLOW) continue;
+                WatchEvent<Path> evPath = (WatchEvent<Path>) ev;
+                Path filename = evPath.context();
+                Path full = watchDir.resolve(filename);
+                // schedule processing with small delay to allow file to finish writing
+                scheduler.schedule(() -> scheduleIfMatches(full), 300, TimeUnit.MILLISECONDS);
             }
-
-            // ============================
-            // 5. Nieznany typ
-            // ============================
-            log.warn("Nieobsługiwany typ dokumentu w watcherze: " + (parsed != null ? parsed.getClass() : "null"));
-        } catch (IOException e) {
-            log.error("I/O error processing file " + file.getFileName() + ": " + e.getMessage(), e);
-        } catch (Exception e) {
-            log.error("Error processing file " + file.getFileName() + ": " + e.getMessage(), e);
+            boolean valid = key.reset();
+            if (!valid) break;
         }
     }
 
+    private void scheduleIfMatches(Path file) {
+        try {
+            if (!Files.exists(file) || !Files.isRegularFile(file)) return;
+            String name = file.getFileName().toString();
+            if (!filenamePattern.matcher(name).matches()) {
+                log.debug(String.format("Filename does not match pattern=%s", name));
+                return;
+            }
+            if (!dateFilter.test(file)) {
+                log.debug(String.format("File filtered by date=%s", name));
+                return;
+            }
+            // check file stability: ensure size not changing for short period
+            if (!isFileStable(file, 500, 3)) {
+                log.warn(String.format("File not stable, skipping for now=%s", file));
+                // optionally schedule retry
+                scheduler.schedule(() -> scheduleIfMatches(file), 1, TimeUnit.SECONDS);
+                return;
+            }
+            // submit to worker pool
+            workerPool.submit(() -> processFile(file));
+        } catch (Throwable t) {
+            log.error("Error scheduling file " + file, t);
+        }
+    }
+
+    private boolean isFileStable(Path file, long waitMillis, int attempts) {
+        try {
+            long previous = Files.size(file);
+            for (int i = 0; i < attempts; i++) {
+                Thread.sleep(waitMillis);
+                long now = Files.size(file);
+                if (now != previous) {
+                    previous = now;
+                } else {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            log.debug(String.format("Stability check failed for file=%s e=%s" + file, e));
+            return false;
+        }
+        return false;
+    }
+
+    private void processFile(Path file) {
+        String sourceFile = file.toString();
+        log.info(String.format("Processing file=%s", sourceFile));
+        try {
+            String xml = new String(Files.readAllBytes(file), java.nio.charset.StandardCharsets.UTF_8);
+            // tutaj wywołujemy istniejący serwis; dopasuj parametry do Twojego API
+            // przykładowe parametry filtrów — dostosuj do potrzeb
+            Set<String> filtrRejestry = java.util.Collections.emptySet();
+            String filtrOddzial = null;
+            boolean allowUpdate = true;
+            Object result = converterService.processSingleDocument(xml, sourceFile,allowUpdate, filtrRejestry, filtrOddzial);
+            log.info(String.format("Processing result for sourceFile=%s result=%s ", sourceFile, result == null ? "null" : result.getClass().getSimpleName()));
+            // po sukcesie możesz przenieść plik do katalogu archive lub usunąć
+            // Files.move(file, archiveDir.resolve(file.getFileName()), StandardCopyOption.ATOMIC_MOVE);
+        } catch (Exception e) {
+            log.error("Failed to process file " + sourceFile, e);
+            // retry logic: schedule limited retries with backoff
+            scheduleRetry(file, 1);
+        }
+    }
+
+    private void scheduleRetry(Path file, int attempt) {
+        int maxAttempts = 3;
+        if (attempt > maxAttempts) {
+            log.warn(String.format("Max retries reached for file=%s", file));
+            return;
+        }
+        long delay = (long) Math.pow(2, attempt) * 1000L;
+        scheduler.schedule(() -> {
+            try {
+                if (Files.exists(file)) {
+                    processFile(file);
+                }
+            } catch (Throwable t) {
+                log.error("Retry failed for " + file, t);
+                scheduleRetry(file, attempt + 1);
+            }
+        }, delay, TimeUnit.MILLISECONDS);
+    }
+
+    // Example helper: date filter by lastModified or by parsing date from filename
+    public static Predicate<Path> lastModifiedBetween(LocalDate from, LocalDate to) {
+        return path -> {
+            try {
+                BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
+                Instant instant = attrs.lastModifiedTime().toInstant();
+                LocalDate fileDate = instant.atZone(ZoneId.systemDefault()).toLocalDate();
+                if (from != null && fileDate.isBefore(from)) return false;
+                if (to != null && fileDate.isAfter(to)) return false;
+                return true;
+            } catch (IOException e) {
+                return false;
+            }
+        };
+    }
+
+    // Example helper: parse date from filename using formatter and regex group
+    public static Predicate<Path> filenameDateRange(Pattern datePattern, DateTimeFormatter fmt, LocalDate from, LocalDate to) {
+        return path -> {
+            String name = path.getFileName().toString();
+            java.util.regex.Matcher m = datePattern.matcher(name);
+            if (!m.find()) return false;
+            try {
+                String dateStr = m.group(1);
+                LocalDate d = LocalDate.parse(dateStr, fmt);
+                if (from != null && d.isBefore(from)) return false;
+                if (to != null && d.isAfter(to)) return false;
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        };
+    }
 }
+
 

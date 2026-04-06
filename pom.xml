@@ -108,7 +108,6 @@
       </plugins>
     <finalName>Kalkulator2025</finalName>
   </build>
-
   <profiles>
   <profile>
     <id>dev</id>

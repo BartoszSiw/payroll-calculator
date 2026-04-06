@@ -14,6 +14,7 @@ public class RejestrDaoImpl implements RejestrDao {
 	    private final String url = "jdbc:sqlserver://10.10.70.30:1433;databaseName=CONVERTER;encrypt=false;trustServerCertificate=true";
 	    private final String user = "sa";
 	    private final String pass = "Enova2023@^";
+	    
 	    //public RejestrDaoImpl(DataSource ds) { this.ds = ds; }
 
 	    @Override
@@ -27,6 +28,10 @@ public class RejestrDaoImpl implements RejestrDao {
 	        case SALES     -> SQL_INSERT_SALES;
 	        case CARD      -> SQL_INSERT_CARD;
 	        case CASH      -> SQL_INSERT_CASH;};
+	        try {Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+	        } catch (ClassNotFoundException cnfe) {
+	            throw new SQLException("Driver not found", cnfe);
+	        }
 	        try (Connection c = DriverManager.getConnection(url, user, pass);
 	             PreparedStatement ps = c.prepareStatement(sql)) {
 	            ps.setString(1, fullKey);
@@ -82,6 +87,10 @@ public class RejestrDaoImpl implements RejestrDao {
 	        case CARD      -> SQL_INSERT_CARD;
 	        case CASH      -> SQL_INSERT_CASH;
 	    };
+        try {Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+        } catch (ClassNotFoundException cnfe) {
+            throw new SQLException("Driver not found", cnfe);
+        }
 	        //log.info(String.format("Ins SQL: ='%s '", sql));
 	        try (Connection conn = DriverManager.getConnection(url, user, pass);
 	        		PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -167,7 +176,10 @@ public class RejestrDaoImpl implements RejestrDao {
 	        case CARD      -> SQL_UPDATE_CARD;
 	        case CASH      -> SQL_UPDATE_CASH;
 	    };
-
+        try {Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+        } catch (ClassNotFoundException cnfe) {
+            throw new SQLException("Driver not found", cnfe);
+        }
     	    try (Connection cn = DriverManager.getConnection(url, user, pass);
     	         PreparedStatement us = cn.prepareStatement(sql)) {
     	    	us.setString(1, podmiot);
@@ -206,6 +218,10 @@ public class RejestrDaoImpl implements RejestrDao {
 	        case CARD      -> SQL_UPDATE_CARD;
 	        case CASH      -> SQL_UPDATE_CASH;
 	    };
+        try {Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+        } catch (ClassNotFoundException cnfe) {
+            throw new SQLException("Driver not found", cnfe);
+        }
     	    try (Connection conn = DriverManager.getConnection(url, user, pass);
 	             PreparedStatement ps = conn.prepareStatement(upd)) {
 	            ps.setString(1, fullKey);

@@ -3,7 +3,23 @@
   <display-name>Kalkulator2025</display-name>
 <context-param>
     <param-name>org.apache.tomcat.util.http.fileupload.fileCountMax</param-name>
-    <param-value>999</param-value>
+    <param-value>5999</param-value>
+</context-param>
+  <context-param>
+  <param-name>watchDir</param-name>
+  <param-value>C:/XML/Watch</param-value>
+</context-param>
+<context-param>
+  <param-name>outputDir</param-name>
+  <param-value>C:/XML/Output</param-value>
+</context-param>
+<context-param>
+    <param-name>watcherWorkerThreads</param-name>
+    <param-value>1</param-value> <!-- domyślnie 1, zmień jeśli chcesz więcej -->
+</context-param>
+<context-param>
+    <param-name>watcherMaxWaitMillis</param-name>
+    <param-value>900000</param-value> <!-- 15 minut -->
 </context-param>
   <welcome-file-list>
     <welcome-file>index.html</welcome-file>

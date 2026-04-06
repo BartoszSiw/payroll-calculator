@@ -13,6 +13,7 @@ import pl.edashi.converter.service.CashReportAssembler;
 import pl.edashi.converter.service.ConverterService;
 import pl.edashi.converter.service.DateFilterRegistry;
 import pl.edashi.converter.service.ParserRegistry;
+import pl.edashi.converter.service.ProcessingResult;
 import pl.edashi.converter.service.SkippedDocument;
 import pl.edashi.dms.mapper.DmsToDmsMapper;
 import pl.edashi.dms.model.DmsDocumentOut;
@@ -31,13 +32,17 @@ import java.nio.charset.StandardCharsets;
 import java.io.*;
 import java.nio.file.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import javax.xml.transform.OutputKeys;
@@ -59,13 +64,21 @@ import org.apache.commons.fileupload2.core.FileItem;
 public class ConverterServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 	private ConverterService converterService;
-	private final AppLogger log = new AppLogger("CONVERTER-SERVLET");
+	private final AppLogger log = new AppLogger("Converter-Servlet");
+	//private static final Path TOGGLE_FILE = Paths.get("C:/XML/Output/allowUpdate.flag");
     @Override
     public void init() throws ServletException {
-    	RejestrDao rejestrDao = new RejestrDaoImpl();
-        
-        // Przekazywanie do ConverterService
-        converterService = new ConverterService(new DocumentRepository(), rejestrDao);
+        super.init();
+        ServletContext ctx = getServletContext();
+        Object svc = ctx.getAttribute("converterService");
+        if (svc instanceof ConverterService) {
+            this.converterService = (ConverterService) svc;
+        } else {
+            // fallback: create one (but prefer the listener approach)
+            RejestrDao rejestrDao = new RejestrDaoImpl();
+            this.converterService = new ConverterService(new DocumentRepository(), rejestrDao);
+            ctx.setAttribute("converterService", this.converterService);
+        }
     }
 
     @Override
@@ -92,12 +105,20 @@ public class ConverterServlet extends HttpServlet {
         Path uploadDir = Paths.get("uploads");
         Files.createDirectories(uploadDir);
         RootXmlBuilder root = new RootXmlBuilder();
-        String outputName = "DMS_IMPORT_" + System.currentTimeMillis();
+        //String outputName = "DMS_IMPORT_" + System.currentTimeMillis();
         List<DmsParsedDocument> allParsedDocs = new ArrayList<>();
         Set<String> filtrRejestry = new HashSet<>();
         String filtrOddzial = "01"; 
         String IdKsiegOddzial = "DMS_1"; 
         boolean allowUpdate = false;
+        boolean simulateScheduledRun = false;
+        String outputGroup = "INNE";
+     // in ConverterServlet.doPost after parsing form fields
+        /*AtomicReference<Set<String>> filtersRef = (AtomicReference<Set<String>>) getServletContext().getAttribute("watcherFiltersRef");
+        AtomicReference<String> oddzialRef = (AtomicReference<String>) getServletContext().getAttribute("watcherOddzialRef");
+        if (filtersRef != null) filtersRef.set(new HashSet<>(filtrRejestry)); // filtrRejestry from form
+        if (oddzialRef != null) oddzialRef.set(filtrOddzial);*/
+
         for (FileItem item : items) {
             if (!item.isFormField()) continue;
             String name = item.getFieldName();
@@ -124,12 +145,65 @@ public class ConverterServlet extends HttpServlet {
                     DateFilterRegistry.getInstance().setToDate(
                         value.isBlank() ? null : LocalDate.parse(value)
                     );
-                } else if ("allowUpdate".equals(item.getFieldName())) {
+                } else if ("allowUpdate".equals(name)) {
+                    // checkbox w multipart zwróci zwykle "on" gdy zaznaczony; może też być "true" lub "1"
                 	allowUpdate = "true".equals(item.getString(StandardCharsets.UTF_8));
+                	simulateScheduledRun = allowUpdate;
+                }	else if ("simulateScheduledRun".equals(name)) {
+                        simulateScheduledRun = "on".equalsIgnoreCase(value) || "true".equalsIgnoreCase(value) || "1".equals(value);
+                        log.info("Form: simulateScheduledRun -> " + simulateScheduledRun);
                 } else {
             	log.debug(String.format("Ignored form field: %s", name));
             }
         }
+	    log.info(String.format("After parsing: simulateScheduledRun=%s allowUpdate=%s",simulateScheduledRun,allowUpdate));
+	    Object watcherAttr = getServletContext().getAttribute("dailyXmlWatcher");
+	    
+	    log.info(String.format("Servlet: Watcher Attribute = " + watcherAttr));
+	    if (watcherAttr != null) log.info("Servlet: dailyXmlWatcher class = " + watcherAttr.getClass().getName());
+	 // zakładam, że simulateScheduledRun i allowUpdate są już ustawione
+	    if (simulateScheduledRun) {
+	    	String waitMillisParam = req.getParameter("waitMillis");
+		    long waitMillis = 0L;
+		    if (waitMillisParam != null && !waitMillisParam.isBlank()) {
+		        try {
+		            waitMillis = Long.parseLong(waitMillisParam);
+		            if (waitMillis < 0) {
+		                log.warn("Negative waitMillis provided, using 0");
+		                waitMillis = 0L;
+		            }
+		            // opcjonalnie limituj maksymalną wartość
+		            long max = 60_000L * 10; // np. 10 minut
+		            if (waitMillis > max) {
+		                log.warn("waitMillis too large, capping to " + max);
+		                waitMillis = max;
+		            }
+		        } catch (NumberFormatException e) {
+		            log.warn("Invalid waitMillis value: " + waitMillisParam + " -> using 0");
+		            waitMillis = 0L;
+		        }
+		    }
+	        Object o = getServletContext().getAttribute("dailyXmlWatcher");
+	        log.info("About to trigger watcher: attr=" + o);
+	        if (o instanceof pl.edashi.converter.service.DailyXmlWatcher) {
+	            pl.edashi.converter.service.DailyXmlWatcher watcher = (pl.edashi.converter.service.DailyXmlWatcher) o;
+	            try {
+	                log.info("Servlet: calling watcher.triggerTemporaryRun(" + allowUpdate + ")");
+	                watcher.triggerTemporaryRun(allowUpdate,waitMillis);
+	                log.info("Servlet: called watcher.triggerTemporaryRun");
+	            } catch (Throwable t) {
+	                log.error("Servlet: exception while calling watcher.triggerTemporaryRun", t);
+	            }
+	        } else {
+	            log.warn("Servlet: dailyXmlWatcher not found or wrong type: " + (o == null ? "null" : o.getClass().getName()));
+	        }
+	    }
+
+        /*if (!allowFieldSeen) {
+            allowUpdate = false;
+            log.info("Form: allowUpdate absent -> treating as false");
+        }
+        setAllowUpdate(allowUpdate);*/
         root.setIdKsiegOddzial(IdKsiegOddzial);
         // log.info(String.format("Collected rejestry: %s", filtrRejestry.isEmpty() ? "ALL" : filtrRejestry.toString()));
         for (FileItem item : items) {
@@ -147,15 +221,47 @@ public class ConverterServlet extends HttpServlet {
                 results.add("Błąd zapisu pliku: " + fileName);
                 continue;
             }
-        String xml = Files.readString(savedFile, StandardCharsets.UTF_8);
+        //String xml = Files.readString(savedFile, StandardCharsets.UTF_8);
         //log.info(String.format("fileName='%s'", fileName));
         try {
-        	Object parsed = converterService.processSingleDocument(xml, fileName,filtrRejestry, filtrOddzial, allowUpdate);
+        	//zamiast ręcznego czytania i wywoływania processSingleDocument
+        	ProcessingResult result = converterService.processFile(savedFile.toFile(), allowUpdate, filtrRejestry, filtrOddzial);
+        	
+        	/*Object parsed = converterService.processSingleDocument(xml, fileName,filtrRejestry, filtrOddzial, allowUpdate);
         	if (parsed instanceof SkippedDocument skipped) {
         	    results.add("Pominięto: " + fileName + " (typ=" + skipped.getType() + ")");
         	    continue;
-        	}
+        	}*/
         	//log.info(String.format("Parsed object type: %s, file: %s",parsed.getClass().getSimpleName(), fileName));
+        	// jeśli serwis zwróci pusty wynik => pominięto lub błąd
+            if (result.getStatus() == ProcessingResult.Status.ERROR) {
+                log.error("Processing failed for file " + fileName);
+                results.add("Błąd w pliku " + fileName);
+                // optionally move savedFile to error folder here
+                continue;
+            }
+            if (result.getStatus() == ProcessingResult.Status.SKIPPED) {
+                // If SkippedDocument contains a reason, you can extract it:
+                result.getParsedObject().ifPresent(obj -> {
+                    if (obj instanceof SkippedDocument sd) {
+                        results.add("Pominięto: " + fileName + " (typ=" + sd.getType() + ")");
+                    } else {
+                        results.add("Pominięto: " + fileName);
+                    }
+                });
+                continue;
+            }
+
+            // OK: we have a parsed object
+            Optional<Object> parsedOpt = result.getParsedObject();
+            if (parsedOpt.isEmpty()) {
+                results.add("Pominięto lub błąd: " + fileName);
+                continue;
+            }
+
+            Object parsed = parsedOpt.get();
+        	// mamy sparsowany dokument — kontynuuj Twoją istniejącą logikę
+        	//DmsParsedDocument d = result.getParsedDocument().get();
         	if (parsed instanceof DmsParsedDocument d) {
         		String docRejestr = d.getDaneRejestr() != null ? d.getDaneRejestr().trim().toUpperCase() : "";
                 String docOddzial = d.getOddzial() != null ? d.getOddzial().trim() : "";
@@ -172,6 +278,16 @@ public class ConverterServlet extends HttpServlet {
                     continue;
                 }
         	    allParsedDocs.add(d);
+
+
+        	    //AtomicReference<Set<String>> filtersRef = (AtomicReference<Set<String>>) getServletContext().getAttribute("watcherFiltersRef");
+        	    //AtomicReference<String> oddzialRef = (AtomicReference<String>) getServletContext().getAttribute("watcherOddzialRef");
+        	    //if (filtersRef != null) filtersRef.set(new HashSet<>(filtrRejestry));
+        	    //if (oddzialRef != null) oddzialRef.set(filtrOddzial);
+        	 // po zebraniu filtrRejestry i filtrOddzial z pól formularza
+        	    ParserRegistry.getInstance().setFilters(filtrRejestry);
+        	    ParserRegistry.getInstance().setOddzial(filtrOddzial);
+
         	    //log.info("Parsed doc id=" + d.getId() + " type=" + d.getDocumentType() + " file=" + fileName + " class=" + parsed.getClass().getName());
         	    DmsDocumentOut docOut = null;
         	    try {
@@ -211,6 +327,7 @@ public class ConverterServlet extends HttpServlet {
  		        try {
  		        	//log.info("DZ positions for fileName='%s '" + fileName + " docType='%s ' " + docType + " DZ_TYPES='%s ' " + DZ_TYPES);
  		            root.addSection(new DmsOfflinePurchaseBuilder(docOut));
+ 		           outputGroup = "DZ_DS";
  		            results.add("Dodano zakup" + invoice);
  		        } catch (Exception e) {
  		            results.add("Błąd DZ: " + fileName + " -> " + e.getMessage());
@@ -218,6 +335,7 @@ public class ConverterServlet extends HttpServlet {
  		    }else if (DS_TYPES.contains(docType)) {
         		    try {
         		        root.addSection(new DmsOfflineXmlBuilder(docOut));
+        		        outputGroup = "DZ_DS";
         		        results.add("Dodano sprzedaż: " + invoice);
         		    } catch (Exception e) {
         		        log.error("Błąd budowy sekcji DS dla " + fileName + ": " + e.getMessage(), e);
@@ -228,6 +346,7 @@ public class ConverterServlet extends HttpServlet {
         		 if (DK_TYPES.contains(docType)) {
         		     // DO NOT create CashReportXmlBuilder here
         		     // We only collect parsed documents (allParsedDocs already contains 'd')
+        			 
         		     results.add("Zarejestrowano dokument kasowy (KO/KZ/DK): " + fileName + " typ=" + docType);
         		     // optionally still map docOut if you need docOut fields elsewhere, but do not call root.addSection(...)
         		     continue;
@@ -244,6 +363,7 @@ public class ConverterServlet extends HttpServlet {
         	else if (parsed instanceof DmsParsedContractorList sl) {
         	    List<OfflineContractor> mapped = new ContractorMapper().map(sl.contractors);
         	    root.addSection(new ContractorsXmlBuilder(mapped));
+        	    outputGroup = "SL";
         	    results.add("Dodano SL: " +  sl.fileName.replaceAll("[\\\\/:*?\"<>|]", "_"));
         	}        	
         } catch (Exception e) {
@@ -286,6 +406,7 @@ public class ConverterServlet extends HttpServlet {
                 try {
                     root.addSection(new CashReportXmlBuilder(rapCash));
                     root.addSection(new RozliczeniaXmlBuilder(rapCash));
+                    outputGroup = "KO_RO";
                     results.add("Dodano RAPORT_KB: " + nr);
                 } catch (Exception e) {
                     log.error("Błąd budowy RAPORT_KB dla " + nr, e);
@@ -302,6 +423,7 @@ public class ConverterServlet extends HttpServlet {
                 // Używamy tego samego buildera XML (CashReportXmlBuilder) jeśli potrafi obsłużyć RD/RO
                 root.addSection(new CashReportXmlBuilder(rapCard));
                 root.addSection(new RozliczeniaXmlBuilder(rapCard));
+                outputGroup = "KO_RO";
                 results.add("Dodano RAPORT_KARTOWY: " + nr);
             } catch (Exception e) {
                 log.error("Błąd budowy RAPORT_KARTOWY dla " + nr, e);
@@ -328,6 +450,14 @@ public class ConverterServlet extends HttpServlet {
         	}
             throw new ServletException("Błąd budowania XML: " + e.getMessage(), e);
         }
+        //////////////////////////////////////
+        /// // przygotowanie nazwy pliku i katalogu
+        String outputName = "out_" + outputGroup; // outputGroup np. "DS_DZ" lub inna logika
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+        String ts = LocalDateTime.now().format(fmt);
+        Path outputDirPath = Paths.get("C:/XML/Output"); // lub pobierz z kontekstu/parametru
+        Files.createDirectories(outputDirPath);
+        log.info("Servlet: finalDoc root element = " + (finalDoc.getDocumentElement() == null ? "null" : finalDoc.getDocumentElement().getNodeName()));
 
         //////////////////////////////////////
 		try {
@@ -335,7 +465,8 @@ public class ConverterServlet extends HttpServlet {
 	    	 Transformer transformer = tf.newTransformer();
 	    	transformer.setOutputProperty(OutputKeys.INDENT, "yes");
 	    	transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
-	    	Path out = Paths.get("C:/Users/Administrator.DSI/OneDrive/OPTIMA/ImportyPR/" + outputName + ".xml");
+	    	Path out = outputDirPath.resolve(String.format("out_%s_%s.xml", outputGroup, ts));
+	    	//Path out = Paths.get("C:/Users/Administrator.DSI/OneDrive/OPTIMA/ImportyPR/" + outputName + ".xml");
 	    	try {
 				transformer.transform(new DOMSource(finalDoc), new StreamResult(out.toFile()));
 			} catch (TransformerException e) {
@@ -359,5 +490,21 @@ public class ConverterServlet extends HttpServlet {
         req.setAttribute("results", results);
         req.getRequestDispatcher("converter/converterResult.jsp").forward(req, resp);
     }
-
+    /*private void setAllowUpdate(boolean allow) {
+        try {
+            Files.createDirectories(TOGGLE_FILE.getParent());
+            Path tmp = Files.createTempFile(TOGGLE_FILE.getParent(), "allowUpdate", ".tmp");
+            Files.writeString(tmp, Boolean.toString(allow), StandardOpenOption.TRUNCATE_EXISTING);
+            try {
+                Files.move(tmp, TOGGLE_FILE, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException amnse) {
+                Files.move(tmp, TOGGLE_FILE, StandardCopyOption.REPLACE_EXISTING);
+            }
+            // opcjonalnie: zaktualizuj cache w ParserRegistry, jeśli go używasz
+            // ParserRegistry.getInstance().setAllowUpdate(allow);
+            log.info(String.format("setAllowUpdate: wrote '%s' to %s", allow, TOGGLE_FILE));
+        } catch (IOException e) {
+            log.error(String.format("setAllowUpdate: failed to write toggle file %s: %s", TOGGLE_FILE, e.getMessage()), e);
+        }
+    }*/
 }

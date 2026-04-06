@@ -236,7 +236,25 @@ function askiAI() {
 	         }
 	       });
 	     }
+		 /*function{
+		   const simulateBtn = document.getElementById('simulateBtn');
+		   const simulateField = document.getElementById('simulateScheduledRun');
+		   const timeField = document.getElementById('scheduledTime');
 
+		   simulateBtn.addEventListener('click', function() {
+		     // ustawiamy wartość pola i wysyłamy formularz
+		     simulateField.value = "true";
+		     // upewnij się, że formularz to najbliższy rodzic <form>
+		     const form = simulateBtn.closest('form');
+		     if (!form) {
+		       console.error('Formularz nie znaleziony');
+		       return;
+		     }
+		     // dołączamy wybraną godzinę jako scheduledTime (już jest pole name="scheduledTime")
+		     // submitujemy formularz
+		     form.submit();
+		   });
+		 };*/
 	     // public API (jeśli chcesz inicjalizować ręcznie)
 	     window.ConvForm = {
 	       init: initForm

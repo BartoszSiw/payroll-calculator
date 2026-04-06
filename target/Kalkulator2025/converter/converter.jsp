@@ -65,7 +65,21 @@
 <c:if test="${not empty fullKey}">
     <div style="margin-top:10px;">
         <label for="allowUpdate">Zezwól na ponowne wczytanie wybranych dokumentów</label>
+        <input type="hidden" name="allowUpdate" value="false">
         <input type="checkbox" id="allowUpdate" name="allowUpdate" value="true">
+    </div>
+    <div style="margin-top:12px;">
+        <label for="scheduledTime">Uruchom jak o godzinie</label>
+        <input type="time" id="scheduledTime" name="scheduledTime" value="00:00" class="time-input" />
+          <label> Wait before manual run (ms): <input type="number" name="waitMillis" min="0" step="100" value="0" /></label>
+        <!-- hidden field wysyłany tylko gdy użytkownik kliknie przycisk -->
+        <!-- <input type="hidden" id="simulateScheduledRun" name="simulateScheduledRun" value="false" /> -->
+        <button type="submit" name="simulateScheduledRun" value="true" class="btn-secondary" style="margin-left:8px;">
+            Uruchom jak przy harmonogramie
+        </button>
+        <div class="field-help" style="margin-top:6px;">
+            Kliknij, aby wysłać żądanie do serwera z parametrem symulującym uruchomienie harmonogramu.
+        </div>
     </div>
 </c:if>
     <div class="form-section">
