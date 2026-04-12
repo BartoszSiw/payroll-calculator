@@ -18,8 +18,13 @@ public class ContractorsXmlBuilder implements XmlSectionBuilder {
 
     private static final String NS = "http://www.comarch.pl/cdn/optima/offline";
     private final List<OfflineContractor> contractors;
+    private String idKsiegOddzial;
     public ContractorsXmlBuilder(List<OfflineContractor> contractors) {
         this.contractors = contractors;
+    }
+    @Override
+    public void setIdKsiegOddzial(String id) {
+        this.idKsiegOddzial = id;
     }
     @Override
     public void build(Document xml, Element root) {
@@ -31,7 +36,7 @@ public class ContractorsXmlBuilder implements XmlSectionBuilder {
 
         sekcja.appendChild(make(xml, "WERSJA", "2.00"));
         sekcja.appendChild(make(xml, "BAZA_ZRD_ID", "KSIEG"));
-        sekcja.appendChild(make(xml, "BAZA_DOC_ID", "DMS_1"));
+        sekcja.appendChild(make(xml, "BAZA_DOC_ID", idKsiegOddzial));
 
         for (OfflineContractor c : contractors) {
             Element k = xml.createElementNS(NS, "KONTRAHENT");

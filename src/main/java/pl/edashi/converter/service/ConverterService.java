@@ -52,23 +52,27 @@ public class ConverterService {
 
             // call your existing parser/processor
             Object parsed = processSingleDocument(xml, file.getName(), allowUpdate, filtrRejestry, filtrOddzial);
-            log.info("processFile: file=" + file.getName() + " allowUpdate=" + allowUpdate);
+            log.info(String.format("1 processFile: file=%s allowUpdate=%s",file.getName(),allowUpdate));
             if (parsed instanceof SkippedDocument skipped) {
+            	log.info(String.format("2 processFile skipped: file=%s allowUpdate=%s",file.getName(),allowUpdate));
                 return new ProcessingResult(ProcessingResult.Status.SKIPPED, parsed, Optional.empty());
             }
 
             // if your processSingleDocument sometimes returns an XML fragment string, keep it
             if (parsed instanceof String s && s != null && !s.isBlank()) {
+            	log.info(String.format("3 processFile OK: file=%s allowUpdate=%s",file.getName(),allowUpdate));
                 return new ProcessingResult(ProcessingResult.Status.OK, parsed, Optional.of(s));
             }
 
             // if it returns a DmsParsedDocument or DmsParsedContractorList, build optional fragment if needed
             if (parsed instanceof DmsParsedDocument d) {
                 String fragment = toXmlFragment(d); // implement toXmlFragment as you need
+                log.info(String.format("4 processFile fragment: file=%s allowUpdate=%s",file.getName(),allowUpdate));
                 return new ProcessingResult(ProcessingResult.Status.OK, d, Optional.ofNullable(fragment).filter(str -> !str.isBlank()));
             }
 
             if (parsed instanceof DmsParsedContractorList sl) {
+            	 log.info(String.format("5 processFile SL: file=%s allowUpdate=%s",file.getName(),allowUpdate));
                 // you may want to produce a fragment or not; here we return the object
                 return new ProcessingResult(ProcessingResult.Status.OK, sl, Optional.empty());
             }
@@ -77,7 +81,7 @@ public class ConverterService {
             return new ProcessingResult(ProcessingResult.Status.OK, parsed, Optional.empty());
 
         } catch (Throwable t) {
-            log.error("Error processing file " + file.getName(), t);
+            log.error("6 Error processing file " + file.getName(), t);
             return new ProcessingResult(ProcessingResult.Status.ERROR, null, Optional.empty());
         }
     }
@@ -99,11 +103,14 @@ public class ConverterService {
                 .replace("\"", "&quot;").replace("'", "&apos;");
     }
     public Object processSingleDocument(String xml, String sourceFile,boolean allowUpdate,Set<String> filtrRejestry, String filtrOddzial) throws Exception {
+    	
+    	
         // 1. parsowanie
+    	log.info(String.format("7 processSingleDocument sourceFile=%s filtrRejestry=%s filtrOddzial=%s",sourceFile,filtrRejestry, filtrOddzial));
         Document doc = load(xml);
         if (doc == null) {
         	IllegalArgumentException iae = new IllegalArgumentException("Niepoprawny XML"); 
-        	log.error("Nie udało się sparsować XML: " + sourceFile, iae); 
+        	log.error("8 processSingleDocument Nie udało się sparsować XML: " + sourceFile, iae); 
         	throw iae;
         }
         Element root = doc.getDocumentElement(); // <DMS ...>
@@ -116,6 +123,14 @@ public class ConverterService {
         if ("SL".equalsIgnoreCase(type)) {
             return new DmsParserSL().parse(doc, sourceFile);
         }
+        log.info(String.format("9 processSingleDocument parserType=%s",type));
+     // obsługa OUT_ONLY: nie traktujemy jako błąd, tylko pomijamy kontrolowanie
+        if (ParserRegistry.getInstance().isOutOnly(type)) {
+            log.info(String.format("10 processSingleDocument: type=%s is OUT_ONLY -> skipping without error", type));
+            return new SkippedDocument(type, String.format("OUT_ONLY: archived to archive/out file=%s", sourceFile));
+
+        }
+
      // wybór parsera
         DmsParser parser = DmsParserFactory.getParser(type);
 
@@ -125,9 +140,7 @@ public class ConverterService {
         String docOddzial = d.getOddzial() == null ? "" : d.getOddzial().trim();
         ParserRegistry registry = ParserRegistry.getInstance();
         DateFilterRegistry dateFilter = DateFilterRegistry.getInstance();
-        log.info(String.format("AFTER PARSE: parsedClass='%s' metadata='%s'",
-        	    d.getClass().getName(),
-        	    d.getMetadata()));
+        log.info(String.format("11 processSingleDocument AFTER PARSE: parsedClass=%s metadata=%s docRejestr=%s docOddzial=%s", d.getClass().getName(),d.getMetadata(),docRejestr,docOddzial));
         LocalDate fromDate = dateFilter.getFromDate();
         LocalDate toDate   = dateFilter.getToDate();
         LocalDate docDate = parseDateFromPossibleFormats(
@@ -154,18 +167,20 @@ public class ConverterService {
         //log.info(String.format("fullKey='%s ' nrIdPlat='%s ' podmiot='%s ' numer='%s ' hash='%s '",fullKey, nrIdPlat, podmiot, numer, hash));
         //LocalDate docDate = parseDateFromPossibleFormats(d.getMetadata() == null ? null : d.getMetadata().getDate()
         if (!filtrRejestry.isEmpty() && (docRejestr.isEmpty() || !filtrRejestry.contains(docRejestr))) {
+        	log.info(String.format("12 processSingleDocument filtrRejestry='%s' docRejestr='%s'", filtrRejestry, docRejestr));
             return new SkippedDocument(d.getDocumentType(), "Rejestr not in filter");
         }
         if (filtrOddzial != null && !filtrOddzial.isBlank() && !filtrOddzial.equals(docOddzial)) {
+        	log.info(String.format("13 processSingleDocument filtrOddzial='%s' docOddzial='%s'", filtrOddzial, docOddzial));
             return new SkippedDocument(d.getDocumentType(), "Oddzial not in filter");
         }
         if (!registry.isEnabled(docType)) {
-            log.info(String.format("Pominięto: registry disabled docType='%s' fullKey='%s'", docType, fullKey));
+            log.info(String.format("14 processSingleDocument Pominięto: registry disabled docType='%s' fullKey='%s'", docType, fullKey));
             return new SkippedDocument(docType, "Parser disabled");
         }
         if (dateFilter.hasFilter()) {
         	if (!isDateInRange(docDate, fromDate, toDate)) {
-        	    log.info(String.format("Pominięto: date out of range docDate='%s' range='%s' - ='%s'", docDate, fromDate, toDate));
+        	    log.info(String.format("15 processSingleDocument Pominięto: date out of range docDate='%s' range='%s' - ='%s'", docDate, fromDate, toDate));
         	    return new SkippedDocument(docType, "Date out of range");
         	}
         }
@@ -184,45 +199,45 @@ public class ConverterService {
         boolean wasUpdated = false;
         try {
         	MappingTarget target = d.getMappingTarget();
-            log.info(String.format("fullKey='%s' nrIdPlat='%s' podmiot='%s' target='%s'", fullKey, nrIdPlat, podmiot, target));
+            log.info(String.format("16 processSingleDocument fullKey='%s' nrIdPlat='%s' podmiot='%s' target='%s'", fullKey, nrIdPlat, podmiot, target));
             Optional<String> existing = rejestrDao.findByFullKey(fullKey, target);
             if (existing.isPresent()) {
-                log.info("Record with fullKey exists (nr_id_plat=" + existing.get() + ")");
+                log.info("17 processSingleDocument Record with fullKey exists (nr_id_plat=" + existing.get() + ")");
                 if (allowUpdate) {
-                    log.info("allowUpdate=true -> performing UPDATE for fullKey=" + fullKey);
+                    log.info("18 processSingleDocument allowUpdate=true -> performing UPDATE for fullKey=" + fullKey);
                     int updatedRows = rejestrDao.updateMapping(fullKey, podmiot, numer, nrIdPlat, hash, docKey,
                                              dateDoc, kwNet, kwVat, kwBru, kwPla, docRejestr, datUpd, target);
                     if (updatedRows > 0) {
-                        log.info("DB update succeeded for fullKey=" + fullKey + " rows=" + updatedRows);
+                        log.info("16 processSingleDocument DB update succeeded for fullKey=" + fullKey + " rows=" + updatedRows);
                         wasUpdated = true;
                     //return new ProcessedDocument(docType, "updated existing record");
                     } else {
-                        log.warn("Update affected 0 rows for fullKey=" + fullKey + " — treating as collision");
+                        log.warn("17 processSingleDocument Update affected 0 rows for fullKey=" + fullKey + " — treating as collision");
                         rejestrDao.incrementCollision(fullKey, target);
                         return new SkippedDocument(docType, "update affected 0 rows");
                     }
                 } else {
                     rejestrDao.incrementCollision(fullKey, target);
-                    log.warn(String.format("Insert skipped: record exists and allowUpdate=%s for fullKey=",allowUpdate,fullKey));
+                    log.warn(String.format("18 processSingleDocument Insert skipped: record exists and allowUpdate=%s for fullKey=",allowUpdate,fullKey));
                     return new SkippedDocument(docType, "nrIdPlat conflict on insert");
                 }
             }
             try {
             	 // jedna próba insertu — jeśli rekord już istnieje, złapiemy to po kodzie SQL
-            	log.info(String.format("DEBUG pre-filter: docType='%s' fullKey='%s' docDate='%s' parsedClass='%s'",
+            	log.info(String.format("19 processSingleDocument DEBUG pre-filter: docType='%s' fullKey='%s' docDate='%s' parsedClass='%s'",
             		    docType, fullKey, docDate, d.getClass().getName()));
 
-            		log.info(String.format("DEBUG registry.isEnabled('%s') = '%s'", docType, registry.isEnabled(docType)));
-            		log.info(String.format("DEBUG dateFilter.from='%s' to='%s' hasFilter='%s'",
+            		log.info(String.format("20 processSingleDocument DEBUG registry.isEnabled('%s') = '%s'", docType, registry.isEnabled(docType)));
+            		log.info(String.format("21 processSingleDocument DEBUG dateFilter.from='%s' to='%s' hasFilter='%s'",
             		    dateFilter.getFromDate(), dateFilter.getToDate(), dateFilter.hasFilter()));
 
-            		log.info(String.format("1 DEBUG BEFORE INSERT: fullKey='%s' nrIdPlat='%s' podmiot='%s' target='%s' thread='%s'",
+            		log.info(String.format("22 processSingleDocument DEBUG BEFORE INSERT: fullKey='%s' nrIdPlat='%s' podmiot='%s' target='%s' thread='%s'",
             		    fullKey, nrIdPlat, podmiot, d.getMappingTarget(), Thread.currentThread().getName()));
-            		log.info(String.format("2 DEBUG BEFORE INSERT: fullKey='%s' docKey='%s' thread='%s' parsedHash='%s'",
+            		log.info(String.format("23 processSingleDocument DEBUG BEFORE INSERT: fullKey='%s' docKey='%s' thread='%s' parsedHash='%s'",
             			    fullKey, docKey, Thread.currentThread().getName(), System.identityHashCode(d)));
 
                 rejestrDao.insertMapping(fullKey, podmiot, numer, nrIdPlat, hash, docKey, dateDoc, kwNet, kwVat, kwBru, kwPla, docRejestr, datUpd, target);
-                log.info(String.format("insertMapping zakończone pomyślnie dla nrIdPlat='%s ' podmiot='%s '", nrIdPlat, podmiot));
+                log.info(String.format("24 processSingleDocument insertMapping zakończone pomyślnie dla nrIdPlat='%s ' podmiot='%s '", nrIdPlat, podmiot));
             } catch (SQLException ex) {
                 //log.error(String.format("SQL Error Code: ='%s ', Message: ='%s '", ex.getErrorCode(), ex.getMessage()), ex);
                 int code = ex.getErrorCode();
@@ -231,7 +246,7 @@ public class ConverterService {
                 	if (allowUpdate) {
                         int updatedRows = rejestrDao.updateMapping(fullKey, podmiot, numer, nrIdPlat, hash, docKey, dateDoc, kwNet, kwVat, kwBru, kwPla, docRejestr, datUpd, target);
                         if (updatedRows > 0) {
-                            log.info("Race: update succeeded for fullKey=" + fullKey);
+                            log.info("25 processSingleDocument Race: update succeeded for fullKey=" + fullKey);
                             wasUpdated = true;
                         } else {
                             rejestrDao.incrementCollision(fullKey, target);
@@ -244,13 +259,15 @@ public class ConverterService {
                     }
                     } else {
                         rejestrDao.incrementCollision(fullKey, target);
-                        //log.warn("Insert ignored: unique constraint violation");
+                        log.warn("26 processSingleDocument Insert ignored: unique constraint violation");
                         return new SkippedDocument(docType, "nrIdPlat conflict on insert");
                     }
                 }
         } catch (Throwable t) {
-            log.error(String.format("Nieoczekiwany błąd przy pliku sourceFile='%s ': %s", sourceFile, t.getMessage()), t);
-            return new SkippedDocument(docType, "DB runtime error");
+            log.error(String.format("27 processSingleDocument Nieoczekiwany błąd przy pliku sourceFile='%s ': %s", sourceFile, t.getMessage()), t);
+            //return new SkippedDocument(docType, "DB runtime error"); 
+            return new SkippedDocument(docType, String.format("DB runtime error: file=%s", sourceFile));
+
         }
         return d;
     }
@@ -299,7 +316,7 @@ public class ConverterService {
         
         Element root = doc.getDocumentElement();
         String type = root.getAttribute("id");
-
+        log.info(String.format("28 processContractorDictionary sourceFile=%s",sourceFile));
         if (!"SL".equals(type)) {
             throw new IllegalArgumentException("processContractorDictionary obsługuje tylko typ SL, otrzymano: " + type);
         }

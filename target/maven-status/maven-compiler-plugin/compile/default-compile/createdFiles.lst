@@ -8,6 +8,7 @@ pl\edashi\converter\service\DateFilterRegistry.class
 pl\edashi\payroll\model\PayrollResult.class
 pl\edashi\dms\parser\DmsParserDM.class
 pl\edashi\converter\analysis\DocumentRelationAnalyzer$DocumentMeta.class
+pl\edashi\converter\service\DocumentOutGenerator$DocOutGenerationResult.class
 pl\edashi\payroll\model\WorkHours.class
 pl\edashi\converter\analysis\DocumentRelationAnalyzer$ExtractedNumber.class
 pl\edashi\converter\analysis\DocumentRelationAnalyzer$Extractor.class
@@ -31,6 +32,7 @@ pl\edashi\dms\xml\RootXmlBuilder.class
 pl\edashi\dms\xml\XmlSectionBuilder.class
 pl\edashi\dms\service\ContractorDeduplicator.class
 pl\edashi\converter\service\ParserRegistry.class
+pl\edashi\converter\service\DocumentOutGenerator.class
 pl\edashi\dms\mapper\DmsToDmsMapper.class
 pl\edashi\dms\model\DmsParsedContractor.class
 pl\edashi\dms\parser\DmsParserDK.class
@@ -44,6 +46,7 @@ openai\package-info.class
 pl\edashi\dms\model\Rozliczenie.class
 employees\UpdateAllEmployeesServlet.class
 pl\edashi\payroll\servlet\PayrollServlet1.class
+pl\edashi\converter\servlet\ConverterServlet$1.class
 pl\edashi\dms\xml\DmsOfflineXmlBuilder.class
 pl\edashi\converter\analysis\DocumentRelationAnalyzer$Builder.class
 pl\edashi\dms\parser\util\DocumentNumberExtractor.class
@@ -60,8 +63,10 @@ pl\edashi\payroll\service\PayrollService.class
 pl\edashi\dms\model\DmsParsedDocument.class
 pl\edashi\dms\parser\DmsParserRO.class
 pl\edashi\optima\builder\ContractorsXmlBuilder.class
+pl\edashi\converter\servlet\DocTypeConstants.class
 pl\edashi\common\logging\AppLogger.class
 pl\edashi\converter\service\CashReportAssembler.class
+pl\edashi\converter\service\DocumentOutGenerator$Status.class
 pl\edashi\dms\model\DmsPosition.class
 pl\edashi\dms\model\DmsParsedDocument$DmsNetBruEntry.class
 employees\ImportEmployees.class
@@ -72,6 +77,7 @@ pl\edashi\converter\analysis\DocumentRelationAnalyzer.class
 pl\edashi\converter\repository\DocumentRepository.class
 pl\edashi\dms\parser\DmsParserPO.class
 employees\GetEmployeeServlet.class
+pl\edashi\converter\service\DocumentOutGenerator$SerializedDoc.class
 database\AddEmployeeServlet.class
 pl\edashi\converter\service\XmlWatcher.class
 pl\edashi\converter\service\ProcessedDocument.class
@@ -93,3 +99,4 @@ pl\edashi\dms\xml\DmsXmlValidator.class
 pl\edashi\dms\parser\DmsParserRD.class
 pl\edashi\converter\model\DocumentStructure.class
 pl\edashi\payroll\servlet\PayrollServlet.class
+pl\edashi\converter\service\ConverterConfig.class

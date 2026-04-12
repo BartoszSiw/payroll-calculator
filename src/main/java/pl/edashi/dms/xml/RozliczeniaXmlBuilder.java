@@ -12,12 +12,16 @@ public class RozliczeniaXmlBuilder implements XmlSectionBuilder {
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(RozliczeniaXmlBuilder.class);
     private static final String NS = "http://www.comarch.pl/cdn/optima/offline";
     private final DmsDocumentOut docRoz;
-    
+    private String idKsiegOddzial;
     public RozliczeniaXmlBuilder(DmsDocumentOut docRoz) {
         if (docRoz == null) {
             throw new IllegalArgumentException("RozliczeniaXmlBuilder: docRoz is null");
         }
         this.docRoz = docRoz;
+    }
+    @Override
+    public void setIdKsiegOddzial(String id) {
+        this.idKsiegOddzial = id;
     }
     @Override
     public void build(Document docXml, Element root) {
@@ -33,7 +37,7 @@ public class RozliczeniaXmlBuilder implements XmlSectionBuilder {
 
             sekcja.appendChild(makeCdata(docXml, "WERSJA", "2.00"));
             sekcja.appendChild(makeCdata(docXml, "BAZA_ZRD_ID", "KSIEG"));
-            sekcja.appendChild(makeCdata(docXml, "BAZA_DOC_ID", "DMS_1"));
+            sekcja.appendChild(makeCdata(docXml, "BAZA_DOC_ID", idKsiegOddzial));
 
             List<Rozliczenie> list = docRoz.getRozliczenia();
             if (list == null) list = Collections.emptyList();

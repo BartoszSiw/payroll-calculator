@@ -73,7 +73,8 @@
         <input type="time" id="scheduledTime" name="scheduledTime" value="00:00" class="time-input" />
           <label> Wait before manual run (ms): <input type="number" name="waitMillis" min="0" step="100" value="0" /></label>
         <!-- hidden field wysyłany tylko gdy użytkownik kliknie przycisk -->
-        <!-- <input type="hidden" id="simulateScheduledRun" name="simulateScheduledRun" value="false" /> -->
+        <input type="hidden" id="simulateScheduledRun" name="simulateScheduledRun" value="false" />
+        <input type="checkbox" id="simulateScheduledRun" name="simulateScheduledRun" value="true" />
         <button type="submit" name="simulateScheduledRun" value="true" class="btn-secondary" style="margin-left:8px;">
             Uruchom jak przy harmonogramie
         </button>

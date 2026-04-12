@@ -1,6 +1,10 @@
 package pl.edashi.converter.service;
-
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.io.File;
 import java.io.IOException;
+import java.io.StringWriter;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.time.*;
@@ -8,16 +12,43 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
+import org.apache.commons.io.output.XmlStreamWriter;
+import org.apache.commons.io.output.XmlStreamWriter.Builder;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import pl.edashi.common.logging.AppLogger;
 import pl.edashi.converter.service.AppStartupListener.AppConfig;
-
+import pl.edashi.converter.service.DocumentOutGenerator.DocOutGenerationResult;
+import pl.edashi.converter.servlet.DocTypeConstants;
+import pl.edashi.dms.model.DmsDocumentOut;
+import pl.edashi.dms.model.DmsParsedContractorList;
+import pl.edashi.dms.xml.DmsOfflinePurchaseBuilder;
+import pl.edashi.dms.xml.DmsOfflineXmlBuilder;
+import pl.edashi.optima.builder.ContractorsXmlBuilder;
+import pl.edashi.optima.mapper.ContractorMapper;
+import pl.edashi.optima.model.OfflineContractor;
+//import pl.edashi.dms.xml.XmlStreamWriter; // dopasuj do rzeczywistego pakietu interfejsu Builder
+import pl.edashi.dms.xml.RootXmlBuilder;
+import pl.edashi.dms.xml.XmlSectionBuilder;
 public class DailyXmlWatcher {
 	private final AppLogger log = new AppLogger("DailyXmlWatcher");
+	ConverterConfig config = new ConverterConfig();
     private final Supplier<Set<String>> filtersSupplier;
     private final Supplier<String> oddzialSupplier;
     private final Path watchDir;
@@ -38,14 +69,15 @@ public class DailyXmlWatcher {
     private final AtomicBoolean pauseRequested = new AtomicBoolean(false);
     private final AtomicReference<Boolean> pendingOverride = new AtomicReference<>(null);
     private final AtomicBoolean running = new AtomicBoolean(false);
-
+    private final DocumentOutGenerator generator;
     private volatile ScheduledFuture<?> scheduledTask;
     private final AtomicBoolean scheduled = new AtomicBoolean(false);
     // stability and readiness parameters (tweakable)
     private final long stabilityMillis = 1_000L; // file must be unchanged for 1s
+    int day = config.getWatcherDay();
     private final String xmlGlob = "*.xml";
     Path toggleFile = AppConfig.ALLOW_UPDATE_FILE;
-    public DailyXmlWatcher(String watchDir, String outputDir, ConverterService converterService, boolean allowUpdate, Supplier<Set<String>> filtersSupplier, Supplier<String> oddzialSupplier, int workerThreads) {
+    public DailyXmlWatcher(String watchDir, String outputDir, ConverterService converterService, boolean allowUpdate, Supplier<Set<String>> filtrRejestry,Supplier<String> filtrOddzial, int workerThreads,DocumentOutGenerator generator) {
         if (watchDir == null || watchDir.isBlank()) {
             throw new IllegalArgumentException("watchDir must be provided");
         }
@@ -56,8 +88,9 @@ public class DailyXmlWatcher {
         this.outputDir = Paths.get(outputDir);
         this.converterService = Objects.requireNonNull(converterService, "converterService");
         this.allowUpdate = allowUpdate;
-        this.filtersSupplier = Objects.requireNonNull(filtersSupplier, "filtersSupplier");
-        this.oddzialSupplier = Objects.requireNonNull(oddzialSupplier, "oddzialSupplier");
+        this.filtersSupplier = Objects.requireNonNull(filtrRejestry, "filtrRejestry");
+        this.oddzialSupplier = Objects.requireNonNull(filtrOddzial, "filtrOddzial");
+        log.info(String.format("1 Daily filtrRejestry=%s filtrOddzial=%s",filtrRejestry,filtrOddzial));
         this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "DailyXmlWatcher");
             t.setDaemon(true);
@@ -69,23 +102,24 @@ public class DailyXmlWatcher {
             t.setDaemon(true);
             return t;
         });
+        this.generator = generator != null ? generator : new DocumentOutGenerator(converterService);
     }
     private void runScheduledPass() {
         // jeśli ktoś poprosił o pauzę, pomijamy zaplanowany run
         if (pauseRequested.get()) {
-            log.info("runScheduledPass: paused, skipping scheduled pass");
+            log.info("2 runScheduledPass: paused, skipping scheduled pass");
             return;
         }
         if (!processingLock.tryLock()) {
-            log.info("runScheduledPass: another run in progress, skipping");
+            log.info("2 runScheduledPass: another run in progress, skipping");
             return;
         }
         try {
             boolean allowUpdate = resolveAllowUpdate();
-            log.info(String.format("runScheduledPass: starting processing allowUpdate={}", allowUpdate));
+            log.info(String.format("3 runScheduledPass: starting processing allowUpdate=%s", allowUpdate));
             doProcessing(allowUpdate);
         } catch (Throwable t) {
-            log.error("runScheduledPass: unexpected error", t);
+            log.error("4 runScheduledPass: unexpected error", t);
         } finally {
             processingLock.unlock();
         }
@@ -93,7 +127,7 @@ public class DailyXmlWatcher {
     /** Schedule the daily run at given hour/minute local server time. */
     public void startAtDailyTime(int hour, int minute) {
         if (!running.compareAndSet(false, true)) {
-            log.info("Watcher already running");
+            log.info("5 Watcher already running");
             return;
         }
         // oblicz delay do pierwszego uruchomienia
@@ -109,17 +143,17 @@ public class DailyXmlWatcher {
                 try {
                     runScheduledPass();
                 } catch (Throwable t) {
-                    log.error("Scheduled pass failed", t);
+                    log.error("5 Scheduled pass failed", t);
                 }
             }, initialDelay, period, TimeUnit.MILLISECONDS);
 
             scheduled.set(isScheduled());
         } catch (RejectedExecutionException rex) {
-            log.error("Failed to schedule DailyXmlWatcher", rex);
+            log.error("5 Failed to schedule DailyXmlWatcher", rex);
             scheduled.set(false);
         }
 
-        log.info(String.format("DailyXmlWatcher scheduled at=%02d:%02d (initialDelayMs=%d, periodMs=%d) scheduled=%s",
+        log.info(String.format("6 DailyXmlWatcher scheduled at=%02d:%02d (initialDelayMs=%d, periodMs=%d) scheduled=%s",
                 hour, minute, initialDelay, period, scheduled.get()));
     }
 
@@ -134,7 +168,7 @@ public class DailyXmlWatcher {
         running.set(false);
         try { scheduler.shutdownNow(); } catch (Exception ignored) {}
         try { workerPool.shutdownNow(); } catch (Exception ignored) {}
-        log.info("DailyXmlWatcher stopped");
+        log.info("7 DailyXmlWatcher stopped");
     }
 
     private long computeInitialDelaySeconds(int hour, int minute) {
@@ -163,123 +197,60 @@ public class DailyXmlWatcher {
 
 
     private void runOnce(Boolean overrideAllow) throws IOException {
-    	log.info(String.format("runOnce invoked at=%s ",LocalDateTime.now()));
-        if (!Files.exists(watchDir) || !Files.isDirectory(watchDir)) return;
-        Files.createDirectories(outputDir.resolve("archive"));
-        Files.createDirectories(outputDir.resolve("error"));
-        log.info("runOnce invoked override=" + overrideAllow + " at=" + java.time.LocalDateTime.now());
+        log.info(String.format("8 runOnce invoked at=%s", LocalDateTime.now()));
 
-        boolean allow;
-        if (overrideAllow != null) {
-            allow = overrideAllow;
-            log.info("runOnce: using overrideAllow=" + allow);
-        } else {
-            // dotychczasowa logika: czytać z ParserRegistry / pliku toggle
-            allow = ParserRegistry.getInstance().isAllowUpdate();
-            if (!allow) {
-                allow = readAllowUpdateFromFile(); // jeśli masz taką metodę
-                ParserRegistry.getInstance().setAllowUpdate(allow);
-            }
-            log.info("runOnce: resolved allowUpdate=" + allow);
-        }
+        if (!ensureWatchAndOutputDirs()) return;
 
+        boolean allow = resolveAllow(overrideAllow);
         if (!allow) {
-            log.info("runOnce: allow=false -> skipping processing");
-            return;
-        }
-        // collect xml files
-        List<Path> files;
-        try (DirectoryStream<Path> ds = Files.newDirectoryStream(watchDir, xmlGlob)) {
-            files = new ArrayList<>();
-            for (Path p : ds) if (Files.isRegularFile(p)) files.add(p);
-        } catch (IOException e) {
-            log.error(String.format("DailyXmlWatcher: error reading watchDir %s: %s", watchDir, e.getMessage()), e);
+            log.info("9 runOnce: allow=false -> skipping processing");
             return;
         }
 
-        if (files.isEmpty()) return;
+        List<Path> files = collectXmlFiles();
+        if (files.isEmpty()) {
+            log.info(String.format("10 DailyXmlWatcher: no files to process in %s", watchDir));
+            return;
+        }
 
-        // sort by prefix priority (SL first, then DS/DZ, then group3, then others)
         List<Path> ordered = files.stream()
                 .sorted(Comparator.comparingInt(this::prefixPriority).thenComparing(Path::getFileName))
                 .collect(Collectors.toList());
 
+        // etykiety
         List<String> outSL = new ArrayList<>();
         List<String> outDSDZ = new ArrayList<>();
         List<String> outOther = new ArrayList<>();
-        log.info(String.format("DailyXmlWatcher: found %d xml files in %s", files.size(), watchDir));
+
+        // kolekcje builderów i komunikatów (thread-safe)
+        Queue<ContractorsXmlBuilder> collectedContractorSections = new ConcurrentLinkedQueue<>();
+        Queue<XmlSectionBuilder> collectedSections = new ConcurrentLinkedQueue<>(); // trzymamy buildery implementujące XmlSectionBuilder
+        Queue<Object> allParsedDocs = new ConcurrentLinkedQueue<>();
+        Queue<String> collectedMessages = new ConcurrentLinkedQueue<>();
+
+        // użyj pola this.generator jeśli masz; w przeciwnym razie utwórz lokalny generator
+        DocumentOutGenerator generator = this.generator != null ? this.generator : new DocumentOutGenerator(converterService);
+
         for (Path file : ordered) {
-            try {
-                if (!isFromToday(file)) {
-                    // skip files older than today
-                    continue;
-                }
-                if (!isFileReady(file)) {
-                    // skip unstable or empty files
-                    continue;
-                }
-             // get current filters just before processing
-                Set<String> watcherFiltrRejestry = ParserRegistry.getInstance().getFilters();
-                String watcherFiltrOddzial = ParserRegistry.getInstance().getOddzial();
-                // call converterService; adapt signature if your service differs
-                ProcessingResult result = converterService.processFile(file.toFile(), allow, watcherFiltrRejestry, watcherFiltrOddzial);
-
-                if (result.getStatus() == ProcessingResult.Status.ERROR) {
-                    // move to error and continue
-                    Path target = outputDir.resolve("error").resolve(file.getFileName());
-                    Files.move(file, target, StandardCopyOption.REPLACE_EXISTING);
-                    continue;
-                }
-
-                if (result.getStatus() == ProcessingResult.Status.SKIPPED) {
-                    // optional: log skip reason if available
-                    result.getParsedObject().ifPresent(obj -> {
-                        if (obj instanceof SkippedDocument sd) {
-                            System.out.println("Skipped " + file.getFileName() + " reason=" + sd.getType());
-                        }
-                    });
-                    // move to archive or keep as policy dictates
-                    Path target = outputDir.resolve("archive").resolve(file.getFileName());
-                    Files.move(file, target, StandardCopyOption.REPLACE_EXISTING);
-                    continue;
-                }
-
-                // OK: get optional fragment and group it
-                Optional<String> fragment = result.getXmlFragment();
-                if (fragment.isPresent() && !fragment.get().isBlank()) {
-                    int pr = prefixPriority(file);
-                    if (pr == 1) outSL.add(fragment.get());
-                    else if (pr == 2) outDSDZ.add(fragment.get());
-                    else outOther.add(fragment.get());
-                }
-                // move to archive on success
-                Path target = outputDir.resolve("archive").resolve(file.getFileName());
-                Files.move(file, target, StandardCopyOption.REPLACE_EXISTING);
-            } catch (Exception e) {
-                e.printStackTrace();
-                // move to error folder for later inspection
-                try {
-                    Path target = outputDir.resolve("error").resolve(file.getFileName());
-                    Files.move(file, target, StandardCopyOption.REPLACE_EXISTING);
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                }
-            }
-            log.info(String.format("DailyXmlWatcher: using filters=%s oddzial=%s",
-            	    ParserRegistry.getInstance().getFilters(),
-            	    ParserRegistry.getInstance().getOddzial()));
+            processSingleFile(file, allow, generator, outSL, outDSDZ, outOther,collectedContractorSections, collectedSections, allParsedDocs, collectedMessages);
         }
+        log.info(String.format("11 runOnce: finished processing files. collectedContractorSections.size=%s collectedSections.size=%s allParsedDocs.size=%s collectedMessages.size=%s",
+                collectedContractorSections.size(), collectedSections.size(), allParsedDocs.size(), collectedMessages.size()));
+        log.info(String.format("12 runOnce: outSL.size=%s outDSDZ.size=%s outOther.size=%s",
+                outSL.size(), outDSDZ.size(), outOther.size()));
 
-        // write grouped outputs (only non-empty groups)
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
-        String ts = LocalDateTime.now().format(fmt);
-        log.info("About to write outputs: outSL=" + outSL.size() + " outDSDZ=" + outDSDZ.size() + " outOther=" + outOther.size());
-        if (!outSL.isEmpty()) writeOutputFile("SL", outSL, ts);
-        if (!outDSDZ.isEmpty()) writeOutputFile("DS_DZ", outDSDZ, ts);
-        if (!outOther.isEmpty()) writeOutputFile("OTHER", outOther, ts);
+        // publikacja finalDoc z builderów zebranych przez watcher
+        persistPublishedFinalDocs(collectedContractorSections, collectedSections, outSL, outDSDZ, outOther, collectedMessages);
+
+        // zapis etykiet / raportów
+        writeGroupedOutputs(outSL, outDSDZ, outOther);
     }
 
-    private int prefixPriority(Path p) {
+
+
+
+
+	private int prefixPriority(Path p) {
         String name = p.getFileName().toString();
         if (name.length() >= 2) {
             String two = name.substring(0, 2).toUpperCase(Locale.ROOT);
@@ -294,7 +265,8 @@ public class DailyXmlWatcher {
         try {
             long lastModified = Files.getLastModifiedTime(file).toMillis();
             LocalDate fileDate = Instant.ofEpochMilli(lastModified).atZone(ZoneId.systemDefault()).toLocalDate();
-            return LocalDate.now().equals(fileDate);
+            LocalDate today = LocalDate.now();
+            return !fileDate.isBefore(today.minusDays(day)); // czyli: >= today-2
         } catch (IOException e) {
             return false;
         }
@@ -303,15 +275,15 @@ public class DailyXmlWatcher {
         Path toggleFile = AppConfig.ALLOW_UPDATE_FILE;
         try {
             if (!Files.exists(toggleFile)) {
-                log.info(String.format("readAllowUpdateFromFile: toggle file %s not found -> default false", toggleFile));
+                log.info(String.format("13 readAllowUpdateFromFile: toggle file %s not found -> default false", toggleFile));
                 return false;
             }
             String s = Files.readString(toggleFile).trim();
             boolean v = Boolean.parseBoolean(s);
-            log.info(String.format("readAllowUpdateFromFile: read %s from %s", v, toggleFile));
+            log.info(String.format("14 readAllowUpdateFromFile: read %s from %s", v, toggleFile));
             return v;
         } catch (IOException e) {
-            log.warn(String.format("readAllowUpdateFromFile: cannot read %s: %s", AppConfig.ALLOW_UPDATE_FILE, e.getMessage()));
+            log.warn(String.format("15 readAllowUpdateFromFile: cannot read %s: %s", AppConfig.ALLOW_UPDATE_FILE, e.getMessage()));
             return false;
         }
     }
@@ -331,16 +303,62 @@ public class DailyXmlWatcher {
             Files.createDirectories(outputDir);
             Path out = outputDir.resolve(String.format("output_%s_%s.xml", groupName, ts));
             StringBuilder sb = new StringBuilder();
-            sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-            sb.append("<documents group=\"").append(groupName).append("\" generatedAt=\"").append(ts).append("\">\n");
-            for (String frag : fragments) sb.append(frag).append("\n");
-            sb.append("</documents>\n");
+            sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n");
+            sb.append("<ROOT>\n");
+            for (String frag : fragments) sb.append(frag);
+            sb.append("</ROOT>\n");
             Files.writeString(out, sb.toString(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             System.out.println("Wrote output file: " + out);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+    private String buildFragmentFromDocOut(DmsDocumentOut docOut) throws Exception {
+        if (docOut == null) return null;
+        String docType = Optional.ofNullable(docOut.getDocumentType()).orElse("").trim().toUpperCase();
+        log.info(String.format("16 buildFragmentFromDocOut: invoice=%s docType=%s", docOut.getInvoiceShortNumber(), docType));
+
+        // wybierz odpowiedni builder na podstawie typu dokumentu
+        Object builder = null;
+        if (Set.of("DZ","FVZ","FVZK","FZK","FS","FK","UMUZ").contains(docType)) {
+            builder = new DmsOfflinePurchaseBuilder(docOut);
+        } else if (Set.of("DS","FV","PR","FZL","FVK","RWS","PRK","FZLK","FVU","FVM","FVG","FH","FHK").contains(docType)) {
+            builder = new DmsOfflineXmlBuilder(docOut);
+        } else {
+            log.info(String.format("17 buildFragmentFromDocOut: no builder for docType=%s, using fallback minimal fragment", docType));
+            // fallback: prosty fragment (możesz usunąć jeśli nie chcesz fallbacku)
+            return String.format("<document type=\"%s\" invoice=\"%s\"/>",
+                    escapeXml(docType), escapeXml(Optional.ofNullable(docOut.getInvoiceShortNumber()).orElse(docOut.getInvoiceNumber())));
+        }
+
+        // utwórz tymczasowy Document i kontenerowy element root
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setNamespaceAware(true);
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        Document tmpDoc = db.newDocument();
+        Element tmpRoot = tmpDoc.createElement("fragmentContainer");
+        tmpDoc.appendChild(tmpRoot);
+
+        // wywołaj istniejącą metodę build(Document, Element) na builderze
+        try {
+            // zakładamy, że builder ma metodę public void build(Document, Element)
+            Method m = builder.getClass().getMethod("build", Document.class, Element.class);
+            m.invoke(builder, tmpDoc, tmpRoot);
+        } catch (NoSuchMethodException nsme) {
+            // jeśli builder nie ma build(Document, Element) — log i fallback
+            log.info(String.format("18 buildFragmentFromDocOut: builder %s has no build(Document,Element) method", builder.getClass().getSimpleName()));
+            return null;
+        } catch (InvocationTargetException ite) {
+            throw new Exception("18 Builder invocation failed: " + ite.getTargetException().getMessage(), ite.getTargetException());
+        }
+
+        // serializuj zawartość tmpRoot (bez deklaracji XML)
+        String fragment = serializeChildrenWithoutXmlDecl(tmpRoot);
+        log.info(String.format("19 buildFragmentFromDocOut: generated fragment length=%d for invoice=%s", fragment == null ? 0 : fragment.length(), docOut.getInvoiceShortNumber()));
+        return fragment;
+    }
+
+
     /// Helpers
     public boolean isScheduled() {
         return scheduledTask != null && !scheduledTask.isCancelled() && !scheduledTask.isDone();
@@ -348,9 +366,8 @@ public class DailyXmlWatcher {
     // public API wywoływane przez servlet
  // public API: akceptuje Boolean (może być null)
  // pole klasy (jeśli jeszcze nie ma)
-       // metoda
     public boolean triggerTemporaryRun(boolean overrideAllow, long waitMillis) {
-        log.info(String.format("triggerTemporaryRun called overrideAllow=%s waitMillis=%s", overrideAllow, waitMillis));
+        log.info(String.format("20 triggerTemporaryRun called overrideAllow=%s waitMillis=%s", overrideAllow, waitMillis));
         long effectiveWait = Math.max(0L, waitMillis);
 
         // zaplanuj lub wykonaj natychmiast zadanie, ale nie blokuj wątku servletu
@@ -358,21 +375,21 @@ public class DailyXmlWatcher {
             // próbujemy wykonać run: jeśli lock zajęty, ustawiamy pendingOverride
             if (!processingLock.tryLock()) {
                 pendingOverride.set(overrideAllow);
-                log.info("Watcher busy -> pendingOverride set to " + overrideAllow);
+                log.info("21 Watcher busy -> pendingOverride set to " + overrideAllow);
                 return;
             }
             try {
-                log.info("Watcher: lock acquired -> performing run with overrideAllow=" + overrideAllow);
+                log.info("22 Watcher: lock acquired -> performing run with overrideAllow=" + overrideAllow);
                 runOnce(Boolean.valueOf(overrideAllow)); // runOnce obsługuje logikę allow
             } catch (Throwable t) {
-                log.error("Watcher temporary run failed", t);
+                log.error("22 Watcher temporary run failed", t);
             } finally {
                 processingLock.unlock();
-                log.info("Watcher: run finished overrideAllow=" + overrideAllow);
+                log.info("23 Watcher: run finished overrideAllow=" + overrideAllow);
                 // po zakończeniu sprawdź pendingOverride i wykonaj jeden dodatkowy run jeśli ustawione
                 Boolean next = pendingOverride.getAndSet(null);
                 if (next != null) {
-                    log.info("Watcher: executing pending override=" + next);
+                    log.info("23 Watcher: executing pending override=" + next);
                     // uruchom bez opóźnienia
                     triggerTemporaryRun(next, 0L);
                 }
@@ -389,27 +406,48 @@ public class DailyXmlWatcher {
         return true;
     }
 
+    // serializuje tylko dzieci danego elementu (bez <?xml?>), zwraca String
+    private String serializeChildrenWithoutXmlDecl(Node parent) throws Exception {
+        TransformerFactory tf = TransformerFactory.newInstance();
+        Transformer t = tf.newTransformer();
+        t.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+        t.setOutputProperty(OutputKeys.INDENT, "yes");
+        StringWriter sw = new StringWriter();
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node child = children.item(i);
+            t.transform(new DOMSource(child), new StreamResult(sw));
+        }
+        return sw.toString();
+    }
+
+    // prosty escaper do atrybutów
+    private String escapeXml(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;").replace("'", "&apos;");
+    }
  // delegacja do wspólnej logiki (wykonywana w wątku executor lub scheduler)
     private void doTriggerImmediate(boolean overrideAllow) {
-        log.info("Watcher: doTriggerImmediate requested overrideAllow=" + overrideAllow);
+        log.info("24 Watcher: doTriggerImmediate requested overrideAllow=" + overrideAllow);
         if (!processingLock.tryLock()) {
             // watcher pracuje -> zapisz ostatni override i zwróć
             pendingOverride.set(overrideAllow);
-            log.info("Watcher busy -> pendingOverride set to " + overrideAllow);
+            log.info("24 Watcher busy -> pendingOverride set to " + overrideAllow);
             return;
         }
         try {
-            log.info("Watcher: lock acquired -> performing run with overrideAllow=" + overrideAllow);
+            log.info("25 Watcher: lock acquired -> performing run with overrideAllow=" + overrideAllow);
             runOnce(Boolean.valueOf(overrideAllow));
         } catch (Throwable t) {
-            log.error("Watcher temporary run failed", t);
+            log.error("25 Watcher temporary run failed", t);
         } finally {
             processingLock.unlock();
-            log.info("Watcher: run finished overrideAllow=" + overrideAllow);
+            log.info("26 Watcher: run finished overrideAllow=" + overrideAllow);
             // po zakończeniu sprawdź pendingOverride i wykonaj jeden dodatkowy run jeśli ustawione
             Boolean next = pendingOverride.getAndSet(null);
             if (next != null) {
-                log.info("Watcher: executing pending override=" + next);
+                log.info("26 Watcher: executing pending override=" + next);
                 // uruchom bez opóźnienia
                 triggerTemporaryRun(next, 0L);
             }
@@ -426,26 +464,555 @@ public class DailyXmlWatcher {
     }
 
     private void doProcessing(boolean allowUpdate) {
-        // przykładowy przebieg: listowanie plików i delegacja do workerPool
+        // zbierz pliki najpierw (deterministycznie)
+        List<Path> files = new ArrayList<>();
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(watchDir, "*.xml")) {
             for (Path p : ds) {
-                // atomic move / lock per-file można dodać tutaj
-                workerPool.submit(() -> {
-                    try {
-                        String xml = new String(Files.readAllBytes(p), StandardCharsets.UTF_8);
-                        // filtrRejestry i filtrOddzial dostosuj do kontekstu
-                        Object result = converterService.processSingleDocument(xml, p.toString(),allowUpdate, Collections.emptySet(), null);
-                        log.info(String.format("Processed=%s ->=%s", p.getFileName(), result == null ? "null" : result.getClass().getSimpleName()));
-                        // po sukcesie przenieś do archive
-                    } catch (Exception e) {
-                        log.error("Error processing file " + p, e);
-                        // retry / move to error dir
-                    }
-                });
+                if (Files.isRegularFile(p)) files.add(p);
             }
         } catch (IOException ioe) {
-            log.error("doProcessing: IO error listing directory", ioe);
+            log.error(String.format("27 doProcessing: IO error listing directory %s: %s", watchDir, ioe.getMessage()), ioe);
+            return;
         }
+
+        if (files.isEmpty()) {
+            log.info(String.format("27 doProcessing: no files to process in %s", watchDir));
+            return;
+        }
+
+        log.info(String.format("28 doProcessing: found %s files, submitting to workerPool", files.size()));
+
+        // współdzielone kolekcje (takie jak w runOnce)
+        Queue<ContractorsXmlBuilder> collectedContractorSections = new ConcurrentLinkedQueue<>();
+        Queue<XmlSectionBuilder> collectedSections = new ConcurrentLinkedQueue<>();
+        Queue<Object> allParsedDocs = new ConcurrentLinkedQueue<>();
+        Queue<String> collectedMessages = new ConcurrentLinkedQueue<>();
+        List<String> outSL = Collections.synchronizedList(new ArrayList<>());
+        List<String> outDSDZ = Collections.synchronizedList(new ArrayList<>());
+        List<String> outOther = Collections.synchronizedList(new ArrayList<>());
+
+        // lista future do czekania
+        List<Future<?>> futures = new ArrayList<>();
+
+        for (Path p : files) {
+            // submitujemy zadanie, które wykona dokładnie to, co robi processSingleFile
+            futures.add(workerPool.submit(() -> {
+                try {
+                    // processSingleFile zajmuje się: filtrami, builderami, archiwizacją pliku
+                    processSingleFile(p, allowUpdate, this.generator, outSL, outDSDZ, outOther,
+                                      collectedContractorSections, collectedSections, allParsedDocs, collectedMessages);
+                } catch (Throwable t) {
+                    log.error(String.format("29 doProcessing: worker failed for file=%s err=%s", p.getFileName(), t.getMessage()), t);
+                    try {
+                        moveTo(p, outputDir.resolve("error"));
+                    } catch (IOException ioe) {
+                        log.error(String.format("29 doProcessing: failed to move file=%s to error: %s", p.getFileName(), ioe.getMessage()), ioe);
+                    }
+                }
+            }));
+        }
+
+        // czekamy na zakończenie wszystkich zadań (bez nieskończonego blokowania)
+        for (Future<?> f : futures) {
+            try {
+                f.get(); // blokuje do zakończenia zadania
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                log.warn(String.format("30 doProcessing: interrupted while waiting for workers"));
+            } catch (ExecutionException ee) {
+                log.error(String.format("30 doProcessing: worker execution exception: %s", ee.getMessage()), ee);
+            }
+        }
+
+        // snapshot i log
+        log.info(String.format("31 doProcessing: workers finished. collectedContractorSections.size=%s collectedSections.size=%s allParsedDocs.size=%s collectedMessages.size=%s",
+                collectedContractorSections.size(), collectedSections.size(), allParsedDocs.size(), collectedMessages.size()));
+        log.info(String.format("31 doProcessing: outSL.size=%s outDSDZ.size=%s outOther.size=%s",
+                outSL.size(), outDSDZ.size(), outOther.size()));
+
+        // publikacja finalDoc z builderów zebranych przez watcher
+        try {
+            persistPublishedFinalDocs(collectedContractorSections, collectedSections, outSL, outDSDZ, outOther, collectedMessages);
+        } catch (Exception e) {
+            log.error(String.format("32 doProcessing: persistPublishedFinalDocs failed: %s", e.getMessage()), e);
+        }
+
+        // zapis etykiet / raportów
+        try {
+            writeGroupedOutputs(outSL, outDSDZ, outOther);
+        } catch (Exception e) {
+            log.error(String.format("33 doProcessing: writeGroupedOutputs failed: %s", e.getMessage()), e);
+        }
+    }
+
+    private boolean ensureWatchAndOutputDirs() {
+        try {
+            if (!Files.exists(watchDir) || !Files.isDirectory(watchDir)) {
+                log.info(String.format("34 runOnce: watchDir missing or not a directory: %s", watchDir));
+                return false;
+            }
+            Files.createDirectories(outputDir.resolve("archive"));
+            Files.createDirectories(outputDir.resolve("error"));
+            return true;
+        } catch (IOException e) {
+            log.error(String.format("34 DailyXmlWatcher: failed to create output dirs %s: %s", outputDir, e.getMessage()), e);
+            return false;
+        }
+    }
+    private boolean resolveAllow(Boolean overrideAllow) {
+        if (overrideAllow != null) {
+            log.info(String.format("35 runOnce: using overrideAllow=%s", overrideAllow));
+            return overrideAllow;
+        }
+        boolean allow = ParserRegistry.getInstance().isAllowUpdate();
+        if (!allow) {
+            allow = readAllowUpdateFromFile(); // jeśli istnieje
+            ParserRegistry.getInstance().setAllowUpdate(allow);
+        }
+        log.info(String.format("35 runOnce: resolved allowUpdate=%s", allow));
+        return allow;
+    }
+    private List<Path> collectXmlFiles() {
+        List<Path> files = new ArrayList<>();
+        try (DirectoryStream<Path> ds = Files.newDirectoryStream(watchDir, xmlGlob)) {
+            for (Path p : ds) if (Files.isRegularFile(p)) files.add(p);
+        } catch (IOException e) {
+            log.error(String.format("36 DailyXmlWatcher: error reading watchDir %s: %s", watchDir, e.getMessage()), e);
+        }
+        return files;
+    }
+    private void processSingleFile(Path file,
+            boolean allow,
+            DocumentOutGenerator generator,
+            List<String> outSL,
+            List<String> outDSDZ,
+            List<String> outOther,
+            Queue<ContractorsXmlBuilder> collectedContractorSections,
+            Queue<XmlSectionBuilder> collectedSections,
+            Queue<Object> allParsedDocs,
+            Queue<String> collectedMessages) {
+
+    	String fileName = file.getFileName().toString();
+    	try {
+    		if (!isFromToday(file)) {
+    			log.info(String.format("37 DailyXmlWatcher: skipping not-from-today file=%s", fileName));
+    			return;
+    		}
+    		if (!isFileReady(file)) {
+    			log.info(String.format("37 DailyXmlWatcher: skipping not-ready file=%s", fileName));
+    			return;
+    		}
+
+    		Set<String> watcherFiltrRejestry = ParserRegistry.getInstance().getFilters();
+    		String watcherFiltrOddzial = ParserRegistry.getInstance().getOddzial();
+    		log.info(String.format("38 DailyXmlWatcher: processing file=%s with filters=%s oddzial=%s", fileName, watcherFiltrRejestry, watcherFiltrOddzial));
+
+    		DocumentOutGenerator.DocOutGenerationResult genRes =
+    				generator.generateAndRecord(file.toFile(), allow, watcherFiltrRejestry, watcherFiltrOddzial);
+
+    		// log messages produced by generator
+    		List<String> genMessages = generator.drainResults();
+    		for (String m : genMessages) log.info(String.format("39 DailyXmlWatcher: generator msg=%s watcherFiltrRejestry=%s watcherFiltrOddzial=%s", m,watcherFiltrRejestry, watcherFiltrOddzial));
+
+    		if (genRes == null) {
+    			moveTo(file, outputDir.resolve("error"));
+    			return;
+    		}
+    		if (genRes.status == DocumentOutGenerator.Status.ERROR) {
+    			moveTo(file, outputDir.resolve("error"));
+    			return;
+    		}
+    		if (genRes.status == DocumentOutGenerator.Status.SKIPPED) {
+    			// sprawdź czy to OUT_ONLY
+    		    Object parsed = genRes.parsedDocument;
+    		    boolean isOutOnly = false;
+    		    if (parsed instanceof SkippedDocument sd) {
+    		        String reason = sd.getReason() == null ? "" : sd.getReason();
+    		        String type = sd.getType() == null ? "" : sd.getType();
+    		        if ("OUT_ONLY".equalsIgnoreCase(reason) || ParserRegistry.getInstance().isOutOnly(type)) {
+    		            isOutOnly = true;
+    		        }
+    		    }
+    		    if (isOutOnly) {
+    		        Path outArchiveOut = outputDir.resolve("archive").resolve("out");
+    		        Files.createDirectories(outArchiveOut);
+    		        Path target = outArchiveOut.resolve(file.getFileName());
+    		        Files.move(file, target, StandardCopyOption.REPLACE_EXISTING);
+    		        log.info(String.format("40 DailyXmlWatcher: moved OUT_ONLY file=%s to %s", file.getFileName(), outArchiveOut.toAbsolutePath()));
+    		        collectedMessages.add(String.format("Przeniesiono OUT_ONLY: %s", file.getFileName()));
+    		        return;
+    		    } else {
+    		        // dotychczasowa logika: archive lub inne
+    			moveTo(file, outputDir.resolve("archive"));
+    			return;
+    		}
+    		}
+    		log.info("41 processSingleFile: OK genRes parsed=" + (genRes.parsedDocument == null ? "null" : genRes.parsedDocument.getClass().getSimpleName())
+    		         + " docOut=" + (genRes.docOut == null ? "null" : genRes.docOut.getDocumentType()));
+    		// TRACE: genRes context
+    		log.info("41 TRACE-1 genRes context: file=" + file.getFileName()
+    		    + " parsedClass=" + (genRes.parsedDocument == null ? "null" : genRes.parsedDocument.getClass().getSimpleName())
+    		    + " docOutType=" + (genRes.docOut == null ? "null" : genRes.docOut.getDocumentType())
+    		    + " parserRegistryOddzial=" + ParserRegistry.getInstance().getOddzial());
+
+    		/// for SL
+            // SL jako parsedDocument
+    		// TRACE: before SL handling
+    		log.info("41 TRACE-2 before SL handling: file=" + file.getFileName()
+    		    + " parserOddzial=" + ParserRegistry.getInstance().getOddzial()
+    		    + " genRes_parsed_notnull=" + (genRes.parsedDocument != null));
+
+            if (genRes.parsedDocument instanceof DmsParsedContractorList sl) {
+                ContractorsXmlBuilder cb = new ContractorsXmlBuilder(new ContractorMapper().map(sl.contractors));
+             // ustaw id księgowe natychmiast (tak jak dla DSDZ)
+                String watcherOddzial = ParserRegistry.getInstance().getOddzial();
+                String idKsieg = "DMS_" + ("02".equals(watcherOddzial) ? "2" : "1");
+                try {
+                    // jeśli ContractorsXmlBuilder implementuje XmlSectionBuilder lub ma setter
+                    if (cb instanceof XmlSectionBuilder) {
+                        ((XmlSectionBuilder) cb).setIdKsiegOddzial(idKsieg);
+                    } else {
+                        // jeśli nie, wywołaj metodę setIdKsiegOddzial bez rzutowania (dodaj ją do klasy)
+                        cb.setIdKsiegOddzial(idKsieg);
+                    }
+                    log.info("TRACE-SL builder created and id set: file=" + fileName + " builderClass=" + cb.getClass().getSimpleName() + " idKsieg=" + idKsieg);
+                } catch (Throwable t) {
+                    log.warn(String.format("Failed to set idKsiegOddzial on SL builder for file=%s catch (Throwable t=%s)",fileName, t));
+                }
+                collectedContractorSections.add(cb);
+                outSL.add(sl.fileName.replaceAll("[\\\\/:*?\"<>|]", "_"));
+                allParsedDocs.add(sl);
+                collectedMessages.add("Dodano SL: " + sl.fileName);
+                moveTo(file, outputDir.resolve("archive"));
+                return;
+            }
+    		/// 
+    		
+    		DmsDocumentOut docOut = genRes.docOut;
+    		if (docOut != null) {
+                String docType = Optional.ofNullable(docOut.getDocumentType()).orElse("").trim().toUpperCase();
+                XmlSectionBuilder builder;
+                if (DocTypeConstants.DZ_TYPES.contains(docType)) {
+                    builder = new DmsOfflinePurchaseBuilder(docOut);
+                } else {
+                    // DS i inne -> DmsOfflineXmlBuilder
+                    builder = new DmsOfflineXmlBuilder(docOut);
+                }
+                String watcherOddzial = ParserRegistry.getInstance().getOddzial(); // powinno zwracać "01" lub "02"
+                String idKsieg = "DMS_" + ( "02".equals(watcherOddzial) ? "2" : "1" );
+                try {
+                    if (builder instanceof XmlSectionBuilder) {
+                        ((XmlSectionBuilder) builder).setIdKsiegOddzial(idKsieg);
+                    }
+                } catch (Throwable t) {
+                    log.warn(String.format("Failed to set idKsiegOddzial on builder for file=%s catch Throwable t=%s", file.getFileName(), t));
+                }
+                // TRACE: builder created
+                String builderClass = builder == null ? "null" : builder.getClass().getSimpleName();
+                log.info("41 TRACE-3 builder created: file=" + file.getFileName()
+                    + " docType=" + docType
+                    + " builderClass=" + builderClass
+                    + " parserOddzial=" + ParserRegistry.getInstance().getOddzial()
+                    + " docOut.invoice=" + (docOut == null ? "null" : docOut.getInvoiceNumber()));
+
+                boolean ok = collectedSections.offer(builder);
+             // TRACE: queued attempt
+                log.info("41 TRACE-4 queued attempt: file=" + file.getFileName()
+                    + " builderClass=" + (builder == null ? "null" : builder.getClass().getSimpleName())
+                    + " offerResult=" + ok
+                    + " collectedSections.size=" + collectedSections.size()
+                    + " parserOddzial=" + ParserRegistry.getInstance().getOddzial());
+
+                if (!ok) {
+                    log.warn(String.format("42 DailyXmlWatcher: failed to enqueue builder for file=%s", file.getFileName()));
+                    collectedMessages.add("Nie udało się dodać sekcji dla " + file.getFileName());
+                }
+
+
+                String label = Optional.ofNullable(docOut.getInvoiceShortNumber()).filter(s -> !s.isBlank())
+                                       .orElse(Optional.ofNullable(docOut.getInvoiceNumber()).orElse(fileName));
+                label = label.replaceAll("[\\\\/:*?\"<>|]", "_");
+
+                if (DocTypeConstants.DZ_TYPES.contains(docType) || DocTypeConstants.DS_TYPES.contains(docType)) {
+                    outDSDZ.add(label);
+                } else {
+                    outOther.add(label);
+                }
+             // TRACE: label and out lists
+                log.info("42 TRACE-5 label added: file=" + file.getFileName()
+                    + " label=" + label
+                    + " outDSDZ.size=" + outDSDZ.size()
+                    + " outOther.size=" + outOther.size()
+                    + " parserOddzial=" + ParserRegistry.getInstance().getOddzial());
+
+                if (genRes.parsedDocument != null) allParsedDocs.add(genRes.parsedDocument);
+                collectedMessages.add(String.format("Przetworzono: %s typ=%s invoice=%s", fileName, docType, label));
+            } else {
+                log.info(String.format("43 DailyXmlWatcher: genRes.docOut is null for file=%s -> archiving", fileName));
+            }
+    		// TRACE: before archive move
+    		log.info("43 TRACE-6 before archive: file=" + file.getFileName()
+    		    + " collectedSections.size=" + collectedSections.size()
+    		    + " collectedContractorSections.size=" + collectedContractorSections.size()
+    		    + " allParsedDocs.size=" + allParsedDocs.size()
+    		    + " collectedMessages.size=" + collectedMessages.size()
+    		    + " parserOddzial=" + ParserRegistry.getInstance().getOddzial());
+
+    		moveTo(file, outputDir.resolve("archive"));
+    		} catch (Exception e) {
+    			log.error(String.format("43 DailyXmlWatcher: exception processing file=%s err=%s", file.getFileName(), e.getMessage()), e);
+    			try {	
+    				moveTo(file, outputDir.resolve("error"));
+    			} catch (IOException ex) {
+    				log.error(String.format("44 DailyXmlWatcher: failed to move file=%s to error: %s", file.getFileName(), ex.getMessage()), ex);
+    			}
+    		} finally {
+    			log.info(String.format("44 TRACE-7 finally: filters=%s oddzial=%s thread=%s",
+    			        ParserRegistry.getInstance().getFilters(),
+    			        ParserRegistry.getInstance().getOddzial(),
+    			        Thread.currentThread().getName()));
+
+    		}
+    	}
+    	private void moveTo(Path file, Path targetDir) throws IOException {
+	        Files.createDirectories(targetDir);
+	        Path target = targetDir.resolve(file.getFileName());
+	        Files.move(file, target, StandardCopyOption.REPLACE_EXISTING);
+	        log.info(String.format("45 DailyXmlWatcher: moved file=%s to %s", file.getFileName(), targetDir));
+	    }
+    	private void persistPublishedFinalDocs(Queue<ContractorsXmlBuilder> contractorSections,
+                Queue<XmlSectionBuilder> collectedSections,
+                List<String> outSL,
+                List<String> outDSDZ,
+                List<String> outOther,
+                Queue<String> collectedMessages) {
+
+// 1) opcjonalnie: zapisz to, co generator mógł już opublikować
+if (this.generator != null) {
+    log.info(String.format("46 DailyXmlWatcher: generator identity=%s", System.identityHashCode(this.generator)));
+    List<DocumentOutGenerator.SerializedDoc> finalDocs = this.generator.drainFinalDocs();
+    log.info(String.format("47 DailyXmlWatcher: polled %d finalDocs from generator", finalDocs.size()));
+    for (DocumentOutGenerator.SerializedDoc sd : finalDocs) {
+        try {
+            Path out = outputDir.resolve(String.format("out_%s_%s.xml", sd.outputGroup, sd.timestamp));
+            Files.writeString(out, sd.xml, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            log.info(String.format("48 DailyXmlWatcher: wrote finalDoc file %s", out.toString()));
+        } catch (IOException e) {
+            log.error(String.format("49 DailyXmlWatcher: failed to write finalDoc for group=%s ts=%s err=%s", sd.outputGroup, sd.timestamp, e.getMessage()), e);
+        }
+    }
+}
+
+// 2) snapshot kolekcji
+List<ContractorsXmlBuilder> slList = new ArrayList<>(contractorSections);
+List<XmlSectionBuilder> sectionsList = new ArrayList<>(collectedSections);
+List<String> messages = new ArrayList<>(collectedMessages == null ? List.of() : collectedMessages);
+
+if (slList.isEmpty() && sectionsList.isEmpty()) {
+    log.info("50 persistPublishedFinalDocs: nothing to publish (root empty)");
+    messages.add("Brak sekcji do publikacji");
+    messages.forEach(m -> log.info(String.format("persistPublishedFinalDocs msg=%s", m)));
+    return;
+}
+
+try {
+    TransformerFactory tf = TransformerFactory.newInstance();
+    Transformer transformer = tf.newTransformer();
+
+    // przygotuj id księgowe z registry (jednolity sposób)
+    String watcherOddzial = ParserRegistry.getInstance().getOddzial();
+    String idKsieg = "DMS_" + ("02".equals(watcherOddzial) ? "2" : "1");
+
+    // jeśli mamy tylko SL albo tylko sections, zachowaj dotychczasowe zachowanie (jeden dokument)
+    if (!slList.isEmpty() && sectionsList.isEmpty()) {
+        // tylko SL -> zbuduj jeden dokument (jak wcześniej)
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        Document doc = db.newDocument();
+        Element root = doc.createElement("ROOT");
+        doc.appendChild(root);
+
+        for (ContractorsXmlBuilder cb : slList) {
+            try {
+                // defensywnie ustaw idKsiegOddzial jeśli builder ma setter
+                try {
+                    if (cb instanceof XmlSectionBuilder) {
+                        ((XmlSectionBuilder) cb).setIdKsiegOddzial(idKsieg);
+                    } else {
+                        try {
+                            cb.getClass().getMethod("setIdKsiegOddzial", String.class).invoke(cb, idKsieg);
+                        } catch (NoSuchMethodException ignore) { }
+                    }
+                } catch (Throwable t) {
+                    log.warn(String.format("persistPublishedFinalDocs: failed to set idKsiegOddzial on SL builder", t));
+                }
+                cb.build(doc, root);
+            } catch (Throwable t) {
+                log.error("persistPublishedFinalDocs: error building SL section", t);
+            }
+        }
+
+        // serializacja i zapis (jeden plik)
+        StringWriter writer = new StringWriter();
+        transformer.transform(new DOMSource(doc), new StreamResult(writer));
+        String xmlString = writer.toString();
+
+        String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String fileNameOut = "SL_" + ts + ".xml";
+        Path outPath = outputDir.resolve(fileNameOut);
+        Files.writeString(outPath, xmlString, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        log.info("51 persistPublishedFinalDocs: published finalDoc " + outPath);
+        if (outSL != null) {
+            messages.addAll(outSL.stream().map(s -> "Dodano SL: " + s).collect(Collectors.toList()));
+        }
+        messages.add("Opublikowano finalDoc: " + fileNameOut);
+        // koniec przypadku tylko SL
+    } else if (slList.isEmpty() && !sectionsList.isEmpty()) {
+        // tylko DS/DZ/Other -> zbuduj jeden dokument (jak wcześniej)
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        Document doc = db.newDocument();
+        Element root = doc.createElement("ROOT");
+        doc.appendChild(root);
+
+        for (XmlSectionBuilder b : sectionsList) {
+            try {
+                try {
+                    if (b instanceof XmlSectionBuilder) {
+                        ((XmlSectionBuilder) b).setIdKsiegOddzial(idKsieg);
+                    } else {
+                        try {
+                            b.getClass().getMethod("setIdKsiegOddzial", String.class).invoke(b, idKsieg);
+                        } catch (NoSuchMethodException ignore) { }
+                    }
+                } catch (Throwable t) {
+                    log.warn(String.format("persistPublishedFinalDocs: failed to set idKsiegOddzial on DS/DZ builder", t));
+                }
+                b.build(doc, root);
+            } catch (Throwable t) {
+                log.error("persistPublishedFinalDocs: error building DS/DZ section", t);
+            }
+        }
+
+        StringWriter writer = new StringWriter();
+        transformer.transform(new DOMSource(doc), new StreamResult(writer));
+        String xmlString = writer.toString();
+
+        String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String fileNameOut = "DZ_DS_" + ts + ".xml";
+        Path outPath = outputDir.resolve(fileNameOut);
+        Files.writeString(outPath, xmlString, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        log.info("51 persistPublishedFinalDocs: published finalDoc " + outPath);
+        if (outDSDZ != null) {
+            messages.addAll(outDSDZ.stream().map(s -> "Dodano DS/DZ: " + s).collect(Collectors.toList()));
+        }
+        messages.add("Opublikowano finalDoc: " + fileNameOut);
+        // koniec przypadku tylko DS/DZ
+    } else {
+        // mamy jednocześnie SL i sections -> zbuduj i zapisz DWA osobne dokumenty (minimalna zmiana)
+        // 3A) SL
+        DocumentBuilderFactory dbfSL = DocumentBuilderFactory.newInstance();
+        DocumentBuilder dbSL = dbfSL.newDocumentBuilder();
+        Document docSL = dbSL.newDocument();
+        Element rootSL = docSL.createElement("ROOT");
+        docSL.appendChild(rootSL);
+
+        for (ContractorsXmlBuilder cb : slList) {
+            try {
+                try {
+                    if (cb instanceof XmlSectionBuilder) {
+                        ((XmlSectionBuilder) cb).setIdKsiegOddzial(idKsieg);
+                    } else {
+                        try {
+                            cb.getClass().getMethod("setIdKsiegOddzial", String.class).invoke(cb, idKsieg);
+                        } catch (NoSuchMethodException ignore) { }
+                    }
+                } catch (Throwable t) {
+                    log.warn(String.format("persistPublishedFinalDocs: failed to set idKsiegOddzial on SL builder", t));
+                }
+                cb.build(docSL, rootSL);
+            } catch (Throwable t) {
+                log.error("persistPublishedFinalDocs: error building SL section", t);
+            }
+        }
+
+        StringWriter writerSL = new StringWriter();
+        transformer.transform(new DOMSource(docSL), new StreamResult(writerSL));
+        String xmlSL = writerSL.toString();
+
+        String tsSL = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String fileNameOutSL = "SL_" + tsSL + ".xml";
+        Path outPathSL = outputDir.resolve(fileNameOutSL);
+        Files.writeString(outPathSL, xmlSL, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        log.info("51 persistPublishedFinalDocs: published finalDoc " + outPathSL);
+        if (outSL != null) {
+            messages.addAll(outSL.stream().map(s -> "Dodano SL: " + s).collect(Collectors.toList()));
+        }
+        messages.add("Opublikowano finalDoc: " + fileNameOutSL);
+
+        // 3B) DS/DZ
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        Document doc = db.newDocument();
+        Element root = doc.createElement("ROOT");
+        doc.appendChild(root);
+
+        for (XmlSectionBuilder b : sectionsList) {
+            try {
+                try {
+                    if (b instanceof XmlSectionBuilder) {
+                        ((XmlSectionBuilder) b).setIdKsiegOddzial(idKsieg);
+                    } else {
+                        try {
+                            b.getClass().getMethod("setIdKsiegOddzial", String.class).invoke(b, idKsieg);
+                        } catch (NoSuchMethodException ignore) { }
+                    }
+                } catch (Throwable t) {
+                    log.warn(String.format("persistPublishedFinalDocs: failed to set idKsiegOddzial on DS/DZ builder", t));
+                }
+                b.build(doc, root);
+            } catch (Throwable t) {
+                log.error("persistPublishedFinalDocs: error building DS/DZ section", t);
+            }
+        }
+
+        StringWriter writer = new StringWriter();
+        transformer.transform(new DOMSource(doc), new StreamResult(writer));
+        String xmlString = writer.toString();
+
+        String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String fileNameOut = "DZ_DS_" + ts + ".xml";
+        Path outPath = outputDir.resolve(fileNameOut);
+        Files.writeString(outPath, xmlString, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        log.info("51 persistPublishedFinalDocs: published finalDoc " + outPath);
+        if (outDSDZ != null) {
+            messages.addAll(outDSDZ.stream().map(s -> "Dodano DS/DZ: " + s).collect(Collectors.toList()));
+        }
+        messages.add("Opublikowano finalDoc: " + fileNameOut);
+    }
+
+} catch (Exception e) {
+    log.error("52 persistPublishedFinalDocs: unexpected error while building finalDoc", e);
+    messages.add("Błąd składania finalDoc: " + e.getMessage());
+}
+
+// 6) wypisz komunikaty
+messages.forEach(m -> log.info(String.format("53 persistPublishedFinalDocs msg=%s", m)));
+}
+
+
+    private void writeGroupedOutputs(List<String> outSL, List<String> outDSDZ, List<String> outOther) {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+        String ts = LocalDateTime.now().format(fmt);
+        log.info(String.format("54 About to write outputs: outSL=%d outDSDZ=%d outOther=%d", outSL.size(), outDSDZ.size(), outOther.size()));
+        if (!outSL.isEmpty()) writeOutputFile("SL", outSL, ts);
+        if (!outDSDZ.isEmpty()) writeOutputFile("DS_DZ", outDSDZ, ts);
+        if (!outOther.isEmpty()) writeOutputFile("OTHER", outOther, ts);
+    }
+    public void shutdown() {
+        scheduler.shutdownNow();
+        workerPool.shutdownNow();
+        log.info("DailyXmlWatcher shutdown requested");
     }
 }
 

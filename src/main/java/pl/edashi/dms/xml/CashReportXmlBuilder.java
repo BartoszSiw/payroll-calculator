@@ -21,7 +21,7 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	private static final Pattern DOWOD_PATTERN = Pattern.compile("^(KP|KW|DW)/\\d+/(\\d{6})/\\d{4}$");
 	 private static final String NS = "http://www.comarch.pl/cdn/optima/offline";
 	 private final DmsDocumentOut doc;
-
+	 private String idKsiegOddzial;
 	    public CashReportXmlBuilder(DmsDocumentOut doc) {
 	        if (doc == null) {
 	            throw new IllegalArgumentException("CashReportXmlBuilder: report is null");
@@ -33,7 +33,10 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 
 	        this.doc = doc;
 	    }
-
+	    @Override
+	    public void setIdKsiegOddzial(String id) {
+	        this.idKsiegOddzial = id;
+	    }
 	    @Override
 	    public void build(Document docXml, Element root) {
 	        if (docXml == null || root == null) return;
@@ -45,7 +48,7 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	        // Nagłówek sekcji
 	        rejSekcja.appendChild(makeCdata(docXml, "WERSJA", "2.00"));
 	        rejSekcja.appendChild(makeCdata(docXml, "BAZA_ZRD_ID", "KSIEG"));
-	        rejSekcja.appendChild(makeCdata(docXml, "BAZA_DOC_ID", "DMS_1"));
+	        rejSekcja.appendChild(makeCdata(docXml, "BAZA_DOC_ID", idKsiegOddzial));
 
 	        // REJESTR_ZAKUPU_VAT
 	        Element rk = docXml.createElementNS(NS, "RAPORT_KB");

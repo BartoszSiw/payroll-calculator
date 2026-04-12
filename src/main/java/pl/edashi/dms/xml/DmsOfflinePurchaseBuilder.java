@@ -17,10 +17,10 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 
 public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
-	//private final AppLogger log = new AppLogger("PurchaseBuilder");
+	private final AppLogger log = new AppLogger("PurchaseBuilder");
     private static final String NS = "http://www.comarch.pl/cdn/optima/offline";
     private final DmsDocumentOut doc;
-
+    private String idKsiegOddzial;
     public DmsOfflinePurchaseBuilder(DmsDocumentOut doc) {
         if (doc == null) throw new IllegalArgumentException("DmsOfflinePurchaseBuilder: doc is null");
         Set<String> PURCHASE_TYPES = Set.of("DZ","FVZ","FVZK","FVZk", "FZK", "FZk","FS", "FK","UMUZ");
@@ -29,7 +29,13 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         }
         this.doc = doc;
     }
+    @Override
+    public void setIdKsiegOddzial(String id) {
+    	log.info("TRACE-BUILD Purchase_Builder.build: invoice=" + (doc == null ? "null" : this.doc.getInvoiceNumber())
+    		    + " idKsiegOddzial=" + this.idKsiegOddzial);
 
+        this.idKsiegOddzial = id;
+    }
     @Override
     public void build(Document docXml, Element root) {
         if (docXml == null || root == null) return;
@@ -42,7 +48,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         // Nagłówek sekcji
         rejSekcja.appendChild(makeCdata(docXml, "WERSJA", "2.00"));
         rejSekcja.appendChild(makeCdata(docXml, "BAZA_ZRD_ID", "KSIEG"));
-        rejSekcja.appendChild(makeCdata(docXml, "BAZA_DOC_ID", "DMS_1"));
+        rejSekcja.appendChild(makeCdata(docXml, "BAZA_DOC_ID", idKsiegOddzial));
 
         // REJESTR_ZAKUPU_VAT
         Element rz = docXml.createElementNS(NS, "REJESTR_ZAKUPU_VAT");
@@ -101,7 +107,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         rz.appendChild(makeCdata(docXml, "MIASTO", safe(doc.getMiasto())));
         rz.appendChild(makeCdata(docXml, "KOD_POCZTOWY", safe(doc.getKodPocztowy())));
         rz.appendChild(makeCdata(docXml, "POCZTA", safe(doc.getPoczta())));
-        rz.appendChild(makeCdata(docXml, "DODATKOWE", safe(doc.getDodatkowyOpis())));
+        rz.appendChild(makeCdata(docXml, "DODATKOWE", ""));
         rz.appendChild(makeCdata(docXml, "PESEL", safe(doc.getPesel())));
         rz.appendChild(makeCdata(docXml, "ROLNIK", "Nie"));
         rz.appendChild(makeCdata(docXml, "TYP_PLATNIKA", "kontrahent"));
@@ -129,7 +135,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         rz.appendChild(makeCdata(docXml, "AKCYZA_NA_WEGIEL", safe(doc.getAkcyzaNaWegiel())));
         rz.appendChild(makeCdata(docXml, "AKCYZA_NA_WEGIEL_KOLUMNA_KPR", safe(doc.getAkcyzaKolumnaKpr())));
         rz.appendChild(makeCdata(docXml, "JPK_FA", "Nie"));
-        rz.appendChild(makeCdata(docXml, "MPP", safe(doc.getMpp() != null ? doc.getMpp() : "Tak")));
+        rz.appendChild(makeCdata(docXml, "MPP", "Tak"));
         rz.appendChild(makeCdata(docXml, "NR_KSEF", safe(doc.getNrKsef())));
         if (doc.getNrKsef() != null && !doc.getNrKsef().isEmpty()) {
         	rz.appendChild(makeCdata(docXml, "KSEF_DATA_PRZYJECIA", safe(doc.getDataWystawienia())));

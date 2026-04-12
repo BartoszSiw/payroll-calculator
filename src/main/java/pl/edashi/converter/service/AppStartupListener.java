@@ -20,7 +20,9 @@ public class AppStartupListener implements ServletContextListener {
     private DailyXmlWatcher watcher;
     private final AppLogger log = new AppLogger("AppStartupListener");
     Path toggleFile = AppConfig.ALLOW_UPDATE_FILE;
-    
+    ConverterConfig config = new ConverterConfig();
+    int hour = config.getWatcherHour();
+    int minute = config.getWatcherMinute();
     @Override
     public void contextInitialized(ServletContextEvent sce) {
         ServletContext ctx = sce.getServletContext();
@@ -65,6 +67,9 @@ public class AppStartupListener implements ServletContextListener {
         RejestrDao rejestrDao = new RejestrDaoImpl(); // ensure it uses a connection pool
         ConverterService converterService = new ConverterService(new DocumentRepository(), rejestrDao);
         ctx.setAttribute("converterService", converterService);
+        DocumentOutGenerator generator = new DocumentOutGenerator(converterService);
+        ctx.setAttribute("documentOutGenerator", generator);
+        log.info(String.format("AppStartupListener: stored shared DocumentOutGenerator in ServletContext identity=%s", System.identityHashCode(generator)));
         AtomicReference<Set<String>> filtersRef = new AtomicReference<>(Collections.emptySet());
         AtomicReference<String> oddzialRef = new AtomicReference<>("01");
         // store service for servlets to reuse
@@ -72,9 +77,10 @@ public class AppStartupListener implements ServletContextListener {
      // store in context so servlet can update them
         ctx.setAttribute("watcherFiltersRef", filtersRef);
         ctx.setAttribute("watcherOddzialRef", oddzialRef);
-        DailyXmlWatcher watcher = new DailyXmlWatcher(watchDir, outputDir, converterService, allowUpdate,filtersRef::get, oddzialRef::get, workerThreads);
+        DailyXmlWatcher watcher = new DailyXmlWatcher(watchDir, outputDir, converterService, allowUpdate,filtersRef::get, oddzialRef::get, workerThreads,generator);
         //watcher.startNowOnce();
-        watcher.startAtDailyTime(15, 37); // schedule daily at 09:30
+        //watcher.startAtDailyTime(21,36); // schedule daily at 09:30
+        watcher.startAtDailyTime(hour, minute);
         ctx.setAttribute("dailyXmlWatcher", watcher);
         log.info(String.format("DailyXmlWatcher started for directory=%s", watchDir));
         log.info(String.format("DailyXmlWatcher scheduled? %s", watcher.isScheduled()));

@@ -77,6 +77,7 @@ public class DmsParsedDocument {
     private String statusVat = "";
     public String odliczenia ="";
     public String expKrajowy = "";
+    public String dodatkowyOpis ="";
     //private String vin = "";
 
     // dodatkowe pola pomocnicze
@@ -181,6 +182,7 @@ public class DmsParsedDocument {
 	public void setStatusVat(String statusVat) { this.statusVat = safe(statusVat); }
 	public void setOdliczenia(String odliczenia) { this.odliczenia = safe(odliczenia); }
 	public void setExpKrajowy(String expKrajowy) { this.expKrajowy = safe(expKrajowy); }
+	public void setDodatkowyOpis(String dodatkowyOpis) {this.dodatkowyOpis = safe(dodatkowyOpis); }
 	public void setMappingTarget(MappingTarget mappingTarget) { this.mappingTarget = mappingTarget; }
 	
 	//public void setVin(String vin) {this.vin  = vin ;}
@@ -312,6 +314,7 @@ public class DmsParsedDocument {
     public String getStatusVat() {return statusVat;}
     public String getOdliczenia() { return odliczenia; }
     public String getExpKrajowy() { return expKrajowy; }
+    public String getDodatkowyOpis() {return dodatkowyOpis;}
     public MappingTarget getMappingTarget() { return mappingTarget; }
 	    //public String getVin() {return vin;}
     // --- Utility ---

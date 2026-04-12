@@ -1,3 +1,4 @@
+C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\converter\service\ConverterConfig.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\converter\service\ProcessedDocument.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\parser\DmsParserWZ.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\xml\XmlSectionBuilder.java
@@ -14,6 +15,7 @@ C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\parser\DmsParserPO.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\model\DmsParsedContractor.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\model\DmsOutputPosition.java
+C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\converter\service\DocumentOutGenerator.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\payroll\model\PayrollResult.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\employees\UpdateEmployeeServlet.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\parser\util\DocumentNumberExtractor.java
@@ -74,6 +76,7 @@ C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\xml\DmsOfflinePurchaseBuilder.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\common\dao\RejestrDao.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\converter\service\ProcessingResult.java
+C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\converter\servlet\DocTypeConstants.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\dms\parser\DmsParserDS.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\payroll\model\WorkHours.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\Kalkulator2025\src\main\java\pl\edashi\converter\service\XmlWatcher.java

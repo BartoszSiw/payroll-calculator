@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 public class DmsParserDZ implements DmsParser{
     private final AppLogger log = new AppLogger("DmsParserDZ");
@@ -138,6 +139,8 @@ public class DmsParserDZ implements DmsParser{
         // ============================
         extractVat(doc, out);
         out.setPositions(extractPositionsDZ(doc, out,bruttoUmowa,rejestrDZ));
+        List<DmsPosition> list75 = createPositionsFrom75(doc);
+        out.setDodatkowyOpis(positionsToOpis(list75));
         // 2) Wartości stawka / netto / vat (document typ="06")
         // ============================
 
@@ -379,7 +382,7 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
     	        	list = createPositionsFrom76(doc,bruttoUmowa);
     	        }
     	    }
-
+    	    
     	    // 2) Uzupełnienie z typ="03"
     	    apply03ToPositions(doc, list);
 
@@ -550,7 +553,81 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
 
         return list;
     }
+    private List<DmsPosition> createPositionsFrom75(Document doc) {
+        List<DmsPosition> list75 = new ArrayList<>();
+//log.info("75 doc in positions From VAT list='%s' doc='%s'"+list75+ doc);
+        // znajdź document typ="06"
+        Element doc75 = null;
+        
+        NodeList allDocs = doc.getElementsByTagName("document");
+        for (int i = 0; i < allDocs.getLength(); i++) {
+            Element el = (Element) allDocs.item(i);
+            if ("75".equals(el.getAttribute("typ"))) {
+                doc75 = el;
+                break;
+            }
+        }
+        //log.info("75 doc in positions From VAT doc='%s '"+ doc);
+        if (doc75 == null) {
+            return list75; // brak typu doc
+        }
+        // każdy <dane> w typ=06 = jedna pozycja
+        NodeList daneList = doc75.getElementsByTagName("dane");
+        for (int i = 0; i < daneList.getLength(); i++) {
+            Element dane = (Element) daneList.item(i);
 
+            DmsPosition p = new DmsPosition();
+            p.lp = dane.getAttribute("lp");
+            if (p.lp == null || p.lp.isBlank()) {
+                p.lp = String.valueOf(i + 1);
+            }
+            //p.statusVat = "nie podlega";
+            //p.stawkaVat = "0";
+            //p.odliczenia = "Nie";
+            // <wartosci podstawa="..." vat="..."/>
+            Element numm = null;
+            NodeList numerList = dane.getElementsByTagName("numer");
+            Element wart = null;
+            NodeList wartList = dane.getElementsByTagName("wartosci");
+            if (numerList != null && numerList.getLength() > 0) {
+                numm = (Element) numerList.item(0);
+            }
+            if (wartList.getLength() > 0) {
+                wart = (Element) wartList.item(0);
+            }
+
+            String kwotaPz = "0.00";
+            if (wart != null) {
+                String raw = wart.getAttribute("kwota");
+                if (raw != null && !raw.isBlank()) {
+                    kwotaPz = raw.trim();
+                }
+            }
+
+            String numerPez = "";
+            if (numm != null) {
+                numerPez = numm.getTextContent();
+                if (numerPez != null) numerPez = numerPez.trim();
+            }
+            // netto = podstawa, brutto = podstawa + vat
+            double nettoVal = parseDoubleSafe(kwotaPz);
+            double vatVal = 0.00;
+            //wyjątkowo przypisanie brutto z nagłówka dokumentu do netto i brutto 
+            double bruttoVal = Double.parseDouble(kwotaPz.replace(",", "."));//bruttoUmowa or nettoVal + vatVal;
+            p.netto = String.format(Locale.US, "%.2f", bruttoVal);
+            p.vat = String.format(Locale.US, "%.2f", vatVal);
+            p.brutto = String.format(Locale.US, "%.2f", bruttoVal);
+            p.numer = numerPez;
+            p.podstawaVat = p.netto; // jeśli masz takie pole
+            //p.opis = "TOWARY";
+            //p.rodzajKoszty = "Towary";
+            //p.kategoria2="TOWARY";
+            log.info(String.format("[75][POS] p.odliczenia='%s'", p.getNumer()));
+            list75.add(p);
+        }
+
+        return list75;
+    }
     private List<DmsPosition> createPositionsFrom76(Document doc, String bruttoUmowa) {
         List<DmsPosition> list76 = new ArrayList<>();
 log.info("76 doc in positions From VAT list='%s' doc='%s'"+list76+ doc);
@@ -1145,5 +1222,28 @@ log.info("76 doc in positions From VAT list='%s' doc='%s'"+list76+ doc);
         if (c.name2 != null && !c.name2.isBlank()) sb.append(" ").append(c.name2.trim());
         if (c.name3 != null && !c.name3.isBlank()) sb.append(" ").append(c.name3.trim());
         return sb.toString().trim();
+    }
+    private String positionsToOpis(List<DmsPosition> positions) {
+        if (positions == null || positions.isEmpty()) return "";
+
+        // przykładowy format: "1) Nazwa - ilość x cena; 2) ..."
+        return positions.stream()
+            .map(this::positionToLine)
+            .collect(Collectors.joining("; "));
+    }
+    private String positionToLine(DmsPosition p) {
+        String name = safe(p.getNumer());
+        String brt = safe(p.getBrutto()); // lub format liczbowy
+
+        // dopasuj format do potrzeb, np. "Nazwa  — 2 szt. — 12.50"
+        StringBuilder sb = new StringBuilder();
+        if (!name.isEmpty()) sb.append("Nr PZ: ");
+        sb.append(name);
+        //if (!name.isEmpty()) sb.append(" — ").append(name);
+        if (!brt.isEmpty()) sb.append(" kwota: ").append(brt);
+        return sb.toString();
+    }
+    private String safe(Object o) {
+        return o == null ? "" : String.valueOf(o).trim();
     }
 }

@@ -31,8 +31,13 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
     }
     @Override
     public void setIdKsiegOddzial(String id) {
+        log.info("TRACE-BUILD setIdKsiegOddzial called: invoice=" + (doc == null ? "null" : this.doc.getInvoiceNumber())
+                + " incomingId=" + id);
         this.idKsiegOddzial = id;
+        log.info("TRACE-BUILD setIdKsiegOddzial applied: invoice=" + (doc == null ? "null" : this.doc.getInvoiceNumber())
+                + " builder.idKsiegOddzial=" + this.idKsiegOddzial);
     }
+
     @Override 
     public void build(Document docXml, Element root) {
         if (docXml == null || root == null) return;
@@ -153,7 +158,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         rs.appendChild(make(docXml, "FA_Z_PA", "Nie"));
         rs.appendChild(make(docXml, "VAN_FA_Z_PA", "Nie"));
         rs.appendChild(make(docXml, "VAN_RODZAJ", "0"));
-        rs.appendChild(make(docXml, "MPP", "Tak"));
+        rs.appendChild(make(docXml, "MPP", safe(doc.getMpp() != null ? doc.getMpp() : "Tak")));
         rs.appendChild(make(docXml, "NR_KSEF", ""));
         rs.appendChild(make(docXml, "DODATKOWY_OPIS", doc.getDodatkowyOpis()));
 

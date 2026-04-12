@@ -3,6 +3,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -16,6 +17,9 @@ public final class ParserRegistry {
     private final AtomicReference<Set<String>> filters = new AtomicReference<>(Collections.emptySet());
     private final AtomicReference<String> oddzial = new AtomicReference<>("01");
     private final AtomicBoolean allowUpdate = new AtomicBoolean(false);
+    private final AtomicBoolean allowWatcher = new AtomicBoolean(false);
+    private final Set<String> outOnlyTypes = ConcurrentHashMap.newKeySet();
+
     private ParserRegistry() {
         // Domyślnie włączone tylko stabilne typy
         ready.put("DS", true);
@@ -25,6 +29,7 @@ public final class ParserRegistry {
         // Parsery w trakcie pracy / wyłączone
         ready.put("DK", true);
         ready.put("DM", false);
+        ready.put("DW", false);
         ready.put("PO", false);
         ready.put("PZ", false);
         ready.put("RD", true);
@@ -34,6 +39,12 @@ public final class ParserRegistry {
         ready.put("WZ", false);
         ready.put("KO", true);
         ready.put("KZ", true);
+        outOnlyTypes.add("DM");
+        outOnlyTypes.add("DW");
+        outOnlyTypes.add("PO");
+        outOnlyTypes.add("WZ");
+        outOnlyTypes.add("PZ");
+        outOnlyTypes.add("ZC");
     }
 
     public static ParserRegistry getInstance() {
@@ -77,13 +88,36 @@ public final class ParserRegistry {
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
     }
-    public void setAllowUpdate(boolean v) {
-        allowUpdate.set(v);
+    public void setAllowUpdate(boolean u) {
+        allowUpdate.set(u);
     }
-
+    public void setAllowWatcher(boolean w) {
+        allowWatcher.set(w);
+    }
     // szybki odczyt cache w watcherze
     public boolean isAllowUpdate() {
         return allowUpdate.get();
+    }
+    public boolean isAllowWatcher() {
+        return allowWatcher.get();
+    }
+
+ // public API
+    public boolean isOutOnly(String type) {
+        if (type == null) return false;
+        return outOnlyTypes.contains(type.trim().toUpperCase(Locale.ROOT));
+    }
+    public void setOutOnlyTypes(Set<String> types) {
+        outOnlyTypes.clear();
+        if (types != null) {
+            for (String t : types) {
+                if (t != null && !t.isBlank()) outOnlyTypes.add(t.trim().toUpperCase(Locale.ROOT));
+            }
+        }
+    }
+
+    public Set<String> getOutOnlyTypes() {
+        return Collections.unmodifiableSet(new HashSet<>(outOnlyTypes));
     }
 }
 
