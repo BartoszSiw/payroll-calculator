@@ -38,13 +38,15 @@ import pl.edashi.converter.service.DocumentOutGenerator.DocOutGenerationResult;
 import pl.edashi.converter.servlet.DocTypeConstants;
 import pl.edashi.dms.model.DmsDocumentOut;
 import pl.edashi.dms.model.DmsParsedContractorList;
+import pl.edashi.dms.model.DmsParsedDocument;
+import pl.edashi.dms.xml.CashReportXmlBuilder;
 import pl.edashi.dms.xml.DmsOfflinePurchaseBuilder;
 import pl.edashi.dms.xml.DmsOfflineXmlBuilder;
 import pl.edashi.optima.builder.ContractorsXmlBuilder;
 import pl.edashi.optima.mapper.ContractorMapper;
 import pl.edashi.optima.model.OfflineContractor;
 //import pl.edashi.dms.xml.XmlStreamWriter; // dopasuj do rzeczywistego pakietu interfejsu Builder
-import pl.edashi.dms.xml.RootXmlBuilder;
+import pl.edashi.dms.xml.RozliczeniaXmlBuilder;
 import pl.edashi.dms.xml.XmlSectionBuilder;
 public class DailyXmlWatcher {
 	private final AppLogger log = new AppLogger("DailyXmlWatcher");
@@ -240,7 +242,7 @@ public class DailyXmlWatcher {
                 outSL.size(), outDSDZ.size(), outOther.size()));
 
         // publikacja finalDoc z builderów zebranych przez watcher
-        persistPublishedFinalDocs(collectedContractorSections, collectedSections, outSL, outDSDZ, outOther, collectedMessages);
+        persistPublishedFinalDocs(collectedContractorSections, collectedSections, outSL, outDSDZ, outOther, collectedMessages,allParsedDocs);
 
         // zapis etykiet / raportów
         writeGroupedOutputs(outSL, outDSDZ, outOther);
@@ -532,7 +534,7 @@ public class DailyXmlWatcher {
 
         // publikacja finalDoc z builderów zebranych przez watcher
         try {
-            persistPublishedFinalDocs(collectedContractorSections, collectedSections, outSL, outDSDZ, outOther, collectedMessages);
+            persistPublishedFinalDocs(collectedContractorSections, collectedSections, outSL, outDSDZ, outOther, collectedMessages,allParsedDocs);
         } catch (Exception e) {
             log.error(String.format("32 doProcessing: persistPublishedFinalDocs failed: %s", e.getMessage()), e);
         }
@@ -691,54 +693,58 @@ public class DailyXmlWatcher {
     		DmsDocumentOut docOut = genRes.docOut;
     		if (docOut != null) {
                 String docType = Optional.ofNullable(docOut.getDocumentType()).orElse("").trim().toUpperCase();
-                XmlSectionBuilder builder;
-                if (DocTypeConstants.DZ_TYPES.contains(docType)) {
-                    builder = new DmsOfflinePurchaseBuilder(docOut);
-                } else {
-                    // DS i inne -> DmsOfflineXmlBuilder
-                    builder = new DmsOfflineXmlBuilder(docOut);
-                }
                 String watcherOddzial = ParserRegistry.getInstance().getOddzial(); // powinno zwracać "01" lub "02"
                 String idKsieg = "DMS_" + ( "02".equals(watcherOddzial) ? "2" : "1" );
-                try {
-                    if (builder instanceof XmlSectionBuilder) {
-                        ((XmlSectionBuilder) builder).setIdKsiegOddzial(idKsieg);
+                if (DocTypeConstants.DZ_TYPES.contains(docType)) {
+                    XmlSectionBuilder builder = new DmsOfflinePurchaseBuilder(docOut);
+                    try {
+                        if (builder instanceof XmlSectionBuilder) {
+                            ((XmlSectionBuilder) builder).setIdKsiegOddzial(idKsieg);
+                        }
+                    } catch (Throwable t) {
+                        log.warn(String.format("Failed to set idKsiegOddzial on builder for file=%s catch Throwable t=%s", file.getFileName(), t));
                     }
-                } catch (Throwable t) {
-                    log.warn(String.format("Failed to set idKsiegOddzial on builder for file=%s catch Throwable t=%s", file.getFileName(), t));
+                    boolean ok = collectedSections.offer(builder);
+                    log.info("41 TRACE-4 queued attempt: file=" + file.getFileName()
+                        + " builderClass=" + (builder == null ? "null" : builder.getClass().getSimpleName())
+                        + " offerResult=" + ok
+                        + " collectedSections.size=" + collectedSections.size()
+                        + " parserOddzial=" + ParserRegistry.getInstance().getOddzial());
+                } else if (DocTypeConstants.DK_TYPES.contains(docType)) {
+                    // KO/KZ/DK/RO/RZ/RD: jak w ConverterServlet — pojedynczy docOut nie jest pełnym raportem;
+                    // CashReportXmlBuilder/RozliczeniaXmlBuilder po składzie CashReportAssembler/CardReportAssembler w persistPublishedFinalDocs.
+                    log.info("41 TRACE-4 DK registered for batch assembly (no per-file cash XML): file=" + file.getFileName()
+                        + " docType=" + docType
+                        + " parserOddzial=" + ParserRegistry.getInstance().getOddzial());
+                } else {
+                    // DS i inne -> DmsOfflineXmlBuilder
+                    XmlSectionBuilder builder = new DmsOfflineXmlBuilder(docOut);
+                    try {
+                        if (builder instanceof XmlSectionBuilder) {
+                            ((XmlSectionBuilder) builder).setIdKsiegOddzial(idKsieg);
+                        }
+                    } catch (Throwable t) {
+                        log.warn(String.format("Failed to set idKsiegOddzial on builder for file=%s catch Throwable t=%s", file.getFileName(), t));
+                    }
+                    boolean ok = collectedSections.offer(builder);
+                    log.info("41 TRACE-4 queued attempt: file=" + file.getFileName()
+                        + " builderClass=" + (builder == null ? "null" : builder.getClass().getSimpleName())
+                        + " offerResult=" + ok
+                        + " collectedSections.size=" + collectedSections.size()
+                        + " parserOddzial=" + ParserRegistry.getInstance().getOddzial());
                 }
-                // TRACE: builder created
-                String builderClass = builder == null ? "null" : builder.getClass().getSimpleName();
-                log.info("41 TRACE-3 builder created: file=" + file.getFileName()
-                    + " docType=" + docType
-                    + " builderClass=" + builderClass
-                    + " parserOddzial=" + ParserRegistry.getInstance().getOddzial()
-                    + " docOut.invoice=" + (docOut == null ? "null" : docOut.getInvoiceNumber()));
 
-                boolean ok = collectedSections.offer(builder);
-             // TRACE: queued attempt
-                log.info("41 TRACE-4 queued attempt: file=" + file.getFileName()
-                    + " builderClass=" + (builder == null ? "null" : builder.getClass().getSimpleName())
-                    + " offerResult=" + ok
-                    + " collectedSections.size=" + collectedSections.size()
-                    + " parserOddzial=" + ParserRegistry.getInstance().getOddzial());
-
-                if (!ok) {
-                    log.warn(String.format("42 DailyXmlWatcher: failed to enqueue builder for file=%s", file.getFileName()));
-                    collectedMessages.add("Nie udało się dodać sekcji dla " + file.getFileName());
-                }
-
-
+                // label
                 String label = Optional.ofNullable(docOut.getInvoiceShortNumber()).filter(s -> !s.isBlank())
                                        .orElse(Optional.ofNullable(docOut.getInvoiceNumber()).orElse(fileName));
                 label = label.replaceAll("[\\\\/:*?\"<>|]", "_");
 
-                if (DocTypeConstants.DZ_TYPES.contains(docType) || DocTypeConstants.DS_TYPES.contains(docType)) {
+                // DK, DZ, DS -> outDSDZ
+                if (DocTypeConstants.DZ_TYPES.contains(docType) || DocTypeConstants.DS_TYPES.contains(docType) || DocTypeConstants.DK_TYPES.contains(docType)) {
                     outDSDZ.add(label);
                 } else {
                     outOther.add(label);
                 }
-             // TRACE: label and out lists
                 log.info("42 TRACE-5 label added: file=" + file.getFileName()
                     + " label=" + label
                     + " outDSDZ.size=" + outDSDZ.size()
@@ -781,225 +787,256 @@ public class DailyXmlWatcher {
 	        log.info(String.format("45 DailyXmlWatcher: moved file=%s to %s", file.getFileName(), targetDir));
 	    }
     	private void persistPublishedFinalDocs(Queue<ContractorsXmlBuilder> contractorSections,
-                Queue<XmlSectionBuilder> collectedSections,
-                List<String> outSL,
-                List<String> outDSDZ,
-                List<String> outOther,
-                Queue<String> collectedMessages) {
+    	        Queue<XmlSectionBuilder> collectedSections,
+    	        List<String> outSL,
+    	        List<String> outDSDZ,
+    	        List<String> outOther,
+    	        Queue<String> collectedMessages,
+    	        Queue<Object> allParsedDocs) {
 
-// 1) opcjonalnie: zapisz to, co generator mógł już opublikować
-if (this.generator != null) {
-    log.info(String.format("46 DailyXmlWatcher: generator identity=%s", System.identityHashCode(this.generator)));
-    List<DocumentOutGenerator.SerializedDoc> finalDocs = this.generator.drainFinalDocs();
-    log.info(String.format("47 DailyXmlWatcher: polled %d finalDocs from generator", finalDocs.size()));
-    for (DocumentOutGenerator.SerializedDoc sd : finalDocs) {
-        try {
-            Path out = outputDir.resolve(String.format("out_%s_%s.xml", sd.outputGroup, sd.timestamp));
-            Files.writeString(out, sd.xml, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            log.info(String.format("48 DailyXmlWatcher: wrote finalDoc file %s", out.toString()));
-        } catch (IOException e) {
-            log.error(String.format("49 DailyXmlWatcher: failed to write finalDoc for group=%s ts=%s err=%s", sd.outputGroup, sd.timestamp, e.getMessage()), e);
+    	    // 1) opcjonalnie: zapisz to, co generator mógł już opublikować
+    	    if (this.generator != null) {
+    	        log.info(String.format("46 DailyXmlWatcher: generator identity=%s", System.identityHashCode(this.generator)));
+    	        List<DocumentOutGenerator.SerializedDoc> finalDocs = this.generator.drainFinalDocs();
+    	        log.info(String.format("47 DailyXmlWatcher: polled %d finalDocs from generator", finalDocs.size()));
+    	        for (DocumentOutGenerator.SerializedDoc sd : finalDocs) {
+    	            try {
+    	                Path out = outputDir.resolve(String.format("out_%s_%s.xml", sd.outputGroup, sd.timestamp));
+    	                Files.writeString(out, sd.xml, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+    	                log.info(String.format("48 DailyXmlWatcher: wrote finalDoc file %s", out.toString()));
+    	            } catch (IOException e) {
+    	                log.error(String.format("49 DailyXmlWatcher: failed to write finalDoc for group=%s ts=%s err=%s", sd.outputGroup, sd.timestamp, e.getMessage()), e);
+    	            }
+    	        }
+    	    }
+
+    	    // 2) snapshot kolekcji
+    	    List<ContractorsXmlBuilder> slList = new ArrayList<>(contractorSections);
+    	    List<XmlSectionBuilder> sectionsList = new ArrayList<>(collectedSections);
+    	    List<String> messages = new ArrayList<>(collectedMessages == null ? List.of() : collectedMessages);
+
+    	    List<DmsParsedDocument> parsedDocsForReports = new ArrayList<>();
+    	    if (allParsedDocs != null) {
+    	        for (Object o : allParsedDocs) {
+    	            if (o instanceof DmsParsedDocument dp) parsedDocsForReports.add(dp);
+    	        }
+    	    }
+    	    Set<String> reportNumbers = collectReportNumbersForAssembly(parsedDocsForReports);
+
+    	    if (slList.isEmpty() && sectionsList.isEmpty() && reportNumbers.isEmpty()) {
+    	        log.info("50 persistPublishedFinalDocs: nothing to publish (root empty)");
+    	        messages.add("Brak sekcji do publikacji");
+    	        messages.forEach(m -> log.info(String.format("persistPublishedFinalDocs msg=%s", m)));
+    	        return;
+    	    }
+
+    	    try {
+    	        TransformerFactory tf = TransformerFactory.newInstance();
+    	        Transformer transformer = tf.newTransformer();
+
+    	        // przygotuj id księgowe z registry (jednolity sposób)
+    	        String watcherOddzial = ParserRegistry.getInstance().getOddzial();
+    	        String idKsieg = "DMS_" + ("02".equals(watcherOddzial) ? "2" : "1");
+
+    	        CashReportAssembler assemblerCash = new CashReportAssembler(parsedDocsForReports);
+    	        CardReportAssembler assemblerCard = new CardReportAssembler(parsedDocsForReports);
+
+    	        // Jeśli mamy tylko SL albo tylko sections, zachowaj dotychczasowe zachowanie (jeden dokument)
+    	        if (!slList.isEmpty() && sectionsList.isEmpty()) {
+    	            // tylko SL -> zbuduj jeden dokument (jak wcześniej)
+    	            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+    	            DocumentBuilder db = dbf.newDocumentBuilder();
+    	            Document doc = db.newDocument();
+    	            Element root = doc.createElement("ROOT");
+    	            doc.appendChild(root);
+
+    	            for (ContractorsXmlBuilder cb : slList) {
+    	                try {
+    	                    try {
+    	                        if (cb instanceof XmlSectionBuilder) {
+    	                            ((XmlSectionBuilder) cb).setIdKsiegOddzial(idKsieg);
+    	                        } else {
+    	                            try {
+    	                                cb.getClass().getMethod("setIdKsiegOddzial", String.class).invoke(cb, idKsieg);
+    	                            } catch (NoSuchMethodException ignore) { }
+    	                        }
+    	                    } catch (Throwable t) {
+    	                        log.warn(String.format("persistPublishedFinalDocs: failed to set idKsiegOddzial on SL builder", t));
+    	                    }
+    	                    cb.build(doc, root);
+    	                } catch (Throwable t) {
+    	                    log.error("persistPublishedFinalDocs: error building SL section", t);
+    	                }
+    	            }
+
+    	            // serializacja i zapis (jeden plik)
+    	            StringWriter writer = new StringWriter();
+    	            transformer.transform(new DOMSource(doc), new StreamResult(writer));
+    	            String xmlString = writer.toString();
+
+    	            String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+    	            String fileNameOut = "SL_" + ts + ".xml";
+    	            Path outPath = outputDir.resolve(fileNameOut);
+    	            Files.writeString(outPath, xmlString, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+    	            log.info("51 persistPublishedFinalDocs: published finalDoc " + outPath);
+    	            if (outSL != null) {
+    	                messages.addAll(outSL.stream().map(s -> "Dodano SL: " + s).collect(Collectors.toList()));
+    	            }
+    	            messages.add("Opublikowano finalDoc: " + fileNameOut);
+    	            // koniec przypadku tylko SL
+    	        } else if (slList.isEmpty() && !sectionsList.isEmpty()) {
+    	            // tylko DS/DZ/Other -> zbuduj jeden dokument (jak wcześniej)
+    	            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+    	            DocumentBuilder db = dbf.newDocumentBuilder();
+    	            Document doc = db.newDocument();
+    	            Element root = doc.createElement("ROOT");
+    	            doc.appendChild(root);
+
+    	            for (XmlSectionBuilder b : sectionsList) {
+    	                try {
+    	                    try {
+    	                        if (b instanceof XmlSectionBuilder) {
+    	                            ((XmlSectionBuilder) b).setIdKsiegOddzial(idKsieg);
+    	                        } else {
+    	                            try {
+    	                                b.getClass().getMethod("setIdKsiegOddzial", String.class).invoke(b, idKsieg);
+    	                            } catch (NoSuchMethodException ignore) { }
+    	                        }
+    	                    } catch (Throwable t) {
+    	                        log.warn(String.format("persistPublishedFinalDocs: failed to set idKsiegOddzial on DS/DZ builder", t));
+    	                    }
+    	                    b.build(doc, root);
+    	                } catch (Throwable t) {
+    	                    log.error("persistPublishedFinalDocs: error building DS/DZ section", t);
+    	                }
+    	            }
+
+    	            StringWriter writer = new StringWriter();
+    	            transformer.transform(new DOMSource(doc), new StreamResult(writer));
+    	            String xmlString = writer.toString();
+
+    	            String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+    	            String fileNameOut = "DZ_DS_" + ts + ".xml";
+    	            Path outPath = outputDir.resolve(fileNameOut);
+    	            Files.writeString(outPath, xmlString, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+    	            log.info("51 persistPublishedFinalDocs: published finalDoc " + outPath);
+    	            if (outDSDZ != null) {
+    	                messages.addAll(outDSDZ.stream().map(s -> "Dodano DS/DZ: " + s).collect(Collectors.toList()));
+    	            }
+    	            messages.add("Opublikowano finalDoc: " + fileNameOut);
+    	            // koniec przypadku tylko DS/DZ
+    	        } else {
+    	            // mamy jednocześnie SL i sections -> zbuduj i zapisz DWA osobne dokumenty (minimalna zmiana)
+    	            // 3A) SL
+    	            DocumentBuilderFactory dbfSL = DocumentBuilderFactory.newInstance();
+    	            DocumentBuilder dbSL = dbfSL.newDocumentBuilder();
+    	            Document docSL = dbSL.newDocument();
+    	            Element rootSL = docSL.createElement("ROOT");
+    	            docSL.appendChild(rootSL);
+
+    	            for (ContractorsXmlBuilder cb : slList) {
+    	                try {
+    	                    try {
+    	                        if (cb instanceof XmlSectionBuilder) {
+    	                            ((XmlSectionBuilder) cb).setIdKsiegOddzial(idKsieg);
+    	                        } else {
+    	                            try {
+    	                                cb.getClass().getMethod("setIdKsiegOddzial", String.class).invoke(cb, idKsieg);
+    	                            } catch (NoSuchMethodException ignore) { }
+    	                        }
+    	                    } catch (Throwable t) {
+    	                        log.warn(String.format("persistPublishedFinalDocs: failed to set idKsiegOddzial on SL builder", t));
+    	                    }
+    	                    cb.build(docSL, rootSL);
+    	                } catch (Throwable t) {
+    	                    log.error("persistPublishedFinalDocs: error building SL section", t);
+    	                }
+    	            }
+
+    	            StringWriter writerSL = new StringWriter();
+    	            transformer.transform(new DOMSource(docSL), new StreamResult(writerSL));
+    	            String xmlSL = writerSL.toString();
+
+    	            String tsSL = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+    	            String fileNameOutSL = "SL_" + tsSL + ".xml";
+    	            Path outPathSL = outputDir.resolve(fileNameOutSL);
+    	            Files.writeString(outPathSL, xmlSL, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+    	            log.info("51 persistPublishedFinalDocs: published finalDoc " + outPathSL);
+    	            if (outSL != null) {
+    	                messages.addAll(outSL.stream().map(s -> "Dodano SL: " + s).collect(Collectors.toList()));
+    	            }
+    	            messages.add("Opublikowano finalDoc: " + fileNameOutSL);
+
+    	            // 3B) DS/DZ
+    	            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+    	            DocumentBuilder db = dbf.newDocumentBuilder();
+    	            Document doc = db.newDocument();
+    	            Element root = doc.createElement("ROOT");
+    	            doc.appendChild(root);
+
+    	            for (XmlSectionBuilder b : sectionsList) {
+    	                try {
+    	                    try {
+    	                        if (b instanceof XmlSectionBuilder) {
+    	                            ((XmlSectionBuilder) b).setIdKsiegOddzial(idKsieg);
+    	                        } else {
+    	                            try {
+    	                                b.getClass().getMethod("setIdKsiegOddzial", String.class).invoke(b, idKsieg);
+    	                            } catch (NoSuchMethodException ignore) { }
+    	                        }
+    	                    } catch (Throwable t) {
+    	                        log.warn(String.format("persistPublishedFinalDocs: failed to set idKsiegOddzial on DS/DZ builder", t));
+    	                    }
+    	                    b.build(doc, root);
+    	                } catch (Throwable t) {
+    	                    log.error("persistPublishedFinalDocs: error building DS/DZ section", t);
+    	                }
+    	            }
+
+    	            StringWriter writer = new StringWriter();
+    	            transformer.transform(new DOMSource(doc), new StreamResult(writer));
+    	            String xmlString = writer.toString();
+
+    	            String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+    	            String fileNameOut = "DZ_DS_" + ts + ".xml";
+    	            Path outPath = outputDir.resolve(fileNameOut);
+    	            Files.writeString(outPath, xmlString, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+    	            log.info("51 persistPublishedFinalDocs: published finalDoc " + outPath);
+    	            if (outDSDZ != null) {
+    	                messages.addAll(outDSDZ.stream().map(s -> "Dodano DS/DZ: " + s).collect(Collectors.toList()));
+    	            }
+    	            messages.add("Opublikowano finalDoc: " + fileNameOut);
+
+    	        }
+
+    	        if (!reportNumbers.isEmpty()) {
+    	            log.info(String.format("persistPublishedFinalDocs: assembling cash/card reports reportNumbers=%s", reportNumbers));
+    	            buildAndWriteReports(reportNumbers, assemblerCash, assemblerCard, idKsieg, transformer, messages);
+    	        }
+
+    	    } catch (Exception e) {
+    	        log.error("52 persistPublishedFinalDocs: unexpected error while building finalDoc", e);
+    	        messages.add("Błąd składania finalDoc: " + e.getMessage());
+    	    }
+
+    	    // 6) wypisz komunikaty
+    	    messages.forEach(m -> log.info(String.format("53 persistPublishedFinalDocs msg=%s", m)));
+    	}
+
+    /** Numery raportów (KO/RO/RD) do składania raportów — jak w ConverterServlet. */
+    private static Set<String> collectReportNumbersForAssembly(List<DmsParsedDocument> parsedDocs) {
+        Set<String> reportNumbers = new HashSet<>();
+        if (parsedDocs == null) return reportNumbers;
+        for (DmsParsedDocument d : parsedDocs) {
+            String dt = d.getDocumentType();
+            if (dt == null) continue;
+            if ("KO".equalsIgnoreCase(dt) || "RO".equalsIgnoreCase(dt) || "RD".equalsIgnoreCase(dt)) {
+                String rn = d.getReportNumber();
+                if (rn != null && !rn.isBlank()) reportNumbers.add(rn);
+            }
         }
+        return reportNumbers;
     }
-}
-
-// 2) snapshot kolekcji
-List<ContractorsXmlBuilder> slList = new ArrayList<>(contractorSections);
-List<XmlSectionBuilder> sectionsList = new ArrayList<>(collectedSections);
-List<String> messages = new ArrayList<>(collectedMessages == null ? List.of() : collectedMessages);
-
-if (slList.isEmpty() && sectionsList.isEmpty()) {
-    log.info("50 persistPublishedFinalDocs: nothing to publish (root empty)");
-    messages.add("Brak sekcji do publikacji");
-    messages.forEach(m -> log.info(String.format("persistPublishedFinalDocs msg=%s", m)));
-    return;
-}
-
-try {
-    TransformerFactory tf = TransformerFactory.newInstance();
-    Transformer transformer = tf.newTransformer();
-
-    // przygotuj id księgowe z registry (jednolity sposób)
-    String watcherOddzial = ParserRegistry.getInstance().getOddzial();
-    String idKsieg = "DMS_" + ("02".equals(watcherOddzial) ? "2" : "1");
-
-    // jeśli mamy tylko SL albo tylko sections, zachowaj dotychczasowe zachowanie (jeden dokument)
-    if (!slList.isEmpty() && sectionsList.isEmpty()) {
-        // tylko SL -> zbuduj jeden dokument (jak wcześniej)
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-        DocumentBuilder db = dbf.newDocumentBuilder();
-        Document doc = db.newDocument();
-        Element root = doc.createElement("ROOT");
-        doc.appendChild(root);
-
-        for (ContractorsXmlBuilder cb : slList) {
-            try {
-                // defensywnie ustaw idKsiegOddzial jeśli builder ma setter
-                try {
-                    if (cb instanceof XmlSectionBuilder) {
-                        ((XmlSectionBuilder) cb).setIdKsiegOddzial(idKsieg);
-                    } else {
-                        try {
-                            cb.getClass().getMethod("setIdKsiegOddzial", String.class).invoke(cb, idKsieg);
-                        } catch (NoSuchMethodException ignore) { }
-                    }
-                } catch (Throwable t) {
-                    log.warn(String.format("persistPublishedFinalDocs: failed to set idKsiegOddzial on SL builder", t));
-                }
-                cb.build(doc, root);
-            } catch (Throwable t) {
-                log.error("persistPublishedFinalDocs: error building SL section", t);
-            }
-        }
-
-        // serializacja i zapis (jeden plik)
-        StringWriter writer = new StringWriter();
-        transformer.transform(new DOMSource(doc), new StreamResult(writer));
-        String xmlString = writer.toString();
-
-        String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        String fileNameOut = "SL_" + ts + ".xml";
-        Path outPath = outputDir.resolve(fileNameOut);
-        Files.writeString(outPath, xmlString, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        log.info("51 persistPublishedFinalDocs: published finalDoc " + outPath);
-        if (outSL != null) {
-            messages.addAll(outSL.stream().map(s -> "Dodano SL: " + s).collect(Collectors.toList()));
-        }
-        messages.add("Opublikowano finalDoc: " + fileNameOut);
-        // koniec przypadku tylko SL
-    } else if (slList.isEmpty() && !sectionsList.isEmpty()) {
-        // tylko DS/DZ/Other -> zbuduj jeden dokument (jak wcześniej)
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-        DocumentBuilder db = dbf.newDocumentBuilder();
-        Document doc = db.newDocument();
-        Element root = doc.createElement("ROOT");
-        doc.appendChild(root);
-
-        for (XmlSectionBuilder b : sectionsList) {
-            try {
-                try {
-                    if (b instanceof XmlSectionBuilder) {
-                        ((XmlSectionBuilder) b).setIdKsiegOddzial(idKsieg);
-                    } else {
-                        try {
-                            b.getClass().getMethod("setIdKsiegOddzial", String.class).invoke(b, idKsieg);
-                        } catch (NoSuchMethodException ignore) { }
-                    }
-                } catch (Throwable t) {
-                    log.warn(String.format("persistPublishedFinalDocs: failed to set idKsiegOddzial on DS/DZ builder", t));
-                }
-                b.build(doc, root);
-            } catch (Throwable t) {
-                log.error("persistPublishedFinalDocs: error building DS/DZ section", t);
-            }
-        }
-
-        StringWriter writer = new StringWriter();
-        transformer.transform(new DOMSource(doc), new StreamResult(writer));
-        String xmlString = writer.toString();
-
-        String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        String fileNameOut = "DZ_DS_" + ts + ".xml";
-        Path outPath = outputDir.resolve(fileNameOut);
-        Files.writeString(outPath, xmlString, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        log.info("51 persistPublishedFinalDocs: published finalDoc " + outPath);
-        if (outDSDZ != null) {
-            messages.addAll(outDSDZ.stream().map(s -> "Dodano DS/DZ: " + s).collect(Collectors.toList()));
-        }
-        messages.add("Opublikowano finalDoc: " + fileNameOut);
-        // koniec przypadku tylko DS/DZ
-    } else {
-        // mamy jednocześnie SL i sections -> zbuduj i zapisz DWA osobne dokumenty (minimalna zmiana)
-        // 3A) SL
-        DocumentBuilderFactory dbfSL = DocumentBuilderFactory.newInstance();
-        DocumentBuilder dbSL = dbfSL.newDocumentBuilder();
-        Document docSL = dbSL.newDocument();
-        Element rootSL = docSL.createElement("ROOT");
-        docSL.appendChild(rootSL);
-
-        for (ContractorsXmlBuilder cb : slList) {
-            try {
-                try {
-                    if (cb instanceof XmlSectionBuilder) {
-                        ((XmlSectionBuilder) cb).setIdKsiegOddzial(idKsieg);
-                    } else {
-                        try {
-                            cb.getClass().getMethod("setIdKsiegOddzial", String.class).invoke(cb, idKsieg);
-                        } catch (NoSuchMethodException ignore) { }
-                    }
-                } catch (Throwable t) {
-                    log.warn(String.format("persistPublishedFinalDocs: failed to set idKsiegOddzial on SL builder", t));
-                }
-                cb.build(docSL, rootSL);
-            } catch (Throwable t) {
-                log.error("persistPublishedFinalDocs: error building SL section", t);
-            }
-        }
-
-        StringWriter writerSL = new StringWriter();
-        transformer.transform(new DOMSource(docSL), new StreamResult(writerSL));
-        String xmlSL = writerSL.toString();
-
-        String tsSL = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        String fileNameOutSL = "SL_" + tsSL + ".xml";
-        Path outPathSL = outputDir.resolve(fileNameOutSL);
-        Files.writeString(outPathSL, xmlSL, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        log.info("51 persistPublishedFinalDocs: published finalDoc " + outPathSL);
-        if (outSL != null) {
-            messages.addAll(outSL.stream().map(s -> "Dodano SL: " + s).collect(Collectors.toList()));
-        }
-        messages.add("Opublikowano finalDoc: " + fileNameOutSL);
-
-        // 3B) DS/DZ
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-        DocumentBuilder db = dbf.newDocumentBuilder();
-        Document doc = db.newDocument();
-        Element root = doc.createElement("ROOT");
-        doc.appendChild(root);
-
-        for (XmlSectionBuilder b : sectionsList) {
-            try {
-                try {
-                    if (b instanceof XmlSectionBuilder) {
-                        ((XmlSectionBuilder) b).setIdKsiegOddzial(idKsieg);
-                    } else {
-                        try {
-                            b.getClass().getMethod("setIdKsiegOddzial", String.class).invoke(b, idKsieg);
-                        } catch (NoSuchMethodException ignore) { }
-                    }
-                } catch (Throwable t) {
-                    log.warn(String.format("persistPublishedFinalDocs: failed to set idKsiegOddzial on DS/DZ builder", t));
-                }
-                b.build(doc, root);
-            } catch (Throwable t) {
-                log.error("persistPublishedFinalDocs: error building DS/DZ section", t);
-            }
-        }
-
-        StringWriter writer = new StringWriter();
-        transformer.transform(new DOMSource(doc), new StreamResult(writer));
-        String xmlString = writer.toString();
-
-        String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        String fileNameOut = "DZ_DS_" + ts + ".xml";
-        Path outPath = outputDir.resolve(fileNameOut);
-        Files.writeString(outPath, xmlString, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        log.info("51 persistPublishedFinalDocs: published finalDoc " + outPath);
-        if (outDSDZ != null) {
-            messages.addAll(outDSDZ.stream().map(s -> "Dodano DS/DZ: " + s).collect(Collectors.toList()));
-        }
-        messages.add("Opublikowano finalDoc: " + fileNameOut);
-    }
-
-} catch (Exception e) {
-    log.error("52 persistPublishedFinalDocs: unexpected error while building finalDoc", e);
-    messages.add("Błąd składania finalDoc: " + e.getMessage());
-}
-
-// 6) wypisz komunikaty
-messages.forEach(m -> log.info(String.format("53 persistPublishedFinalDocs msg=%s", m)));
-}
-
 
     private void writeGroupedOutputs(List<String> outSL, List<String> outDSDZ, List<String> outOther) {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
@@ -1013,6 +1050,127 @@ messages.forEach(m -> log.info(String.format("53 persistPublishedFinalDocs msg=%
         scheduler.shutdownNow();
         workerPool.shutdownNow();
         log.info("DailyXmlWatcher shutdown requested");
+    }
+    /**
+     * Pomocnicza metoda: buduje raporty (KO/RO i kartowe) i zapisuje je jako KO_RO_yyyyMMdd_HHmmss.xml
+     * - reportNumbers: zebrane numery raportów (KO/RO)
+     * - assemblerCash / assemblerCard: używane do budowy DmsDocumentOut raportów
+     * - idKsieg: ustawiane na root builderach
+     * - transformer: używany do serializacji
+     * - messages: lista komunikatów do dopisania
+     */
+    private void buildAndWriteReports(Set<String> reportNumbers,
+                                      CashReportAssembler assemblerCash,
+                                      CardReportAssembler assemblerCard,
+                                      String idKsieg,
+                                      Transformer transformer,
+                                      List<String> messages) {
+        if (reportNumbers == null || reportNumbers.isEmpty()) return;
+        try {
+            DocumentBuilderFactory dbfR = DocumentBuilderFactory.newInstance();
+            DocumentBuilder dbR = dbfR.newDocumentBuilder();
+            Document docR = dbR.newDocument();
+            Element rootR = docR.createElement("ROOT");
+            docR.appendChild(rootR);
+
+            boolean anyReportAdded = false;
+            for (String nr : reportNumbers) {
+                // cash report
+                DmsDocumentOut rapCash = assemblerCash.buildSingleReport(nr);
+                if (rapCash != null) {
+                    try {
+                        CashReportXmlBuilder crb = new CashReportXmlBuilder(rapCash);
+                        try {
+                            if (crb instanceof XmlSectionBuilder) {
+                                ((XmlSectionBuilder) crb).setIdKsiegOddzial(idKsieg);
+                            }
+                        } catch (Throwable t) {
+                            log.warn(String.format("buildAndWriteReports: failed to set idKsiegOddzial on CashReportXmlBuilder", t));
+                        }
+                        crb.build(docR, rootR);
+                        // rozliczenia
+                        RozliczeniaXmlBuilder roz = new RozliczeniaXmlBuilder(rapCash);
+                        try {
+                            if (roz instanceof XmlSectionBuilder) {
+                                ((XmlSectionBuilder) roz).setIdKsiegOddzial(idKsieg);
+                            }
+                        } catch (Throwable t) {
+                            log.warn(String.format("buildAndWriteReports: failed to set idKsiegOddzial on RozliczeniaXmlBuilder", t));
+                        }
+                        roz.build(docR, rootR);
+
+                        messages.add("Dodano RAPORT_KB: " + nr);
+                        log.info(String.format("persistPublishedFinalDocs: RAPORT_KB added nr=%s", nr));
+                        anyReportAdded = true;
+                    } catch (Throwable t) {
+                        log.error("persistPublishedFinalDocs: error building RAPORT_KB for " + nr, t);
+                        messages.add("Błąd RAPORT_KB: " + nr + " -> " + t.getMessage());
+                    }
+                } else {
+                    log.info("persistPublishedFinalDocs: Raport kasowy " + nr + " pominięty - brak KO lub KZ lub raport niekompletny");
+                    messages.add("Pominięto raport: " + nr + " (niekompletny)");
+                }
+
+                // card report
+                DmsDocumentOut rapCard = assemblerCard.buildSingleReport(nr);
+                if (rapCard != null) {
+                    try {
+                        CashReportXmlBuilder crb2 = new CashReportXmlBuilder(rapCard);
+                        try {
+                            if (crb2 instanceof XmlSectionBuilder) {
+                                ((XmlSectionBuilder) crb2).setIdKsiegOddzial(idKsieg);
+                            }
+                        } catch (Throwable t) {
+                            log.warn(String.format("buildAndWriteReports: failed to set idKsiegOddzial on CashReportXmlBuilder (card)", t));
+                        }
+                        crb2.build(docR, rootR);
+                        RozliczeniaXmlBuilder roz2 = new RozliczeniaXmlBuilder(rapCard);
+                        try {
+                            if (roz2 instanceof XmlSectionBuilder) {
+                                ((XmlSectionBuilder) roz2).setIdKsiegOddzial(idKsieg);
+                            }
+                        } catch (Throwable t) {
+                            log.warn(String.format("buildAndWriteReports: failed to set idKsiegOddzial on RozliczeniaXmlBuilder (card)", t));
+                        }
+                        roz2.build(docR, rootR);
+
+                        messages.add("Dodano RAPORT_KARTOWY: " + nr);
+                        log.info(String.format("persistPublishedFinalDocs: RAPORT_KARTOWY added nr=%s", nr));
+                        anyReportAdded = true;
+                    } catch (Throwable t) {
+                        log.error("persistPublishedFinalDocs: error building RAPORT_KARTOWY for " + nr, t);
+                        messages.add("Błąd RAPORT_KARTOWY: " + nr + " -> " + t.getMessage());
+                    }
+                } else {
+                    log.debug("persistPublishedFinalDocs: Raport kartowy " + nr + " pominięty - brak RO/RZ lub niekompletny");
+                }
+            }
+
+            if (anyReportAdded) {
+                StringWriter writerR = new StringWriter();
+                transformer.transform(new DOMSource(docR), new StreamResult(writerR));
+                String xmlR = writerR.toString();
+
+                String tsR = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+                String fileNameOutR = "KO_RO_" + tsR + ".xml";
+                Path outPathR = outputDir.resolve(fileNameOutR);
+                Files.writeString(outPathR, xmlR, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                log.info("persistPublishedFinalDocs: published reports finalDoc " + outPathR);
+                messages.add("Opublikowano finalDoc (raporty): " + fileNameOutR);
+                if (this.generator != null) {
+                    try {
+                        this.generator.publishFinalDoc("KO_RO", xmlR, tsR);
+                        log.info(String.format("buildAndWriteReports: published to generator outputGroup=KO_RO ts=%s", tsR));
+                    } catch (Exception ex) {
+                        log.warn(String.format("buildAndWriteReports: failed to publish KO_RO to generator"), ex);
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("persistPublishedFinalDocs: error while building/writing reports", e);
+            messages.add("Błąd budowy raportów: " + e.getMessage());
+        }
     }
 }
 

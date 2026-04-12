@@ -29,6 +29,7 @@ public enum MappingTarget {
             case "K":
                 return CASH;
             case "S":
+            	return SALES;
             default:
                 return SALES;
         }

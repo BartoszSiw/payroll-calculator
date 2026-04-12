@@ -417,17 +417,19 @@ public class ConverterServlet extends HttpServlet {
         try {
             finalSL = rootSL.build();
             finalDSDZ = rootDSDZ.build();
-            //finalCash = rootCash.build();
+            finalCash = rootCash.build();
         } catch (Exception e) {
-        	if (finalSL != null || finalDSDZ != null) {
+        	if (finalSL != null || finalDSDZ != null || finalCash != null) {
                 try {
                     // 1. root info
                     Element roott1 = finalSL.getDocumentElement();
                     Element roott2 = finalDSDZ.getDocumentElement();
+                    Element roott3 = finalCash.getDocumentElement();
                     log.info(String.format("34 Servlet SL root nodeName='%s' localName='%s' namespace='%s'", roott1.getNodeName(), roott1.getLocalName(), roott1.getNamespaceURI()));
-                    log.info(String.format("35 Servlet DSDZ root nodeName='%s' localName='%s' namespace='%s'", roott2.getNodeName(), roott2.getLocalName(), roott2.getNamespaceURI()));
+                    log.info(String.format("34 Servlet DSDZ root nodeName='%s' localName='%s' namespace='%s'", roott2.getNodeName(), roott2.getLocalName(), roott2.getNamespaceURI()));
+                    log.info(String.format("34 Servlet Cash root nodeName='%s' localName='%s' namespace='%s'", roott3.getNodeName(), roott3.getLocalName(), roott3.getNamespaceURI()));
                 } catch (Exception ex) {
-                    log.error("34 35 Servlet Failed to extract info from finalDoc", ex);
+                    log.error("34 Servlet Failed to extract info from finalDoc", ex);
                 }
         	}
             throw new ServletException("Błąd budowania XML: " + e.getMessage(), e);

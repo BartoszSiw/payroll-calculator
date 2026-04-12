@@ -14,6 +14,8 @@ public class DmsParserRZ implements DmsParser{
         DmsParsedDocument out = new DmsParsedDocument();
         out.setDocumentType("RZ");
         out.setSourceFileName(fileName);
+        String code = "C";
+        out.setMappingTarget(MappingTarget.fromCode(code));
         // ============================
         // 1. METADATA
         // ============================

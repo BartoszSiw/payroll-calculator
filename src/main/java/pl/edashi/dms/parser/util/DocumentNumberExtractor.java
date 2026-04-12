@@ -13,6 +13,18 @@ import pl.edashi.dms.model.DmsParsedDocument;
 public final class DocumentNumberExtractor {
 	private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(DocumentNumberExtractor.class);
     private DocumentNumberExtractor() { /* util */ }
+    /**
+     * Wyciąga wartość atrybutu "trans" z elementu DMS.
+     * Zwraca null gdy element jest null lub atrybut nie istnieje / jest pusty.
+     */
+    public static String extractTransFromDms(Element dms) {
+        if (dms == null) return null;
+        String trans = dms.getAttribute("trans");
+        if (trans == null) return null;
+        trans = trans.trim();
+        return trans.isEmpty() ? null : trans;
+    }
+
     // --- istniejące metody (extractFromGenInfo, extractForParserType, looksLikeDocumentNumber, extractMainNumberFromDmsElement)
     // (pozostawiasz je bez zmian) ...
 

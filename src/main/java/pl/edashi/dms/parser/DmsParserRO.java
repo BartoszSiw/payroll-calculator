@@ -13,6 +13,8 @@ public class DmsParserRO implements DmsParser{
         DmsParsedDocument out = new DmsParsedDocument();
         out.setDocumentType("RO");
         out.setSourceFileName(fileName);
+        String code = "C";
+        out.setMappingTarget(MappingTarget.fromCode(code));
         // ============================
         // 1. METADATA
         // ============================
