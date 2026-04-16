@@ -222,6 +222,7 @@ public class DailyXmlWatcher {
         // etykiety
         List<String> outSL = new ArrayList<>();
         List<String> outDSDZ = new ArrayList<>();
+        List<String> outCashCard = new ArrayList<>();
         List<String> outOther = new ArrayList<>();
 
         // kolekcje builderów i komunikatów (thread-safe)
@@ -234,18 +235,21 @@ public class DailyXmlWatcher {
         DocumentOutGenerator generator = this.generator != null ? this.generator : new DocumentOutGenerator(converterService);
 
         for (Path file : ordered) {
-            processSingleFile(file, allow, generator, outSL, outDSDZ, outOther,collectedContractorSections, collectedSections, allParsedDocs, collectedMessages);
+            processSingleFile(file, allow, generator, outSL, outDSDZ, outCashCard, outOther,
+                    collectedContractorSections, collectedSections, allParsedDocs, collectedMessages);
         }
         log.info(String.format("11 runOnce: finished processing files. collectedContractorSections.size=%s collectedSections.size=%s allParsedDocs.size=%s collectedMessages.size=%s",
                 collectedContractorSections.size(), collectedSections.size(), allParsedDocs.size(), collectedMessages.size()));
-        log.info(String.format("12 runOnce: outSL.size=%s outDSDZ.size=%s outOther.size=%s",
-                outSL.size(), outDSDZ.size(), outOther.size()));
+        log.info(String.format("12 runOnce: outSL.size=%s outDSDZ.size=%s outCashCard.size=%s outOther.size=%s",
+                outSL.size(), outDSDZ.size(), outCashCard.size(), outOther.size()));
 
         // publikacja finalDoc z builderów zebranych przez watcher
-        persistPublishedFinalDocs(collectedContractorSections, collectedSections, outSL, outDSDZ, outOther, collectedMessages,allParsedDocs);
+        persistPublishedFinalDocs(collectedContractorSections, collectedSections, outSL, outDSDZ, outCashCard, outOther,
+                collectedMessages, allParsedDocs, allow);
 
         // zapis etykiet / raportów
-        writeGroupedOutputs(outSL, outDSDZ, outOther);
+        writeGroupedOutputs(outSL, outDSDZ, outCashCard, outOther);
+        archiveStaleCashCardFromWatch();
     }
 
 
@@ -491,6 +495,7 @@ public class DailyXmlWatcher {
         Queue<String> collectedMessages = new ConcurrentLinkedQueue<>();
         List<String> outSL = Collections.synchronizedList(new ArrayList<>());
         List<String> outDSDZ = Collections.synchronizedList(new ArrayList<>());
+        List<String> outCashCard = Collections.synchronizedList(new ArrayList<>());
         List<String> outOther = Collections.synchronizedList(new ArrayList<>());
 
         // lista future do czekania
@@ -501,7 +506,7 @@ public class DailyXmlWatcher {
             futures.add(workerPool.submit(() -> {
                 try {
                     // processSingleFile zajmuje się: filtrami, builderami, archiwizacją pliku
-                    processSingleFile(p, allowUpdate, this.generator, outSL, outDSDZ, outOther,
+                    processSingleFile(p, allowUpdate, this.generator, outSL, outDSDZ, outCashCard, outOther,
                                       collectedContractorSections, collectedSections, allParsedDocs, collectedMessages);
                 } catch (Throwable t) {
                     log.error(String.format("29 doProcessing: worker failed for file=%s err=%s", p.getFileName(), t.getMessage()), t);
@@ -529,21 +534,27 @@ public class DailyXmlWatcher {
         // snapshot i log
         log.info(String.format("31 doProcessing: workers finished. collectedContractorSections.size=%s collectedSections.size=%s allParsedDocs.size=%s collectedMessages.size=%s",
                 collectedContractorSections.size(), collectedSections.size(), allParsedDocs.size(), collectedMessages.size()));
-        log.info(String.format("31 doProcessing: outSL.size=%s outDSDZ.size=%s outOther.size=%s",
-                outSL.size(), outDSDZ.size(), outOther.size()));
+        log.info(String.format("31 doProcessing: outSL.size=%s outDSDZ.size=%s outCashCard.size=%s outOther.size=%s",
+                outSL.size(), outDSDZ.size(), outCashCard.size(), outOther.size()));
 
         // publikacja finalDoc z builderów zebranych przez watcher
         try {
-            persistPublishedFinalDocs(collectedContractorSections, collectedSections, outSL, outDSDZ, outOther, collectedMessages,allParsedDocs);
+            persistPublishedFinalDocs(collectedContractorSections, collectedSections, outSL, outDSDZ, outCashCard, outOther,
+                    collectedMessages, allParsedDocs, allowUpdate);
         } catch (Exception e) {
             log.error(String.format("32 doProcessing: persistPublishedFinalDocs failed: %s", e.getMessage()), e);
         }
 
         // zapis etykiet / raportów
         try {
-            writeGroupedOutputs(outSL, outDSDZ, outOther);
+            writeGroupedOutputs(outSL, outDSDZ, outCashCard, outOther);
         } catch (Exception e) {
             log.error(String.format("33 doProcessing: writeGroupedOutputs failed: %s", e.getMessage()), e);
+        }
+        try {
+            archiveStaleCashCardFromWatch();
+        } catch (Exception e) {
+            log.error(String.format("33b doProcessing: archiveStaleCashCardFromWatch failed: %s", e.getMessage()), e);
         }
     }
 
@@ -588,6 +599,7 @@ public class DailyXmlWatcher {
             DocumentOutGenerator generator,
             List<String> outSL,
             List<String> outDSDZ,
+            List<String> outCashCard,
             List<String> outOther,
             Queue<ContractorsXmlBuilder> collectedContractorSections,
             Queue<XmlSectionBuilder> collectedSections,
@@ -645,7 +657,7 @@ public class DailyXmlWatcher {
     		        return;
     		    } else {
     		        // dotychczasowa logika: archive lub inne
-    			moveTo(file, outputDir.resolve("archive"));
+    			moveToArchiveRespectingCashCardRetention(file);
     			return;
     		}
     		}
@@ -740,8 +752,10 @@ public class DailyXmlWatcher {
                 label = label.replaceAll("[\\\\/:*?\"<>|]", "_");
 
                 // DK, DZ, DS -> outDSDZ
-                if (DocTypeConstants.DZ_TYPES.contains(docType) || DocTypeConstants.DS_TYPES.contains(docType) || DocTypeConstants.DK_TYPES.contains(docType)) {
+                if (DocTypeConstants.DZ_TYPES.contains(docType) || DocTypeConstants.DS_TYPES.contains(docType)) {
                     outDSDZ.add(label);
+                } else if (DocTypeConstants.DK_TYPES.contains(docType)) {
+                    if (outCashCard != null) outCashCard.add(label);
                 } else {
                     outOther.add(label);
                 }
@@ -764,7 +778,7 @@ public class DailyXmlWatcher {
     		    + " collectedMessages.size=" + collectedMessages.size()
     		    + " parserOddzial=" + ParserRegistry.getInstance().getOddzial());
 
-    		moveTo(file, outputDir.resolve("archive"));
+    		moveToArchiveRespectingCashCardRetention(file);
     		} catch (Exception e) {
     			log.error(String.format("43 DailyXmlWatcher: exception processing file=%s err=%s", file.getFileName(), e.getMessage()), e);
     			try {	
@@ -786,13 +800,76 @@ public class DailyXmlWatcher {
 	        Files.move(file, target, StandardCopyOption.REPLACE_EXISTING);
 	        log.info(String.format("45 DailyXmlWatcher: moved file=%s to %s", file.getFileName(), targetDir));
 	    }
-    	private void persistPublishedFinalDocs(Queue<ContractorsXmlBuilder> contractorSections,
+
+    /** Prefiks nazwy jak w GROUP3 (KO/KZ/DK/RO/RZ/RD). */
+    private static boolean isCashOrCardWatchFilename(Path file) {
+        String name = file.getFileName().toString();
+        if (name.length() < 2) return false;
+        String two = name.substring(0, 2).toUpperCase(Locale.ROOT);
+        return GROUP3.contains(two);
+    }
+
+    /** true gdy od mtime minęło ≥ minDays pełnych dni (UTC/porównanie Duration). */
+    private static boolean isFileAtLeastDaysOld(Path file, int minDays) {
+        try {
+            long ageDays = Duration.between(Files.getLastModifiedTime(file).toInstant(), Instant.now()).toDays();
+            return ageDays >= minDays;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Inne typy → od razu do archive. KO/KZ/DK/RO/RZ/RD → dopiero gdy plik ma ≥ {@code watcher.cashCardArchiveMinAgeDays} dni (mtime),
+     * inaczej zostaje w watchDir (składanie raportów z wielu dni).
+     */
+    private void moveToArchiveRespectingCashCardRetention(Path file) throws IOException {
+        int minDays = config.getCashCardArchiveMinAgeDays();
+        if (minDays > 0 && isCashOrCardWatchFilename(file) && !isFileAtLeastDaysOld(file, minDays)) {
+            log.info(String.format("45a DailyXmlWatcher: cash/card file left in watch (archive after %d days mtime, converter.properties): %s",
+                    minDays, file.getFileName()));
+            return;
+        }
+        moveTo(file, outputDir.resolve("archive"));
+    }
+
+    /**
+     * Na końcu przebiegu: przenosi do archive pliki KO/KZ/DK/RO/RZ/RD starsze niż próg dni, które zostały wcześniej w watchDir.
+     */
+    private void archiveStaleCashCardFromWatch() {
+        int minDays = config.getCashCardArchiveMinAgeDays();
+        if (minDays <= 0) {
+            return;
+        }
+        List<Path> files;
+        try {
+            files = collectXmlFiles();
+        } catch (Throwable t) {
+            log.error(String.format("archiveStaleCashCardFromWatch: collectXmlFiles failed: %s", t.getMessage()), t);
+            return;
+        }
+        for (Path file : files) {
+            if (!Files.isRegularFile(file)) continue;
+            if (!isCashOrCardWatchFilename(file)) continue;
+            if (!isFileAtLeastDaysOld(file, minDays)) continue;
+            try {
+                moveTo(file, outputDir.resolve("archive"));
+                log.info(String.format("45b DailyXmlWatcher: archived stale cash/card (≥%d dni, converter.properties): %s",
+                        minDays, file.getFileName()));
+            } catch (IOException e) {
+                log.warn(String.format("45b DailyXmlWatcher: could not archive %s: %s", file.getFileName(), e.getMessage()));
+            }
+        }
+    }
+   	private void persistPublishedFinalDocs(Queue<ContractorsXmlBuilder> contractorSections,
     	        Queue<XmlSectionBuilder> collectedSections,
     	        List<String> outSL,
     	        List<String> outDSDZ,
+    	        List<String> outCashCard,
     	        List<String> outOther,
     	        Queue<String> collectedMessages,
-    	        Queue<Object> allParsedDocs) {
+    	        Queue<Object> allParsedDocs,
+    	        boolean allowUpdate) {
 
     	    // 1) opcjonalnie: zapisz to, co generator mógł już opublikować
     	    if (this.generator != null) {
@@ -923,6 +1000,9 @@ public class DailyXmlWatcher {
     	            if (outDSDZ != null) {
     	                messages.addAll(outDSDZ.stream().map(s -> "Dodano DS/DZ: " + s).collect(Collectors.toList()));
     	            }
+    	            if (outCashCard != null) {
+    	                messages.addAll(outCashCard.stream().map(s -> "Zarejestrowano KO/KZ/DK/RO/RZ/RD: " + s).collect(Collectors.toList()));
+    	            }
     	            messages.add("Opublikowano finalDoc: " + fileNameOut);
     	            // koniec przypadku tylko DS/DZ
     	        } else {
@@ -1014,6 +1094,13 @@ public class DailyXmlWatcher {
     	            buildAndWriteReports(reportNumbers, assemblerCash, assemblerCard, idKsieg, transformer, messages);
     	        }
 
+    	        try {
+    	            converterService.registerClosedCashAndCardReports(parsedDocsForReports, allowUpdate);
+    	        } catch (Exception ex) {
+    	            log.error(String.format("persistPublishedFinalDocs: registerClosedCashAndCardReports failed: %s", ex.getMessage()), ex);
+    	            messages.add("Błąd zapisu rejestru raportów (KO/KZ/DK, RO/RZ/RD): " + ex.getMessage());
+    	        }
+
     	    } catch (Exception e) {
     	        log.error("52 persistPublishedFinalDocs: unexpected error while building finalDoc", e);
     	        messages.add("Błąd składania finalDoc: " + e.getMessage());
@@ -1038,12 +1125,14 @@ public class DailyXmlWatcher {
         return reportNumbers;
     }
 
-    private void writeGroupedOutputs(List<String> outSL, List<String> outDSDZ, List<String> outOther) {
+    private void writeGroupedOutputs(List<String> outSL, List<String> outDSDZ, List<String> outCashCard, List<String> outOther) {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
         String ts = LocalDateTime.now().format(fmt);
-        log.info(String.format("54 About to write outputs: outSL=%d outDSDZ=%d outOther=%d", outSL.size(), outDSDZ.size(), outOther.size()));
+        log.info(String.format("54 About to write outputs: outSL=%d outDSDZ=%d outCashCard=%d outOther=%d",
+                outSL.size(), outDSDZ.size(), outCashCard == null ? 0 : outCashCard.size(), outOther.size()));
         if (!outSL.isEmpty()) writeOutputFile("SL", outSL, ts);
         if (!outDSDZ.isEmpty()) writeOutputFile("DS_DZ", outDSDZ, ts);
+        if (outCashCard != null && !outCashCard.isEmpty()) writeOutputFile("CASH_CARD", outCashCard, ts);
         if (!outOther.isEmpty()) writeOutputFile("OTHER", outOther, ts);
     }
     public void shutdown() {
@@ -1162,7 +1251,7 @@ public class DailyXmlWatcher {
                         this.generator.publishFinalDoc("KO_RO", xmlR, tsR);
                         log.info(String.format("buildAndWriteReports: published to generator outputGroup=KO_RO ts=%s", tsR));
                     } catch (Exception ex) {
-                        log.warn(String.format("buildAndWriteReports: failed to publish KO_RO to generator"), ex);
+                        log.error("buildAndWriteReports: failed to publish KO_RO to generator", ex);
                     }
                 }
             }

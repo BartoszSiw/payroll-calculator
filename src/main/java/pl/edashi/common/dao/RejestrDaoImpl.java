@@ -2,6 +2,7 @@ package pl.edashi.common.dao;
 import javax.sql.DataSource;
 
 import pl.edashi.common.logging.AppLogger;
+import pl.edashi.converter.service.ConverterConfig;
 import pl.edashi.dms.model.MappingTarget;
 
 import java.sql.*;
@@ -10,11 +11,17 @@ import java.math.BigDecimal;
 public class RejestrDaoImpl implements RejestrDao {
 	    //private final DataSource ds;
 		private final AppLogger log = new AppLogger("RejestrDaoImpl");
-	    //private final String url = "jdbc:sqlserver://10.10.70.30:1433/CON_AUTO_JDG?useSSL=false&serverTimezone=UTC";
-	    private final String url = "jdbc:sqlserver://10.10.70.30:1433;databaseName=CONVERTER;encrypt=false;trustServerCertificate=true";
-	    private final String user = "sa";
-	    private final String pass = "Enova2023@^";
-	    
+	    private final String url;
+	    private final String user;
+	    private final String pass;
+
+	    public RejestrDaoImpl() {
+	        ConverterConfig cfg = new ConverterConfig();
+	        this.url = cfg.getRejestrJdbcUrl();
+	        this.user = cfg.getRejestrJdbcUser();
+	        this.pass = cfg.getRejestrJdbcPassword();
+	    }
+
 	    //public RejestrDaoImpl(DataSource ds) { this.ds = ds; }
 
 	    @Override

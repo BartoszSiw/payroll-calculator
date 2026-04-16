@@ -32,10 +32,8 @@ public class DmsParserDK implements DmsParser{
         DmsParsedDocument out = new DmsParsedDocument();
         out.setDocumentType("DK");
         out.setSourceFileName(fileName);
-        
         Contractor c = extractContractor(doc);
         out.setContractor(c);
-
         out.setTypDocAnalizer("DK");
         /*log.info(String.format(Locale.US,
                 "ParserDZ: END file=%s type=%s nr=%s positions=%d",
@@ -119,48 +117,10 @@ public class DmsParserDK implements DmsParser{
         log.info("Last Parser DK ustawiono getRapKasa='" + out.getRapKasa());
         //log.info("DK parser: ustawiono out.reportNumber (raw) = '" + raw + "' file=" + out.getSourceFileName());
 
-        // ============================
-        // 3. PŁATNOŚCI (typ 48 + 49)
-        // ============================
-        //List<DmsPayment> payments = extractPayments(doc, out);
-        //out.setPayments(payments);
 
-        // ============================
-        // 4. UWAGI (operator, opis pozycji)
-        // ============================
-        //List<String> notes = extractNotes(doc);
-        //out.setNotes(notes);
-
-        // ============================
-        // 5. DODATKOWY OPIS
-        // ============================
-        //String mainNumber = extractMainNumber(doc);
-        //out.setAdditionalDescription("DK " + (mainNumber != null ? mainNumber : ""));
-        // ============================
-        // 6. POZYCJE (typ 49)
-        // ============================
-        //extractPositions(doc, out);
-        // ============================
-        // 7. PUSTE POLA (DK ich nie ma)
-        // ============================
-        //out.setPositions(new ArrayList<>()); // puste
-        //out.setVatRate("");
-        //out.setVatBase("");
-        //out.setVatAmount("");
-        //out.setFiscalNumber("");
-        //out.setFiscalDevice("");
-        //out.setFiscalDate("");
 
         return out;
     }
-    /*public DmsParsedDocument parse(InputStream xmlStream, String fileName) throws Exception {
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-        dbf.setNamespaceAware(false);
-        DocumentBuilder db = dbf.newDocumentBuilder();
-        Document doc = db.parse(xmlStream);
-        return parse(doc, fileName);
-    }*/
-
     // ------------------------------
     // KONTRAHENT (typ 35)
     // ------------------------------

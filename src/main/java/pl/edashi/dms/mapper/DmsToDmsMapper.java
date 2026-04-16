@@ -1,6 +1,7 @@
 package pl.edashi.dms.mapper;
 import pl.edashi.common.logging.AppLogger;
 import pl.edashi.common.util.MappingIdDocs;
+import pl.edashi.converter.servlet.DocTypeConstants;
 import pl.edashi.dms.model.*;
 import pl.edashi.dms.model.DmsParsedDocument.DmsVatEntry;
 
@@ -18,6 +19,15 @@ public class DmsToDmsMapper {
         doc.setIdZrodla(UUID.randomUUID().toString());
         doc.setModul("Rejestr Vat");
         String srcType = safe(src.getDocumentType()).toUpperCase();
+        // Output type must follow the accounting direction, not whatever gen_info guessed.
+        // Example: some purchase documents (root id="DZ") come with gen_info type like "FZL"
+        // which would incorrectly route them into REJESTR_SPRZEDAZY_VAT.
+        MappingTarget mt = src.getMappingTarget();
+        if (mt == MappingTarget.PURCHASES && !DocTypeConstants.DZ_TYPES.contains(srcType)) {
+            srcType = "DZ";
+        } else if (mt == MappingTarget.SALES && !DocTypeConstants.DS_TYPES.contains(srcType)) {
+            srcType = "DS";
+        }
         String srcWewne = safe(src.getDocumentWewne());
         doc.setTyp(srcType);
         doc.setDocumentType(srcType);
@@ -87,6 +97,7 @@ public class DmsToDmsMapper {
         doc.setFullKey(safe(src.getFullKey()));
         doc.setDocKey(safe(src.getDocKey()));
         doc.setHash(safe(src.getHash()));
+        doc.setNrBank(safe(src.getNrBank()));
      // POZYCJE - inicjalizacja listy i mapowanie pozycji
         doc.setPozycje(new ArrayList<>());
         List<DmsPosition> positions = src.getPositions();
@@ -233,7 +244,7 @@ public class DmsToDmsMapper {
             case "EX", "CU" -> "ZK";
             case "PA" -> "Z3";
             case "CD", "CP", "CR" -> "Z1";
-            case "CC" -> "ZAKUP";
+            case "CC", "OT" -> "ZAKUP";
             case "001" -> "001";
             case "002" -> "002";
             case "003" -> "003";

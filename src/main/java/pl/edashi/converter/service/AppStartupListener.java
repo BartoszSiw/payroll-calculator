@@ -77,11 +77,14 @@ public class AppStartupListener implements ServletContextListener {
      // store in context so servlet can update them
         ctx.setAttribute("watcherFiltersRef", filtersRef);
         ctx.setAttribute("watcherOddzialRef", oddzialRef);
-        DailyXmlWatcher watcher = new DailyXmlWatcher(watchDir, outputDir, converterService, allowUpdate,filtersRef::get, oddzialRef::get, workerThreads,generator);
+        this.watcher = new DailyXmlWatcher(watchDir, outputDir, converterService, allowUpdate,filtersRef::get, oddzialRef::get, workerThreads,generator);
         //watcher.startNowOnce();
         //watcher.startAtDailyTime(21,36); // schedule daily at 09:30
-        watcher.startAtDailyTime(hour, minute);
-        ctx.setAttribute("dailyXmlWatcher", watcher);
+        log.info(String.format(
+                "Watcher schedule from converter.properties: path=%s loaded=%s effectiveTime=%02d:%02d (first run = next occurrence of this clock time, not 'immediately')",
+                config.getConfigPath().toAbsolutePath(), config.isLoadedFromFile(), hour, minute));
+        this.watcher.startAtDailyTime(hour, minute);
+        ctx.setAttribute("dailyXmlWatcher", this.watcher);
         log.info(String.format("DailyXmlWatcher started for directory=%s", watchDir));
         log.info(String.format("DailyXmlWatcher scheduled? %s", watcher.isScheduled()));
         log.info(String.format("JVM zone: %s", java.time.ZoneId.systemDefault()));
@@ -93,7 +96,7 @@ public class AppStartupListener implements ServletContextListener {
         // optionally close converterService resources if needed
     }
     // Config.java (or in AppStartupListener)
-    public final class AppConfig {
+    public static final class AppConfig {
         public static final Path OUTPUT_DIR = Paths.get("C:/XML/Output");
         public static final Path ALLOW_UPDATE_FILE = OUTPUT_DIR.resolve("allowUpdate.flag");
     }

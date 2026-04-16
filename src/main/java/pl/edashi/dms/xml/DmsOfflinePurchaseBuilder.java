@@ -41,14 +41,16 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         if (docXml == null || root == null) return;
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
-        // SEKCJA REJESTRY_ZAKUPU_VAT
-        Element rejSekcja = docXml.createElementNS(NS, "REJESTRY_ZAKUPU_VAT");
-        root.appendChild(rejSekcja);
-
-        // Nagłówek sekcji
-        rejSekcja.appendChild(makeCdata(docXml, "WERSJA", "2.00"));
-        rejSekcja.appendChild(makeCdata(docXml, "BAZA_ZRD_ID", "KSIEG"));
-        rejSekcja.appendChild(makeCdata(docXml, "BAZA_DOC_ID", idKsiegOddzial));
+        // SEKCJA REJESTRY_ZAKUPU_VAT: jedna sekcja + wiele REJESTR_ZAKUPU_VAT
+        Element rejSekcja = firstChildElementNS(root, NS, "REJESTRY_ZAKUPU_VAT");
+        if (rejSekcja == null) {
+            rejSekcja = docXml.createElementNS(NS, "REJESTRY_ZAKUPU_VAT");
+            root.appendChild(rejSekcja);
+            // Nagłówek sekcji tylko raz
+            rejSekcja.appendChild(makeCdata(docXml, "WERSJA", "2.00"));
+            rejSekcja.appendChild(makeCdata(docXml, "BAZA_ZRD_ID", "KSIEG"));
+            rejSekcja.appendChild(makeCdata(docXml, "BAZA_DOC_ID", idKsiegOddzial));
+        }
 
         // REJESTR_ZAKUPU_VAT
         Element rz = docXml.createElementNS(NS, "REJESTR_ZAKUPU_VAT");
@@ -114,6 +116,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         //rz.appendChild(makeCdata(docXml, "PLATNIK", safe(doc.getPodmiotNip())));
         //rz.appendChild(makeCdata(docXml, "PLATNIK_ID", safe(doc.getPodmiotId())));
         rz.appendChild(makeCdata(docXml, "PLATNIK_NIP", safe(removeHyphensBetweenDigits(doc.getPodmiotNip()))));
+        rz.appendChild(makeCdata(docXml, "PLATNIK_RACHUNEK_NR", safe(doc.getNrBank())));
         rz.appendChild(makeCdata(docXml, "OPIS", safe(doc.getOpis())));
         rz.appendChild(makeCdata(docXml, "FORMA_PLATNOSCI", firstPaymentForm(doc)));
         rz.appendChild(makeCdata(docXml, "FORMA_PLATNOSCI_ID", safe(doc.getFormaPlatnosciId())));
@@ -265,6 +268,20 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         String safeValue = v.replace("]]>", "]]]]><![CDATA[>");
         el.appendChild(docXml.createCDATASection(safeValue));
         return el;
+    }
+
+    private static Element firstChildElementNS(Element parent, String ns, String localName) {
+        if (parent == null) return null;
+        for (org.w3c.dom.Node n = parent.getFirstChild(); n != null; n = n.getNextSibling()) {
+            if (n.getNodeType() != org.w3c.dom.Node.ELEMENT_NODE) continue;
+            Element e = (Element) n;
+            String ln = e.getLocalName();
+            String nns = e.getNamespaceURI();
+            if (localName.equals(ln) && (ns == null ? nns == null : ns.equals(nns))) {
+                return e;
+            }
+        }
+        return null;
     }
 
     private static String safe(String s) {

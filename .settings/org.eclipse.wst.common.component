@@ -4,7 +4,7 @@
     
     
     
-    <wb-module deploy-name="Kalkulator2025">
+    <wb-module deploy-name="PayACon">
                                                 
         
         
@@ -34,13 +34,13 @@
         
         
         
-        <property name="context-root" value="Kalkulator2025"/>
+        <property name="context-root" value="PayACon"/>
                                                 
         
         
         
         
-        <property name="java-output-path" value="/Kalkulator2025/WebRoot/WEB-INF/classes"/>
+        <property name="java-output-path" value="/PayACon/target/classes"/>
                                             
     
     

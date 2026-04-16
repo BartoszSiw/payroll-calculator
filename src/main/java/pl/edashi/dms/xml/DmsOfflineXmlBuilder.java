@@ -51,13 +51,16 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         //Element root = xml.createElementNS(NS, "ROOT");
         //xml.appendChild(root);
 
-        // SEKCJA REJESTRY_SPRZEDAZY_VAT
-        Element rejSekcja = docXml.createElementNS(NS, "REJESTRY_SPRZEDAZY_VAT");
-        root.appendChild(rejSekcja);
-        // Nagłówek sekcji
-        rejSekcja.appendChild(make(docXml, "WERSJA", "2.00"));
-        rejSekcja.appendChild(make(docXml, "BAZA_ZRD_ID", "KSIEG"));   // możesz potem wyciągnąć to z konfiguracji
-        rejSekcja.appendChild(make(docXml, "BAZA_DOC_ID", idKsiegOddzial));   // j.w.
+        // SEKCJA REJESTRY_SPRZEDAZY_VAT: jedna sekcja + wiele REJESTR_SPRZEDAZY_VAT
+        Element rejSekcja = firstChildElementNS(root, NS, "REJESTRY_SPRZEDAZY_VAT");
+        if (rejSekcja == null) {
+            rejSekcja = docXml.createElementNS(NS, "REJESTRY_SPRZEDAZY_VAT");
+            root.appendChild(rejSekcja);
+            // Nagłówek sekcji tylko raz
+            rejSekcja.appendChild(make(docXml, "WERSJA", "2.00"));
+            rejSekcja.appendChild(make(docXml, "BAZA_ZRD_ID", "KSIEG"));   // możesz potem wyciągnąć to z konfiguracji
+            rejSekcja.appendChild(make(docXml, "BAZA_DOC_ID", idKsiegOddzial));   // j.w.
+        }
 
         // Główny dokument: REJESTR_SPRZEDAZY_VAT
         Element rs = docXml.createElementNS(NS, "REJESTR_SPRZEDAZY_VAT");
@@ -300,6 +303,20 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
 
         el.appendChild(docXml.createCDATASection(safeValue));
         return el;
+    }
+
+    private static Element firstChildElementNS(Element parent, String ns, String localName) {
+        if (parent == null) return null;
+        for (org.w3c.dom.Node n = parent.getFirstChild(); n != null; n = n.getNextSibling()) {
+            if (n.getNodeType() != org.w3c.dom.Node.ELEMENT_NODE) continue;
+            Element e = (Element) n;
+            String ln = e.getLocalName();
+            String nns = e.getNamespaceURI();
+            if (localName.equals(ln) && (ns == null ? nns == null : ns.equals(nns))) {
+                return e;
+            }
+        }
+        return null;
     }
 
     private String firstPaymentForm(DmsDocumentOut doc) {

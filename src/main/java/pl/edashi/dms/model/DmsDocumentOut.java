@@ -67,6 +67,7 @@ public class DmsDocumentOut {
     private String statusVat = "";
     private String odliczenia = "";
     private String expKrajowy = "";
+    private String nrBank = "";
     //private String dowodNumber = "";
     // POZYCJE - pozycje są w liście pozycje (DmsOutputPosition)
  
@@ -336,6 +337,8 @@ public class DmsDocumentOut {
     
     public String getExpKrajowy() { return expKrajowy; }
     public void setExpKrajowy(String expKrajowy) {this.expKrajowy = safe(expKrajowy); }
+    public String getNrBank() { return nrBank; }
+    public void setNrBank(String nrBank) {this.nrBank = safe(nrBank); }
     // --- Helper ---
     private static String safe(String s) {
         return s == null ? "" : s;

@@ -43,12 +43,16 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 
 	        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 	        factory.setNamespaceAware(true);
-	        Element rejSekcja = docXml.createElementNS(NS, "RAPORTY_KB");
-	        root.appendChild(rejSekcja);
-	        // Nagłówek sekcji
-	        rejSekcja.appendChild(makeCdata(docXml, "WERSJA", "2.00"));
-	        rejSekcja.appendChild(makeCdata(docXml, "BAZA_ZRD_ID", "KSIEG"));
-	        rejSekcja.appendChild(makeCdata(docXml, "BAZA_DOC_ID", idKsiegOddzial));
+	        // SEKCJA RAPORTY_KB: jedna sekcja + wiele RAPORT_KB
+	        Element rejSekcja = firstChildElementNS(root, NS, "RAPORTY_KB");
+	        if (rejSekcja == null) {
+	            rejSekcja = docXml.createElementNS(NS, "RAPORTY_KB");
+	            root.appendChild(rejSekcja);
+	            // Nagłówek sekcji tylko raz
+	            rejSekcja.appendChild(makeCdata(docXml, "WERSJA", "2.00"));
+	            rejSekcja.appendChild(makeCdata(docXml, "BAZA_ZRD_ID", "KSIEG"));
+	            rejSekcja.appendChild(makeCdata(docXml, "BAZA_DOC_ID", idKsiegOddzial));
+	        }
 
 	        // REJESTR_ZAKUPU_VAT
 	        Element rk = docXml.createElementNS(NS, "RAPORT_KB");
@@ -250,6 +254,20 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	        el.appendChild(docXml.createCDATASection(safeValue));
 	        return el;
 	    }	   
+
+	    private static Element firstChildElementNS(Element parent, String ns, String localName) {
+	        if (parent == null) return null;
+	        for (org.w3c.dom.Node n = parent.getFirstChild(); n != null; n = n.getNextSibling()) {
+	            if (n.getNodeType() != org.w3c.dom.Node.ELEMENT_NODE) continue;
+	            Element e = (Element) n;
+	            String ln = e.getLocalName();
+	            String nns = e.getNamespaceURI();
+	            if (localName.equals(ln) && (ns == null ? nns == null : ns.equals(nns))) {
+	                return e;
+	            }
+	        }
+	        return null;
+	    }
 	    private String safeContractorField(DmsOutputPosition pos, String field) {
 	        if (pos == null) return "";
 	        Contractor c = pos.getContractor();

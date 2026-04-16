@@ -31,13 +31,15 @@ public class RozliczeniaXmlBuilder implements XmlSectionBuilder {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             factory.setNamespaceAware(true);
 
-            // Sekcja ROZLICZENIA (nagłówek sekcji)
-            Element sekcja = docXml.createElementNS(NS, "ROZLICZENIA");
-            root.appendChild(sekcja);
-
-            sekcja.appendChild(makeCdata(docXml, "WERSJA", "2.00"));
-            sekcja.appendChild(makeCdata(docXml, "BAZA_ZRD_ID", "KSIEG"));
-            sekcja.appendChild(makeCdata(docXml, "BAZA_DOC_ID", idKsiegOddzial));
+            // Sekcja ROZLICZENIA: jedna sekcja + wiele ROZLICZENIE
+            Element sekcja = firstChildElementNS(root, NS, "ROZLICZENIA");
+            if (sekcja == null) {
+                sekcja = docXml.createElementNS(NS, "ROZLICZENIA");
+                root.appendChild(sekcja);
+                sekcja.appendChild(makeCdata(docXml, "WERSJA", "2.00"));
+                sekcja.appendChild(makeCdata(docXml, "BAZA_ZRD_ID", "KSIEG"));
+                sekcja.appendChild(makeCdata(docXml, "BAZA_DOC_ID", idKsiegOddzial));
+            }
 
             List<Rozliczenie> list = docRoz.getRozliczenia();
             if (list == null) list = Collections.emptyList();
@@ -78,6 +80,20 @@ public class RozliczeniaXmlBuilder implements XmlSectionBuilder {
 
     private String safe(String s) {
         return s == null ? "" : s;
+    }
+
+    private static Element firstChildElementNS(Element parent, String ns, String localName) {
+        if (parent == null) return null;
+        for (org.w3c.dom.Node n = parent.getFirstChild(); n != null; n = n.getNextSibling()) {
+            if (n.getNodeType() != org.w3c.dom.Node.ELEMENT_NODE) continue;
+            Element e = (Element) n;
+            String ln = e.getLocalName();
+            String nns = e.getNamespaceURI();
+            if (localName.equals(ln) && (ns == null ? nns == null : ns.equals(nns))) {
+                return e;
+            }
+        }
+        return null;
     }
 }
 

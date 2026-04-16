@@ -10,5 +10,10 @@ public final class DocTypeConstants {
     public static final Set<String> DK_TYPES = Set.of("KO","KZ","DK","RO","RZ","RD");
     public static final Set<String> DD_TYPES = Set.of("DM","PO");
     //public static final Set<String> SL_TYPES = Set.of("SL");
+
+    /** KO/KZ/DK — zapis do rejestru dopiero po złożeniu raportu kasowego (jest KZ). */
+    public static final Set<String> CASH_REPORT_DB_DEFERRED_TYPES = Set.of("KO", "KZ", "DK");
+    /** RO/RZ/RD — analogicznie dla raportu kartowego (jest RZ). */
+    public static final Set<String> CARD_REPORT_DB_DEFERRED_TYPES = Set.of("RO", "RZ", "RD");
 }
 

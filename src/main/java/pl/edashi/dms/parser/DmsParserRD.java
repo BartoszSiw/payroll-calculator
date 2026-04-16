@@ -34,6 +34,8 @@ public class DmsParserRD implements DmsParser{
         DmsParsedDocument out = new DmsParsedDocument();
         out.setDocumentType("RD");
         out.setSourceFileName(fileName);
+        Contractor c = extractContractor(doc);
+        out.setContractor(c);
         String code = "C";
         out.setMappingTarget(MappingTarget.fromCode(code));
         Element root = doc.getDocumentElement();
@@ -85,9 +87,7 @@ public class DmsParserRD implements DmsParser{
         // ============================
         // 2. KONTRAHENT (typ 35)
         // ============================
-        Contractor contractor = extractContractor(doc);
-        out.setContractor(contractor);
-        out.setTypDocAnalizer("RD");
+        //out.setTypDocAnalizer("RD");
         // ============================
         // 6. POZYCJE (typ 49)
         // ============================

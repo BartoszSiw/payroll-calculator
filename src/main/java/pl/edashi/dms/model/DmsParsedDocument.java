@@ -78,6 +78,7 @@ public class DmsParsedDocument {
     public String odliczenia ="";
     public String expKrajowy = "";
     public String dodatkowyOpis ="";
+    public String nrBank = "";
     //private String vin = "";
 
     // dodatkowe pola pomocnicze
@@ -183,6 +184,7 @@ public class DmsParsedDocument {
 	public void setOdliczenia(String odliczenia) { this.odliczenia = safe(odliczenia); }
 	public void setExpKrajowy(String expKrajowy) { this.expKrajowy = safe(expKrajowy); }
 	public void setDodatkowyOpis(String dodatkowyOpis) {this.dodatkowyOpis = safe(dodatkowyOpis); }
+	public void setNrBank(String nrBank) {this.nrBank = safe(nrBank);}
 	public void setMappingTarget(MappingTarget mappingTarget) { this.mappingTarget = mappingTarget; }
 	
 	//public void setVin(String vin) {this.vin  = vin ;}
@@ -190,9 +192,7 @@ public class DmsParsedDocument {
     public String getNrKsef() {
         return nrKsef;
     }
-    public DocumentMetadata getMetadata() {
-        return metadata;
-    }
+    public DocumentMetadata getMetadata() { return metadata; }
 
     public Contractor getContractor() {
         return contractor;
@@ -315,6 +315,7 @@ public class DmsParsedDocument {
     public String getOdliczenia() { return odliczenia; }
     public String getExpKrajowy() { return expKrajowy; }
     public String getDodatkowyOpis() {return dodatkowyOpis;}
+    public String getNrBank() {return nrBank;}
     public MappingTarget getMappingTarget() { return mappingTarget; }
 	    //public String getVin() {return vin;}
     // --- Utility ---
@@ -420,5 +421,6 @@ public class DmsParsedDocument {
         this.pendingExtras.clear();
         return copy;
     }
+
 
 }

@@ -34,6 +34,11 @@ import java.util.function.Function;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.HashSet;
+import java.util.Locale;
+
+import pl.edashi.converter.servlet.DocTypeConstants;
+
 public class ConverterService {
 
     private final DocumentRepository repository;
@@ -195,7 +200,107 @@ public class ConverterService {
                 return new SkippedDocument(docType, "Date out of range");
             }
         */ 
-        //log.info(String.format("RejestrDao implementation: ='%s '", rejestrDao.getClass().getName()));
+        if (DocTypeConstants.CASH_REPORT_DB_DEFERRED_TYPES.contains(docType)) {
+            log.info(String.format("16a processSingleDocument: rejestr CASH odroczony do zamknięcia raportu (KZ) — docType=%s file=%s", docType, sourceFile));
+            return d;
+        }
+        if (DocTypeConstants.CARD_REPORT_DB_DEFERRED_TYPES.contains(docType)) {
+            log.info(String.format("16b processSingleDocument: rejestr CARD odroczony do zamknięcia raportu (RZ) — docType=%s file=%s", docType, sourceFile));
+            return d;
+        }
+
+        Object regOutcome = applyRejestrInsertOrUpdate(d, allowUpdate, sourceFile, docType, fullKey, nrIdPlat, podmiot, numer, hash, docKey,
+                dateDoc, datUpd, kwNet, kwVat, kwBru, kwPla, docRejestr, docDate);
+        if (regOutcome instanceof SkippedDocument) {
+            return regOutcome;
+        }
+        return d;
+    }
+
+    /**
+     * Po przetworzeniu partii: zapis do rejestru dla KO/KZ/DK i RO/RZ/RD tylko wtedy, gdy assembler
+     * zbuduje pełny raport (jest KZ / RZ). Dzięki temu nie ma wpisów z „otwartego” raportu przed plikiem zamknięcia.
+     */
+    public void registerClosedCashAndCardReports(List<DmsParsedDocument> parsedDocs, boolean allowUpdate) {
+        if (parsedDocs == null || parsedDocs.isEmpty()) {
+            return;
+        }
+        CashReportAssembler cashAsm = new CashReportAssembler(parsedDocs);
+        CardReportAssembler cardAsm = new CardReportAssembler(parsedDocs);
+        Set<String> reportNrs = new HashSet<>();
+        for (DmsParsedDocument x : parsedDocs) {
+            if (x.getDocumentType() == null || x.getReportNumber() == null) {
+                continue;
+            }
+            String t = x.getDocumentType().trim();
+            if ("KO".equalsIgnoreCase(t) || "RO".equalsIgnoreCase(t)) {
+                reportNrs.add(x.getReportNumber());
+            }
+        }
+        for (String nr : reportNrs) {
+            if (cashAsm.buildSingleReport(nr) != null) {
+                for (DmsParsedDocument d : parsedDocs) {
+                    if (d.getDocumentType() == null || d.getReportNumber() == null || !nr.equals(d.getReportNumber())) {
+                        continue;
+                    }
+                    String dt = d.getDocumentType().trim().toUpperCase(Locale.ROOT);
+                    if (!DocTypeConstants.CASH_REPORT_DB_DEFERRED_TYPES.contains(dt)) {
+                        continue;
+                    }
+                    Object o = applyRejestrFromParsedForDeferred(d, allowUpdate);
+                    if (o instanceof SkippedDocument sd) {
+                        log.warn(String.format("registerClosedCashAndCardReports: pominięto CASH nr=%s file=%s reason=%s", nr, d.getSourceFileName(), sd.getReason()));
+                    }
+                }
+            }
+            if (cardAsm.buildSingleReport(nr) != null) {
+                for (DmsParsedDocument d : parsedDocs) {
+                    if (d.getDocumentType() == null || d.getReportNumber() == null || !nr.equals(d.getReportNumber())) {
+                        continue;
+                    }
+                    String dt = d.getDocumentType().trim().toUpperCase(Locale.ROOT);
+                    if (!DocTypeConstants.CARD_REPORT_DB_DEFERRED_TYPES.contains(dt)) {
+                        continue;
+                    }
+                    Object o = applyRejestrFromParsedForDeferred(d, allowUpdate);
+                    if (o instanceof SkippedDocument sd) {
+                        log.warn(String.format("registerClosedCashAndCardReports: pominięto CARD nr=%s file=%s reason=%s", nr, d.getSourceFileName(), sd.getReason()));
+                    }
+                }
+            }
+        }
+    }
+
+    /** Pola z DmsParsedDocument + ten sam insert co przy zwykłym przetwarzaniu (bez ponownych filtrów rejestru/dat). */
+    private Object applyRejestrFromParsedForDeferred(DmsParsedDocument d, boolean allowUpdate) {
+        String docRejestr = d.getDaneRejestr() == null ? "" : d.getDaneRejestr().trim().toUpperCase();
+        LocalDate docDate = parseDateFromPossibleFormats(d.getMetadata() == null ? null : d.getMetadata().getDate());
+        String docType = d.getDocumentType() == null ? "" : d.getDocumentType().trim().toUpperCase(Locale.ROOT);
+        String fullKey = d.getFullKey();
+        String nrIdPlat = d.getNrIdPlat();
+        String podmiot = d.getPodmiot();
+        String numer = d.getInvoiceNumber();
+        String hash = d.getHash();
+        String docKey = d.getDocKey();
+        String dateDoc = docDate.toString();
+        String datUpd = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        BigDecimal kwNet = BigDecimal.ZERO;
+        BigDecimal kwVat = BigDecimal.ZERO;
+        BigDecimal kwBru = BigDecimal.ZERO;
+        BigDecimal kwPla = BigDecimal.ZERO;
+        if (d.getPayments() != null && !d.getPayments().isEmpty()) {
+            kwPla = new BigDecimal(d.getPayments().get(0).kwota.replace(",", "."));
+        }
+        return applyRejestrInsertOrUpdate(d, allowUpdate, d.getSourceFileName(), docType, fullKey, nrIdPlat, podmiot, numer, hash, docKey,
+                dateDoc, datUpd, kwNet, kwVat, kwBru, kwPla, docRejestr, docDate);
+    }
+
+    private Object applyRejestrInsertOrUpdate(DmsParsedDocument d, boolean allowUpdate, String sourceFile, String docType,
+            String fullKey, String nrIdPlat, String podmiot, String numer, String hash, String docKey,
+            String dateDoc, String datUpd, BigDecimal kwNet, BigDecimal kwVat, BigDecimal kwBru, BigDecimal kwPla,
+            String docRejestr, LocalDate docDate) {
+        ParserRegistry registry = ParserRegistry.getInstance();
+        DateFilterRegistry dateFilter = DateFilterRegistry.getInstance();
         boolean wasUpdated = false;
         try {
         	MappingTarget target = d.getMappingTarget();
@@ -210,7 +315,6 @@ public class ConverterService {
                     if (updatedRows > 0) {
                         log.info("16 processSingleDocument DB update succeeded for fullKey=" + fullKey + " rows=" + updatedRows);
                         wasUpdated = true;
-                    //return new ProcessedDocument(docType, "updated existing record");
                     } else {
                         log.warn("17 processSingleDocument Update affected 0 rows for fullKey=" + fullKey + " — treating as collision");
                         rejestrDao.incrementCollision(fullKey, target);
@@ -223,7 +327,6 @@ public class ConverterService {
                 }
             }
             try {
-            	 // jedna próba insertu — jeśli rekord już istnieje, złapiemy to po kodzie SQL
             	log.info(String.format("19 processSingleDocument DEBUG pre-filter: docType='%s' fullKey='%s' docDate='%s' parsedClass='%s'",
             		    docType, fullKey, docDate, d.getClass().getName()));
 
@@ -239,10 +342,8 @@ public class ConverterService {
                 rejestrDao.insertMapping(fullKey, podmiot, numer, nrIdPlat, hash, docKey, dateDoc, kwNet, kwVat, kwBru, kwPla, docRejestr, datUpd, target);
                 log.info(String.format("24 processSingleDocument insertMapping zakończone pomyślnie dla nrIdPlat='%s ' podmiot='%s '", nrIdPlat, podmiot));
             } catch (SQLException ex) {
-                //log.error(String.format("SQL Error Code: ='%s ', Message: ='%s '", ex.getErrorCode(), ex.getMessage()), ex);
                 int code = ex.getErrorCode();
                 if (code == 2627 || code == 2601) { // SQL Server unique violation
-                        //log.warn("Unique violation — performing UPDATE instead of skipping");
                 	if (allowUpdate) {
                         int updatedRows = rejestrDao.updateMapping(fullKey, podmiot, numer, nrIdPlat, hash, docKey, dateDoc, kwNet, kwVat, kwBru, kwPla, docRejestr, datUpd, target);
                         if (updatedRows > 0) {
@@ -252,20 +353,18 @@ public class ConverterService {
                             rejestrDao.incrementCollision(fullKey, target);
                             return new SkippedDocument(docType, "nrIdPlat conflict on insert (race, update 0 rows)");
                         }
-                        //return new ProcessedDocument(docType, "updated existing record");
                     } else {
                         rejestrDao.incrementCollision(fullKey, target);
                         return new SkippedDocument(docType, "nrIdPlat conflict on insert");
                     }
-                    } else {
+                } else {
                         rejestrDao.incrementCollision(fullKey, target);
                         log.warn("26 processSingleDocument Insert ignored: unique constraint violation");
                         return new SkippedDocument(docType, "nrIdPlat conflict on insert");
-                    }
                 }
+            }
         } catch (Throwable t) {
             log.error(String.format("27 processSingleDocument Nieoczekiwany błąd przy pliku sourceFile='%s ': %s", sourceFile, t.getMessage()), t);
-            //return new SkippedDocument(docType, "DB runtime error"); 
             return new SkippedDocument(docType, String.format("DB runtime error: file=%s", sourceFile));
 
         }

@@ -23,6 +23,8 @@ public class DmsFieldMapper {
         WYR_MAP.put("EX", "ZK");
         WYR_MAP.put("CU", "ZK");
         WYR_MAP.put("EX", "ZR");
+        WYR_MAP.put("CC", "ZAKUP");
+        WYR_MAP.put("OT", "ZAKUP");
         // W przyszłości:
         // WYR_MAP.put("ABC", "COŚ_INNEGO");
         // WYR_MAP.put("XYZ", "USŁUGI");

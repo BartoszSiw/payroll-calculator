@@ -409,6 +409,12 @@ public class ConverterServlet extends HttpServlet {
             log.debug("33 Servlet Raport kartowy " + nr + " pominięty - brak RO/RZ lub niekompletny");
         }
         }
+        try {
+            converterService.registerClosedCashAndCardReports(parsedDocsForReports, allowUpdate);
+        } catch (Exception ex) {
+            log.error(String.format("31b Servlet registerClosedCashAndCardReports: %s", ex.getMessage()), ex);
+            results.add("Ostrzeżenie / błąd zapisu rejestru raportów: " + ex.getMessage());
+        }
         // --- koniec składania raportów ---
         Document finalSL = null;
         Document finalDSDZ = null;

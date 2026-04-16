@@ -1,11 +1,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>Kalkulator2025</groupId>
-  <artifactId>Kalkulator2025</artifactId>
+  <groupId>pl.edashi.payacon</groupId>
+  <artifactId>payacon</artifactId>
   <version>1.0</version>
   <packaging>war</packaging>
-  <name>Kalkulator2025</name>
-  <description/>
+  <name>PayACon</name>
+  <description>PayACon — converter (DMS/Optima) + optional payroll</description>
   <properties>
     <webVersion>4.0</webVersion>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -106,9 +106,46 @@
       <version>3.3.1</version>
     </plugin>
       </plugins>
-    <finalName>Kalkulator2025</finalName>
+    <finalName>PayACon</finalName>
   </build>
   <profiles>
+  <profile>
+    <id>converter-client</id>
+    <build>
+      <finalName>PayACon-converter</finalName>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.10.1</version>
+          <configuration>
+            <source>${maven.compiler.source}</source>
+            <target>${maven.compiler.target}</target>
+            <excludes>
+              <exclude>**/pl/edashi/payroll/**</exclude>
+              <exclude>**/employees/**</exclude>
+              <exclude>**/database/**</exclude>
+            </excludes>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-war-plugin</artifactId>
+          <version>3.3.2</version>
+          <configuration>
+            <failOnMissingWebXml>false</failOnMissingWebXml>
+            <webXml>src/main/webconverter/WEB-INF/web.xml</webXml>
+            <packagingExcludes>payroll/**</packagingExcludes>
+            <webResources>
+              <resource>
+                <directory>src/main/webconverter</directory>
+              </resource>
+            </webResources>
+          </configuration>
+        </plugin>
+      </plugins>
+    </build>
+  </profile>
   <profile>
     <id>dev</id>
     <activation>
@@ -121,6 +158,36 @@
         <version>1.4.14</version>
       </dependency>
     </dependencies>
+    <build>
+      <plugins>
+        <!-- Ensure dev logback.xml is on classpath root as logback.xml -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.3.1</version>
+          <executions>
+            <execution>
+              <id>copy-dev-logback</id>
+              <phase>process-resources</phase>
+              <goals>
+                <goal>copy-resources</goal>
+              </goals>
+              <configuration>
+                <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+                <resources>
+                  <resource>
+                    <directory>src/main/resources/dev</directory>
+                    <includes>
+                      <include>logback.xml</include>
+                    </includes>
+                  </resource>
+                </resources>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </build>
   </profile>
   <profile>
     <id>prod</id>

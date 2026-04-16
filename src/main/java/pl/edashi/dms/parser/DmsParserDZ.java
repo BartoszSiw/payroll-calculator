@@ -14,6 +14,7 @@ import pl.edashi.dms.model.DmsPosition;
 import pl.edashi.dms.model.DocumentMetadata;
 import pl.edashi.dms.model.MappingTarget;
 import pl.edashi.dms.parser.util.DocumentNumberExtractor; // zakładam lokalizację helpera
+import pl.edashi.converter.servlet.DocTypeConstants;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -60,6 +61,13 @@ public class DmsParserDZ implements DmsParser{
             }
         }
         boolean found = DocumentNumberExtractor.extractFromGenInfo(root, out, fileName,hasNumberInDane);
+        // gen_info bywa niekonsekwentne (np. potrafi zwrócić "DS" dla zakupów).
+        // Ponieważ ten parser jest uruchamiany tylko dla dokumentów zakupowych (root id="DZ"),
+        // akceptujemy tylko typy z grupy DZ; w pozostałych przypadkach wymuszamy DZ.
+        String parsedType = out.getDocumentType() == null ? "" : out.getDocumentType().trim().toUpperCase();
+        if (!parsedType.isBlank() && !DocTypeConstants.DZ_TYPES.contains(parsedType)) {
+            out.setDocumentType("DZ");
+        }
         
         log.info("out.getInvoiceNumber() = " + out.getInvoiceNumber() + "out.getInvoiceShortNumber()"+ out.getInvoiceShortNumber());
         if (!found || (out.getInvoiceShortNumber() == null && out.getInvoiceNumber() == null)) {
@@ -1007,7 +1015,7 @@ log.info("76 doc in positions From VAT list='%s' doc='%s'"+list76+ doc);
 
                 Element rozs = firstElementByTag(dane, "rozszerzone");
                 String nrRach = rozs != null ? safeAttr(rozs, "nr_rach") : "";
-                p.setNrBank(nrRach);
+                out.setNrBank(nrRach);
                 
                 //log.info("1 extractPayment Kierunek: " + p.getKierunek());
                 //p.setKierunek("przychód");

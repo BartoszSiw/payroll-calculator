@@ -2,6 +2,7 @@ package pl.edashi.dms.parser;
 import org.w3c.dom.*;
 
 import pl.edashi.common.logging.AppLogger;
+import pl.edashi.common.util.MappingIdDocs;
 import pl.edashi.dms.model.*;
 import pl.edashi.dms.parser.util.DocumentNumberExtractor;
 
@@ -20,11 +21,27 @@ public class DmsParserRZ implements DmsParser{
         // 1. METADATA
         // ============================
         Element root = doc.getDocumentElement();
+        String trans = DocumentNumberExtractor.extractTransFromDms(root);
         Element document = (Element) doc.getElementsByTagName("document").item(0);
         Element numer = (Element) document.getElementsByTagName("numer").item(0);
+      /// for full_key and other
+        if (trans != null) {
+            log.debug("Extracted trans=" + trans);
+        } else {
+            log.debug("No trans attribute found");
+        }
+        String numerFa = numer.getTextContent();
+        String nrIdPlat = MappingIdDocs.generateCandidate(trans, "D",numerFa, 36);
+        String fullKey = MappingIdDocs.buildFullKey(trans, numerFa);
+        String hash = MappingIdDocs.shortHashFromFullKey(fullKey, 6);
+        String docKey = MappingIdDocs.generateDocId(trans, "C" ,numerFa, 36);
+        out.setFullKey(fullKey);
+        out.setDocKey(docKey);
+        out.setNrIdPlat(nrIdPlat);
+        out.setHash(hash);
+        /// for full_key and other
         String genDocId = root.getAttribute("gen_doc_id");
         String id = root.getAttribute("id");
-        String trans = root.getAttribute("trans");
         if (numer == null) {
             //log.info("KO DEBUG: element <numer> NOT FOUND in document element for file=" + fileName);
         } else {
