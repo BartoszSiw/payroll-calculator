@@ -67,7 +67,7 @@ public class DailyXmlWatcher {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private static final List<String> GROUP1 = List.of("SL");
     private static final List<String> GROUP2 = List.of("DS", "DZ");
-    private static final List<String> GROUP3 = List.of("KO", "KZ", "DK", "RO", "RZ", "RD");
+    private static final List<String> GROUP3 = List.of("KO", "KZ", "DK", "RO", "RZ", "RD", "DWP", "DWW");
     private final AtomicBoolean pauseRequested = new AtomicBoolean(false);
     private final AtomicReference<Boolean> pendingOverride = new AtomicReference<>(null);
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -219,6 +219,13 @@ public class DailyXmlWatcher {
                 .sorted(Comparator.comparingInt(this::prefixPriority).thenComparing(Path::getFileName))
                 .collect(Collectors.toList());
 
+        String odCfg = oddzialSupplier.get();
+        if (odCfg == null || odCfg.isBlank()) {
+            odCfg = "01";
+        }
+        ParserRegistry.getInstance().setOddzial(odCfg);
+        String outPrefixRun = oddzialFilePrefix(odCfg);
+
         // etykiety
         List<String> outSL = new ArrayList<>();
         List<String> outDSDZ = new ArrayList<>();
@@ -245,10 +252,10 @@ public class DailyXmlWatcher {
 
         // publikacja finalDoc z builderów zebranych przez watcher
         persistPublishedFinalDocs(collectedContractorSections, collectedSections, outSL, outDSDZ, outCashCard, outOther,
-                collectedMessages, allParsedDocs, allow);
+                collectedMessages, allParsedDocs, allow, outPrefixRun);
 
         // zapis etykiet / raportów
-        writeGroupedOutputs(outSL, outDSDZ, outCashCard, outOther);
+        writeGroupedOutputs(outSL, outDSDZ, outCashCard, outOther, outPrefixRun);
         archiveStaleCashCardFromWatch();
     }
 
@@ -304,10 +311,31 @@ public class DailyXmlWatcher {
         }
     }
 
-    private void writeOutputFile(String groupName, List<String> fragments, String ts) {
+    /** Prefiks do nazw plików wyjściowych, np. {@code "01_"} / {@code "02_"}; pusty = bez prefiksu. */
+    private static String oddzialFilePrefix(String oddzialCode) {
+        if (oddzialCode == null || oddzialCode.isBlank()) {
+            return "";
+        }
+        String x = oddzialCode.trim();
+        return x.endsWith("_") ? x : x + "_";
+    }
+
+    private static boolean isSlPrefixFilename(Path file) {
+        String name = file.getFileName().toString();
+        return name.length() >= 2 && "SL".equalsIgnoreCase(name.substring(0, 2));
+    }
+
+    private static boolean isDocOddzialMismatchSkip(DocumentOutGenerator.DocOutGenerationResult genRes) {
+        return genRes != null
+                && genRes.status == DocumentOutGenerator.Status.SKIPPED
+                && "docOddzial mismatch".equals(genRes.message);
+    }
+
+    private void writeOutputFile(String groupName, List<String> fragments, String ts, String outputFilePrefix) {
         try {
             Files.createDirectories(outputDir);
-            Path out = outputDir.resolve(String.format("output_%s_%s.xml", groupName, ts));
+            String pfx = outputFilePrefix == null ? "" : outputFilePrefix;
+            Path out = outputDir.resolve(String.format("%soutput_%s_%s.xml", pfx, groupName, ts));
             StringBuilder sb = new StringBuilder();
             sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n");
             sb.append("<ROOT>\n");
@@ -470,7 +498,6 @@ public class DailyXmlWatcher {
     }
 
     private void doProcessing(boolean allowUpdate) {
-        // zbierz pliki najpierw (deterministycznie)
         List<Path> files = new ArrayList<>();
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(watchDir, "*.xml")) {
             for (Path p : ds) {
@@ -486,70 +513,84 @@ public class DailyXmlWatcher {
             return;
         }
 
-        log.info(String.format("28 doProcessing: found %s files, submitting to workerPool", files.size()));
+        List<Path> ordered = files.stream()
+                .sorted(Comparator.comparingInt(this::prefixPriority).thenComparing(Path::getFileName))
+                .collect(Collectors.toList());
 
-        // współdzielone kolekcje (takie jak w runOnce)
-        Queue<ContractorsXmlBuilder> collectedContractorSections = new ConcurrentLinkedQueue<>();
-        Queue<XmlSectionBuilder> collectedSections = new ConcurrentLinkedQueue<>();
-        Queue<Object> allParsedDocs = new ConcurrentLinkedQueue<>();
-        Queue<String> collectedMessages = new ConcurrentLinkedQueue<>();
-        List<String> outSL = Collections.synchronizedList(new ArrayList<>());
-        List<String> outDSDZ = Collections.synchronizedList(new ArrayList<>());
-        List<String> outCashCard = Collections.synchronizedList(new ArrayList<>());
-        List<String> outOther = Collections.synchronizedList(new ArrayList<>());
+        log.info(String.format("28 doProcessing: found %s files (scheduled dual oddzial 01+02)", files.size()));
 
-        // lista future do czekania
-        List<Future<?>> futures = new ArrayList<>();
+        DocumentOutGenerator gen = this.generator != null ? this.generator : new DocumentOutGenerator(converterService);
+        Set<Path> deferredSuccessArchive = ConcurrentHashMap.newKeySet();
 
-        for (Path p : files) {
-            // submitujemy zadanie, które wykona dokładnie to, co robi processSingleFile
-            futures.add(workerPool.submit(() -> {
-                try {
-                    // processSingleFile zajmuje się: filtrami, builderami, archiwizacją pliku
-                    processSingleFile(p, allowUpdate, this.generator, outSL, outDSDZ, outCashCard, outOther,
-                                      collectedContractorSections, collectedSections, allParsedDocs, collectedMessages);
-                } catch (Throwable t) {
-                    log.error(String.format("29 doProcessing: worker failed for file=%s err=%s", p.getFileName(), t.getMessage()), t);
+        for (String oddRun : List.of("01", "02")) {
+            ParserRegistry.getInstance().setOddzial(oddRun);
+            String outPrefix = oddzialFilePrefix(oddRun);
+
+            Queue<ContractorsXmlBuilder> collectedContractorSections = new ConcurrentLinkedQueue<>();
+            Queue<XmlSectionBuilder> collectedSections = new ConcurrentLinkedQueue<>();
+            Queue<Object> allParsedDocs = new ConcurrentLinkedQueue<>();
+            Queue<String> collectedMessages = new ConcurrentLinkedQueue<>();
+            List<String> outSL = Collections.synchronizedList(new ArrayList<>());
+            List<String> outDSDZ = Collections.synchronizedList(new ArrayList<>());
+            List<String> outCashCard = Collections.synchronizedList(new ArrayList<>());
+            List<String> outOther = Collections.synchronizedList(new ArrayList<>());
+
+            List<Future<?>> futures = new ArrayList<>();
+            for (Path p : ordered) {
+                futures.add(workerPool.submit(() -> {
                     try {
-                        moveTo(p, outputDir.resolve("error"));
-                    } catch (IOException ioe) {
-                        log.error(String.format("29 doProcessing: failed to move file=%s to error: %s", p.getFileName(), ioe.getMessage()), ioe);
+                        processSingleFile(p, allowUpdate, gen, outSL, outDSDZ, outCashCard, outOther,
+                                collectedContractorSections, collectedSections, allParsedDocs, collectedMessages,
+                                oddRun, true, deferredSuccessArchive);
+                    } catch (Throwable t) {
+                        log.error(String.format("29 doProcessing: worker failed for file=%s err=%s", p.getFileName(), t.getMessage()), t);
+                        try {
+                            moveTo(p, outputDir.resolve("error"));
+                        } catch (IOException ioe) {
+                            log.error(String.format("29 doProcessing: failed to move file=%s to error: %s", p.getFileName(), ioe.getMessage()), ioe);
+                        }
                     }
-                }
-            }));
-        }
+                }));
+            }
 
-        // czekamy na zakończenie wszystkich zadań (bez nieskończonego blokowania)
-        for (Future<?> f : futures) {
+            for (Future<?> f : futures) {
+                try {
+                    f.get();
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    log.warn(String.format("30 doProcessing: interrupted while waiting for workers"));
+                } catch (ExecutionException ee) {
+                    log.error(String.format("30 doProcessing: worker execution exception: %s", ee.getMessage()), ee);
+                }
+            }
+
+            log.info(String.format("31 doProcessing: oddzial=%s collectedContractorSections.size=%s collectedSections.size=%s allParsedDocs.size=%s",
+                    oddRun, collectedContractorSections.size(), collectedSections.size(), allParsedDocs.size()));
+            log.info(String.format("31 doProcessing: oddzial=%s outSL.size=%s outDSDZ.size=%s outCashCard.size=%s outOther.size=%s",
+                    oddRun, outSL.size(), outDSDZ.size(), outCashCard.size(), outOther.size()));
+
             try {
-                f.get(); // blokuje do zakończenia zadania
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                log.warn(String.format("30 doProcessing: interrupted while waiting for workers"));
-            } catch (ExecutionException ee) {
-                log.error(String.format("30 doProcessing: worker execution exception: %s", ee.getMessage()), ee);
+                persistPublishedFinalDocs(collectedContractorSections, collectedSections, outSL, outDSDZ, outCashCard, outOther,
+                        collectedMessages, allParsedDocs, allowUpdate, outPrefix);
+            } catch (Exception e) {
+                log.error(String.format("32 doProcessing: persistPublishedFinalDocs failed: %s", e.getMessage()), e);
+            }
+
+            try {
+                writeGroupedOutputs(outSL, outDSDZ, outCashCard, outOther, outPrefix);
+            } catch (Exception e) {
+                log.error(String.format("33 doProcessing: writeGroupedOutputs failed: %s", e.getMessage()), e);
             }
         }
 
-        // snapshot i log
-        log.info(String.format("31 doProcessing: workers finished. collectedContractorSections.size=%s collectedSections.size=%s allParsedDocs.size=%s collectedMessages.size=%s",
-                collectedContractorSections.size(), collectedSections.size(), allParsedDocs.size(), collectedMessages.size()));
-        log.info(String.format("31 doProcessing: outSL.size=%s outDSDZ.size=%s outCashCard.size=%s outOther.size=%s",
-                outSL.size(), outDSDZ.size(), outCashCard.size(), outOther.size()));
-
-        // publikacja finalDoc z builderów zebranych przez watcher
-        try {
-            persistPublishedFinalDocs(collectedContractorSections, collectedSections, outSL, outDSDZ, outCashCard, outOther,
-                    collectedMessages, allParsedDocs, allowUpdate);
-        } catch (Exception e) {
-            log.error(String.format("32 doProcessing: persistPublishedFinalDocs failed: %s", e.getMessage()), e);
-        }
-
-        // zapis etykiet / raportów
-        try {
-            writeGroupedOutputs(outSL, outDSDZ, outCashCard, outOther);
-        } catch (Exception e) {
-            log.error(String.format("33 doProcessing: writeGroupedOutputs failed: %s", e.getMessage()), e);
+        for (Path p : deferredSuccessArchive) {
+            try {
+                if (Files.isRegularFile(p)) {
+                    moveToArchiveRespectingCashCardRetention(p);
+                }
+            } catch (IOException e) {
+                log.warn(String.format("33a doProcessing: deferred archive failed for %s: %s", p.getFileName(), e.getMessage()));
+            }
         }
         try {
             archiveStaleCashCardFromWatch();
@@ -594,6 +635,8 @@ public class DailyXmlWatcher {
         }
         return files;
     }
+
+    /** Wywołanie z domyślnego {@link #oddzialSupplier} (np. runOnce / ręczne uruchomienie). */
     private void processSingleFile(Path file,
             boolean allow,
             DocumentOutGenerator generator,
@@ -605,9 +648,33 @@ public class DailyXmlWatcher {
             Queue<XmlSectionBuilder> collectedSections,
             Queue<Object> allParsedDocs,
             Queue<String> collectedMessages) {
+        String od = oddzialSupplier.get();
+        if (od == null || od.isBlank()) {
+            od = "01";
+        }
+        processSingleFile(file, allow, generator, outSL, outDSDZ, outCashCard, outOther,
+                collectedContractorSections, collectedSections, allParsedDocs, collectedMessages,
+                od, false, null);
+    }
+
+    private void processSingleFile(Path file,
+            boolean allow,
+            DocumentOutGenerator generator,
+            List<String> outSL,
+            List<String> outDSDZ,
+            List<String> outCashCard,
+            List<String> outOther,
+            Queue<ContractorsXmlBuilder> collectedContractorSections,
+            Queue<XmlSectionBuilder> collectedSections,
+            Queue<Object> allParsedDocs,
+            Queue<String> collectedMessages,
+            String oddzialFilterPass,
+            boolean deferArchive,
+            Set<Path> deferredSuccessArchive) {
 
     	String fileName = file.getFileName().toString();
     	try {
+    	    String watcherFiltrOddzial = "01";
     		if (!isFromToday(file)) {
     			log.info(String.format("37 DailyXmlWatcher: skipping not-from-today file=%s", fileName));
     			return;
@@ -617,9 +684,16 @@ public class DailyXmlWatcher {
     			return;
     		}
 
+    		if ("02".equals(oddzialFilterPass) && isSlPrefixFilename(file)) {
+    		    log.info(String.format("37 DailyXmlWatcher: skip SL file for oddzial 02 pass: %s", fileName));
+    		    return;
+    		}
+
     		Set<String> watcherFiltrRejestry = ParserRegistry.getInstance().getFilters();
-    		String watcherFiltrOddzial = ParserRegistry.getInstance().getOddzial();
-    		log.info(String.format("38 DailyXmlWatcher: processing file=%s with filters=%s oddzial=%s", fileName, watcherFiltrRejestry, watcherFiltrOddzial));
+    		watcherFiltrOddzial = oddzialFilterPass != null && !oddzialFilterPass.isBlank()
+    		        ? oddzialFilterPass.trim()
+    		        : ParserRegistry.getInstance().getOddzial();
+    		log.info(String.format("38 DailyXmlWatcher: processing file=%s with filters=%s oddzial=%s deferArchive=%s", fileName, watcherFiltrRejestry, watcherFiltrOddzial, deferArchive));
 
     		DocumentOutGenerator.DocOutGenerationResult genRes =
     				generator.generateAndRecord(file.toFile(), allow, watcherFiltrRejestry, watcherFiltrOddzial);
@@ -657,6 +731,10 @@ public class DailyXmlWatcher {
     		        return;
     		    } else {
     		        // dotychczasowa logika: archive lub inne
+    		        if (deferArchive && isDocOddzialMismatchSkip(genRes)) {
+    		            log.info(String.format("40 DailyXmlWatcher: defer archive (oddzial mismatch) file=%s", file.getFileName()));
+    		            return;
+    		        }
     			moveToArchiveRespectingCashCardRetention(file);
     			return;
     		}
@@ -679,7 +757,7 @@ public class DailyXmlWatcher {
             if (genRes.parsedDocument instanceof DmsParsedContractorList sl) {
                 ContractorsXmlBuilder cb = new ContractorsXmlBuilder(new ContractorMapper().map(sl.contractors));
              // ustaw id księgowe natychmiast (tak jak dla DSDZ)
-                String watcherOddzial = ParserRegistry.getInstance().getOddzial();
+                String watcherOddzial = watcherFiltrOddzial;
                 String idKsieg = "DMS_" + ("02".equals(watcherOddzial) ? "2" : "1");
                 try {
                     // jeśli ContractorsXmlBuilder implementuje XmlSectionBuilder lub ma setter
@@ -697,7 +775,11 @@ public class DailyXmlWatcher {
                 outSL.add(sl.fileName.replaceAll("[\\\\/:*?\"<>|]", "_"));
                 allParsedDocs.add(sl);
                 collectedMessages.add("Dodano SL: " + sl.fileName);
-                moveTo(file, outputDir.resolve("archive"));
+                if (deferArchive && deferredSuccessArchive != null) {
+                    deferredSuccessArchive.add(file);
+                } else {
+                    moveTo(file, outputDir.resolve("archive"));
+                }
                 return;
             }
     		/// 
@@ -705,7 +787,7 @@ public class DailyXmlWatcher {
     		DmsDocumentOut docOut = genRes.docOut;
     		if (docOut != null) {
                 String docType = Optional.ofNullable(docOut.getDocumentType()).orElse("").trim().toUpperCase();
-                String watcherOddzial = ParserRegistry.getInstance().getOddzial(); // powinno zwracać "01" lub "02"
+                String watcherOddzial = watcherFiltrOddzial;
                 String idKsieg = "DMS_" + ( "02".equals(watcherOddzial) ? "2" : "1" );
                 if (DocTypeConstants.DZ_TYPES.contains(docType)) {
                     XmlSectionBuilder builder = new DmsOfflinePurchaseBuilder(docOut);
@@ -776,9 +858,13 @@ public class DailyXmlWatcher {
     		    + " collectedContractorSections.size=" + collectedContractorSections.size()
     		    + " allParsedDocs.size=" + allParsedDocs.size()
     		    + " collectedMessages.size=" + collectedMessages.size()
-    		    + " parserOddzial=" + ParserRegistry.getInstance().getOddzial());
+    		    + " parserOddzial=" + watcherFiltrOddzial);
 
-    		moveToArchiveRespectingCashCardRetention(file);
+    		if (deferArchive && deferredSuccessArchive != null) {
+    		    deferredSuccessArchive.add(file);
+    		} else {
+    		    moveToArchiveRespectingCashCardRetention(file);
+    		}
     		} catch (Exception e) {
     			log.error(String.format("43 DailyXmlWatcher: exception processing file=%s err=%s", file.getFileName(), e.getMessage()), e);
     			try {	
@@ -869,7 +955,10 @@ public class DailyXmlWatcher {
     	        List<String> outOther,
     	        Queue<String> collectedMessages,
     	        Queue<Object> allParsedDocs,
-    	        boolean allowUpdate) {
+    	        boolean allowUpdate,
+    	        String outputFilePrefix) {
+
+    	    String pfx = outputFilePrefix == null ? "" : outputFilePrefix;
 
     	    // 1) opcjonalnie: zapisz to, co generator mógł już opublikować
     	    if (this.generator != null) {
@@ -878,7 +967,7 @@ public class DailyXmlWatcher {
     	        log.info(String.format("47 DailyXmlWatcher: polled %d finalDocs from generator", finalDocs.size()));
     	        for (DocumentOutGenerator.SerializedDoc sd : finalDocs) {
     	            try {
-    	                Path out = outputDir.resolve(String.format("out_%s_%s.xml", sd.outputGroup, sd.timestamp));
+    	                Path out = outputDir.resolve(String.format("%sout_%s_%s.xml", pfx, sd.outputGroup, sd.timestamp));
     	                Files.writeString(out, sd.xml, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
     	                log.info(String.format("48 DailyXmlWatcher: wrote finalDoc file %s", out.toString()));
     	            } catch (IOException e) {
@@ -952,7 +1041,7 @@ public class DailyXmlWatcher {
     	            String xmlString = writer.toString();
 
     	            String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-    	            String fileNameOut = "SL_" + ts + ".xml";
+    	            String fileNameOut = pfx + "SL_" + ts + ".xml";
     	            Path outPath = outputDir.resolve(fileNameOut);
     	            Files.writeString(outPath, xmlString, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
     	            log.info("51 persistPublishedFinalDocs: published finalDoc " + outPath);
@@ -993,7 +1082,7 @@ public class DailyXmlWatcher {
     	            String xmlString = writer.toString();
 
     	            String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-    	            String fileNameOut = "DZ_DS_" + ts + ".xml";
+    	            String fileNameOut = pfx + "DS_DZ_" + ts + ".xml";
     	            Path outPath = outputDir.resolve(fileNameOut);
     	            Files.writeString(outPath, xmlString, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
     	            log.info("51 persistPublishedFinalDocs: published finalDoc " + outPath);
@@ -1038,7 +1127,7 @@ public class DailyXmlWatcher {
     	            String xmlSL = writerSL.toString();
 
     	            String tsSL = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-    	            String fileNameOutSL = "SL_" + tsSL + ".xml";
+    	            String fileNameOutSL = pfx + "SL_" + tsSL + ".xml";
     	            Path outPathSL = outputDir.resolve(fileNameOutSL);
     	            Files.writeString(outPathSL, xmlSL, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
     	            log.info("51 persistPublishedFinalDocs: published finalDoc " + outPathSL);
@@ -1078,7 +1167,7 @@ public class DailyXmlWatcher {
     	            String xmlString = writer.toString();
 
     	            String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-    	            String fileNameOut = "DZ_DS_" + ts + ".xml";
+    	            String fileNameOut = pfx + "DS_DZ_" + ts + ".xml";
     	            Path outPath = outputDir.resolve(fileNameOut);
     	            Files.writeString(outPath, xmlString, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
     	            log.info("51 persistPublishedFinalDocs: published finalDoc " + outPath);
@@ -1091,7 +1180,7 @@ public class DailyXmlWatcher {
 
     	        if (!reportNumbers.isEmpty()) {
     	            log.info(String.format("persistPublishedFinalDocs: assembling cash/card reports reportNumbers=%s", reportNumbers));
-    	            buildAndWriteReports(reportNumbers, assemblerCash, assemblerCard, idKsieg, transformer, messages);
+    	            buildAndWriteReports(reportNumbers, assemblerCash, assemblerCard, idKsieg, transformer, messages, pfx);
     	        }
 
     	        try {
@@ -1117,7 +1206,8 @@ public class DailyXmlWatcher {
         for (DmsParsedDocument d : parsedDocs) {
             String dt = d.getDocumentType();
             if (dt == null) continue;
-            if ("KO".equalsIgnoreCase(dt) || "RO".equalsIgnoreCase(dt) || "RD".equalsIgnoreCase(dt)) {
+            if ("KO".equalsIgnoreCase(dt) || "RO".equalsIgnoreCase(dt)
+                    || "RD".equalsIgnoreCase(dt) || "DWP".equalsIgnoreCase(dt) || "DWW".equalsIgnoreCase(dt)) {
                 String rn = d.getReportNumber();
                 if (rn != null && !rn.isBlank()) reportNumbers.add(rn);
             }
@@ -1125,15 +1215,16 @@ public class DailyXmlWatcher {
         return reportNumbers;
     }
 
-    private void writeGroupedOutputs(List<String> outSL, List<String> outDSDZ, List<String> outCashCard, List<String> outOther) {
+    private void writeGroupedOutputs(List<String> outSL, List<String> outDSDZ, List<String> outCashCard, List<String> outOther, String outputFilePrefix) {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
         String ts = LocalDateTime.now().format(fmt);
-        log.info(String.format("54 About to write outputs: outSL=%d outDSDZ=%d outCashCard=%d outOther=%d",
-                outSL.size(), outDSDZ.size(), outCashCard == null ? 0 : outCashCard.size(), outOther.size()));
-        if (!outSL.isEmpty()) writeOutputFile("SL", outSL, ts);
-        if (!outDSDZ.isEmpty()) writeOutputFile("DS_DZ", outDSDZ, ts);
-        if (outCashCard != null && !outCashCard.isEmpty()) writeOutputFile("CASH_CARD", outCashCard, ts);
-        if (!outOther.isEmpty()) writeOutputFile("OTHER", outOther, ts);
+        String pfx = outputFilePrefix == null ? "" : outputFilePrefix;
+        log.info(String.format("54 About to write outputs: outSL=%d outDSDZ=%d outCashCard=%d outOther=%d prefix=%s",
+                outSL.size(), outDSDZ.size(), outCashCard == null ? 0 : outCashCard.size(), outOther.size(), pfx));
+        if (!outSL.isEmpty()) writeOutputFile("SL", outSL, ts, pfx);
+        if (!outDSDZ.isEmpty()) writeOutputFile("DS_DZ", outDSDZ, ts, pfx);
+        if (outCashCard != null && !outCashCard.isEmpty()) writeOutputFile("CASH_CARD", outCashCard, ts, pfx);
+        if (!outOther.isEmpty()) writeOutputFile("OTHER", outOther, ts, pfx);
     }
     public void shutdown() {
         scheduler.shutdownNow();
@@ -1153,7 +1244,8 @@ public class DailyXmlWatcher {
                                       CardReportAssembler assemblerCard,
                                       String idKsieg,
                                       Transformer transformer,
-                                      List<String> messages) {
+                                      List<String> messages,
+                                      String outputFilePrefix) {
         if (reportNumbers == null || reportNumbers.isEmpty()) return;
         try {
             DocumentBuilderFactory dbfR = DocumentBuilderFactory.newInstance();
@@ -1240,8 +1332,9 @@ public class DailyXmlWatcher {
                 transformer.transform(new DOMSource(docR), new StreamResult(writerR));
                 String xmlR = writerR.toString();
 
+                String pfx = outputFilePrefix == null ? "" : outputFilePrefix;
                 String tsR = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-                String fileNameOutR = "KO_RO_" + tsR + ".xml";
+                String fileNameOutR = pfx + "CASH_" + tsR + ".xml";
                 Path outPathR = outputDir.resolve(fileNameOutR);
                 Files.writeString(outPathR, xmlR, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                 log.info("persistPublishedFinalDocs: published reports finalDoc " + outPathR);

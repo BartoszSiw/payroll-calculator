@@ -17,6 +17,8 @@ public class DmsRapKasa {
 	public String typKO = "";
 	public String opis1 = "";
 	public String kierunek = "";
+	/** Ujemna kwota na pozycji typ 49 → wartość dodatnia + odwrócony kierunek; wtedy zamień KPD↔KWD względem kodu z dowodu. */
+	private boolean invertKpdKwdSymbol = false;
 	public String lp;
 	public String nrKonta;
 	public String kwota = "";
@@ -50,6 +52,8 @@ public class DmsRapKasa {
 	public String getOpis1() { return opis1; };
 	public String getNrKonta() { return nrKonta; };
 	public String getKierunek() { return kierunek; }
+	public boolean isInvertKpdKwdSymbol() { return invertKpdKwdSymbol; }
+	public void setInvertKpdKwdSymbol(boolean invertKpdKwdSymbol) { this.invertKpdKwdSymbol = invertKpdKwdSymbol; }
 	public String getLp() { return lp; }
 	public String getKwota() { return kwota; }
 	public String getKwotaRk() { return kwotaRk; }

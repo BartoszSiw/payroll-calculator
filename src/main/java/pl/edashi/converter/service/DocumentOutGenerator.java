@@ -124,10 +124,11 @@ public class DocumentOutGenerator {
             }
 
             if (filtrOddzial != null && !filtrOddzial.isBlank()) {
-                if (!filtrOddzial.equals(docOddzial)) {
+                String effectiveDocOddzial = docOddzial.isBlank() ? "01" : docOddzial;
+                if (!filtrOddzial.equals(effectiveDocOddzial)) {
                     String reason = "docOddzial mismatch";
                     resultsQueue.add(String.format("Pominięto: %s (%s)", fileName, reason));
-                    log.info(String.format("5 generateAndRecord: skipping file %s because docOddzial='%s' != filter '%s'", fileName, docOddzial, filtrOddzial));
+                    log.info(String.format("5 generateAndRecord: skipping file %s because docOddzial='%s' (effective='%s') != filter '%s'", fileName, docOddzial, effectiveDocOddzial, filtrOddzial));
                     return DocOutGenerationResult.skipped(reason, d);
                 }
             }

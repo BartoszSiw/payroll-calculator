@@ -180,10 +180,10 @@ public class DmsParserDZ implements DmsParser{
                 "ParserDZ: END expKraj=%s file=%s type=%s nr=%s positions=%d", out.getContractor().expKrajowy,
                 fileName, out.getDocumentType(), out.getInvoiceShortNumber(), out.getPositions().size()));*/
         String numerFa = out.getInvoiceNumber();
-        String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, "Z", numerFa, 36);
+        String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, "D", numerFa, 36);
         String fullKey = MappingIdDocs.buildFullKey(podmiot, numerFa);
         String hash = MappingIdDocs.shortHashFromFullKey(fullKey, 6);
-        String docKey = MappingIdDocs.generateDocId(podmiot, "D" ,numerFa, 36);
+        String docKey = MappingIdDocs.generateDocId(podmiot, "Z" ,numerFa, 36);
 
         out.setFullKey(fullKey);
         out.setDocKey(docKey);
@@ -1107,7 +1107,7 @@ log.info("76 doc in positions From VAT list='%s' doc='%s'"+list76+ doc);
                 String wyr = rozs.getAttribute("wyr");
                 c.isCompany = "F".equalsIgnoreCase(wyr);
                 c.id = rozs.getAttribute("kod_klienta");
-                c.nip = rozs.getAttribute("nip");
+                c.setNip(rozs.getAttribute("nip"));
                 c.name1 = rozs.getAttribute("nazwa1");
                 c.name2 = rozs.getAttribute("nazwa2");
                 c.name3 = rozs.getAttribute("nazwa3");

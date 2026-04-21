@@ -219,10 +219,10 @@ public class DmsParserDS implements DmsParser{
      // w metodzie parse
      
      String numer = out.getInvoiceNumber();
-     String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, "S" ,numer, 36);
+     String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, "D" ,numer, 36);
      String fullKey = MappingIdDocs.buildFullKey(podmiot, numer);
      String hash = MappingIdDocs.shortHashFromFullKey(fullKey, 6);
-     String docKey = MappingIdDocs.generateDocId(podmiot, "D" ,numer, 36);
+     String docKey = MappingIdDocs.generateDocId(podmiot, "S" ,numer, 36);
 
      out.setFullKey(fullKey);
      out.setDocKey(docKey);
@@ -253,7 +253,7 @@ public class DmsParserDS implements DmsParser{
                 String wyr = rozs.getAttribute("wyr");
                 c.isCompany = "F".equalsIgnoreCase(wyr);
                 c.id = rozs.getAttribute("kod_klienta");
-                c.nip = rozs.getAttribute("nip");
+                c.setNip(rozs.getAttribute("nip"));
                 c.name1 = rozs.getAttribute("nazwa1");
                 c.name2 = rozs.getAttribute("nazwa2");
                 c.name3 = rozs.getAttribute("nazwa3");
@@ -737,9 +737,27 @@ public class DmsParserDS implements DmsParser{
         if (p == null) return;
         log.info(String.format("assignVat START: p.stawkaVat=%s p.netto=%s p.nettoZakup=%s hasVat=%s entries=%d",
         	    p.stawkaVat,p.netto, p.nettoZakup, hasVat, entries == null ? 0 : entries.size()));
-        	log.info(String.format("assignVat ENTRIES snapshot (start)=%s, stawka=%s",snapshotVatEntries(entries),entries.get(0).stawka));
+        String firstEntryStawka = (entries != null && !entries.isEmpty() && entries.get(0) != null)
+                ? String.valueOf(entries.get(0).stawka) : "n/a";
+        log.info(String.format("assignVat ENTRIES snapshot (start)=%s, stawka=%s", snapshotVatEntries(entries), firstEntryStawka));
         if (entries == null || entries.isEmpty()) {
-        	log.info("nie podlega="+p.stawkaVat);
+            // Brak typ 06 w XML, ale są zaliczki (typ 45) — ta sama stawka co przy pozycji „SPRZEDAŻ ZALICZKA” (wyłącznie z netto/VAT z XML)
+            double advNet = parseDoubleSafe(out.getAdvanceNet());
+            double advVat = parseDoubleSafe(out.getAdvanceVat());
+            boolean zaliczkaZXml = Math.abs(advNet) > 0.0001 || Math.abs(advVat) > 0.0001;
+            if (!out.isHasVatDocument() && zaliczkaZXml) {
+                String stawka = detectVatRateFromNumbers(advNet, advNet + advVat);
+                p.stawkaVat = stawka;
+                p.statusVat = "0".equals(stawka) ? "nie podlega" : "opodatkowana";
+                computeVatAndBruttoForPosition(p);
+                log.info(String.format("1 assign VAT z zaliczek (bez typ 06): p.netto=%s stawka=%s status=%s vat=%s brutto=%s",
+                        p.netto, p.stawkaVat, p.statusVat, p.vat, p.brutto));
+                log.info(String.format("1 assign RETURN [%s]: p.netto=%s p.stawkaVat=%s p.statusVat=%s p.vat=%s; VAT snapshot=%s",
+                        "ZALICZKA_NO_06", p.netto, p.stawkaVat, p.statusVat, p.vat, snapshotVatEntries(out.getVatEntries())));
+                return;
+            }
+
+            log.info("nie podlega="+p.stawkaVat);
             p.stawkaVat = "0";
             p.statusVat = "nie podlega";
             if (!hasVat) {
@@ -1421,7 +1439,7 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
              p.setKierunek(out.getKierunek());
 
              //log.info("2 extractPayment Kierunek: " + p.getKierunek());
-            listOut.add(p);
+            //listOut.add(p);
          }
             }
         }

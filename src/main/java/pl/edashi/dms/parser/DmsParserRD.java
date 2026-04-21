@@ -17,6 +17,7 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 /**
@@ -32,13 +33,15 @@ public class DmsParserRD implements DmsParser{
     //public DmsParsedDocument parse(InputStream xmlStream, String sourceFileName) throws Exception {
 
         DmsParsedDocument out = new DmsParsedDocument();
-        out.setDocumentType("RD");
         out.setSourceFileName(fileName);
         Contractor c = extractContractor(doc);
         out.setContractor(c);
+        out.setTypDocAnalizer("RD");
         String code = "C";
         out.setMappingTarget(MappingTarget.fromCode(code));
         Element root = doc.getDocumentElement();
+        String xmlRootId = safeAttr(root, "id");
+        out.setDocumentType(("DWP".equalsIgnoreCase(xmlRootId) || "DWW".equalsIgnoreCase(xmlRootId)) ? "DWP" : "RD");
         Element document = (Element) doc.getElementsByTagName("document").item(0);
         //Element numer = (Element) document.getElementsByTagName("numer").item(0);
         String genDocId = safeAttr(root, "gen_doc_id");
@@ -84,93 +87,15 @@ public class DmsParserRD implements DmsParser{
                 warto.getAttribute("waluta")
         );
         out.setMetadata(metadata);
-        // ============================
-        // 2. KONTRAHENT (typ 35)
-        // ============================
-        //out.setTypDocAnalizer("RD");
-        // ============================
-        // 6. POZYCJE (typ 49)
-        // ============================
-     // przykład w parserze RD, przed extractPositions48(...) lub wewnątrz obsługi typ 48
-        /*Optional<String> kpKw = extractKpKwNumberForRD(doc, out);
-        if (kpKw.isPresent()) {
-            String kpw = kpKw.get();
-            // ustaw w dokumencie RD (jeśli chcesz, żeby dokument RD miał pole dowodu)
-            out.setDowodNumber(kpw); // lub out.setReportNumberPosDowod(kp) — zależnie od modelu
-            log.info("Parser RD: znaleziono numer KP/KW = '" + kpw + "' file=" + out.getSourceFileName());
-        }*/ 
+
         extractAndSetReportAndDowodNumbers(doc, out);
         //log.info(String.format("BEFORE extractPositionsRD: out id='%s' kwotaRk='%s'", System.identityHashCode(out), out.getKwotaRk()));
         List<DmsRapKasa> rapKasa = extractPositionsRD(doc, out);
         //log.info(String.format("AFTER extractPositionsRD: out id='%s' kwotaRk='%s' rapKasa.size='%s'",System.identityHashCode(out), out.getKwotaRk(), rapKasa == null ? 0 : rapKasa.size()));
         out.setRapKasa(rapKasa);
-     // po out.setRapKasa(rapKasa)
-        /*log.info(String.format("SYNC CHECK: out id='%s' rapKasaList id='%s' size='%s'",
-            System.identityHashCode(out), System.identityHashCode(rapKasa), rapKasa == null ? 0 : rapKasa.size()));
-        for (int i=0;i<rapKasa.size();i++) {
-            DmsRapKasa r = rapKasa.get(i);
-            log.info(String.format("SYNC CHECK: rapKasa['%s'] id='%s' nrDokumentu='%s' kwotaRk='%s' dowod='%s'",
-                i, System.identityHashCode(r), r.getNrDokumentu(), r.getKwotaRk(), r.getDowodNumber()));
-        }
-
-        synchronizeDocFromPositions(out); 
-        if (rapKasa != null && !rapKasa.isEmpty()) {
-            log.info(String.format("rapKasa[0] id='%s' nrDokumentu='%s' kwotaRk='%s' dowodNumber='%s'",
-                System.identityHashCode(rapKasa.get(0)), rapKasa.get(0).getNrDokumentu(),
-                rapKasa.get(0).getKwotaRk(), rapKasa.get(0).getDowodNumber()));
-        }*/
-     // w parserze RD, po wyciągnięciu pozycji
-        /*String raw = rapKasa.get(0).getReportNumberPos(); // lub getNrRKB()
-        String attrNr = rapKasa.get(0).getNrRKB();
-        if (raw != null) raw = raw.trim();
-        out.setReportNumber(raw); // BEZ dalszej normalizacji
-        out.setReportNumberPos(raw);
-        out.setNrRKB(attrNr);*/
-        //log.info("Last Parser RD ustawiono getKwotaRk='" + out.getRapKasa().get(0).getKwotaRk() + "' out.reportNumber='" + out.getReportNumber() + "' out.reportNumberPos='" + out.getReportNumberPos() + "' file= '" + out.getSourceFileName());
-       //log.info("RD parser: ustawiono out.reportNumber (raw) = '" + raw + "' file=" + out.getSourceFileName());
-
-        // ============================
-        // 3. PŁATNOŚCI (typ 48 + 49)
-        // ============================
-        //List<DmsPayment> payments = extractPayments(doc, out);
-        //out.setPayments(payments);
-
-        // ============================
-        // 4. UWAGI (operator, opis pozycji)
-        // ============================
-        //List<String> notes = extractNotes(doc);
-        //out.setNotes(notes);
-
-        // ============================
-        // 5. DODATKOWY OPIS
-        // ============================
-        //String mainNumber = extractMainNumber(doc);
-        //out.setAdditionalDescription("RD " + (mainNumber != null ? mainNumber : ""));
-        // ============================
-        // 6. POZYCJE (typ 49)
-        // ============================
-        //extractPositions(doc, out);
-        // ============================
-        // 7. PUSTE POLA (RD ich nie ma)
-        // ============================
-        //out.setPositions(new ArrayList<>()); // puste
-        //out.setVatRate("");
-        //out.setVatBase("");
-        //out.setVatAmount("");
-        //out.setFiscalNumber("");
-        //out.setFiscalDevice("");
-        //out.setFiscalDate("");
 
         return out;
     }
-    /*public DmsParsedDocument parse(InputStream xmlStream, String fileName) throws Exception {
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-        dbf.setNamespaceAware(false);
-        DocumentBuilder db = dbf.newDocumentBuilder();
-        Document doc = db.parse(xmlStream);
-        return parse(doc, fileName);
-    }*/
-
     // ------------------------------
     // KONTRAHENT (typ 35)
     // ------------------------------
@@ -188,7 +113,7 @@ public class DmsParserRD implements DmsParser{
                 String wyr = rozs.getAttribute("wyr");
                 c.isCompany = "F".equalsIgnoreCase(wyr);
                 c.id = rozs.getAttribute("kod_klienta");
-                c.nip = rozs.getAttribute("nip");
+                c.setNip(rozs.getAttribute("nip"));
                 c.name1 = rozs.getAttribute("nazwa1");
                 c.name2 = rozs.getAttribute("nazwa2");
                 c.name3 = rozs.getAttribute("nazwa3");
@@ -218,111 +143,13 @@ public class DmsParserRD implements DmsParser{
         Contractor c = new Contractor(); 
         c.isCompany = false; 
         c.czynny = "Nie"; 
-        c.nip = ""; 
+        c.setNip(""); 
         c.name1 = ""; 
         c.name2 = ""; 
         c.name3 = ""; 
         c.fullName = ""; 
         return c;
     }
-
-    // ------------------------------
-    // PŁATNOŚCI (typ 48 + 49)
-    // ------------------------------
-    /*private List<DmsPayment> extractPayments(Document doc, DmsParsedDocument out) {
-
-        List<DmsPayment> listOut = new ArrayList<>();
-        NodeList list = doc.getElementsByTagName("document");
-
-        for (int i = 0; i < list.getLength(); i++) {
-            Element el = (Element) list.item(i);
-
-            if ("48".equals(el.getAttribute("typ"))) {
-
-                Element dane48 = firstElementByTag(el, "dane");
-                if (dane48 == null) continue;
-
-                // kwota
-                Element wart = firstElementByTag(dane48, "wartosci");
-                String kwota = wart != null ? safeAttr(wart, "kwota") : "";
-
-                // data zatwierdzenia
-                Element daty = firstElementByTag(dane48, "daty");
-                String date = daty != null ? safeAttr(daty, "data_zatw") : "";
-
-                // forma płatności (kod)
-                Element klasyf = firstElementByTag(dane48, "klasyfikatory");
-                String forma = klasyf != null ? safeAttr(klasyf, "kod") : "";
-
-                // operator
-                Element operator = firstElementByTag(dane48, "operatorzy");
-                String operatorName = operator != null ? safeAttr(operator, "nazwa") : "";
-
-                // pozycje (typ 49) - opis/relacje
-                String opis = extractPaymentDescription(dane48);
-
-                DmsPayment p = new DmsPayment();
-                p.setKwota(kwota);
-                p.setTermin(date);
-                p.setForma(forma);
-                p.setKierunek(out.getKierunek());
-                p.setOpis(opis);
-                p.setOperatorName(operatorName);
-                p.setAdvance(false);
-                listOut.add(p);
-            }
-        }
-
-        return listOut;
-    }*/
-
-
-    private String extractPaymentDescription(Element dane48) {
-        NodeList docs = dane48.getElementsByTagName("document");
-
-        for (int i = 0; i < docs.getLength(); i++) {
-            Element el = (Element) docs.item(i);
-
-            if ("49".equals(el.getAttribute("typ"))) {
-                Element dane49 = firstElementByTag(el, "dane");
-                if (dane49 == null) continue;
-                Element rozs = firstElementByTag(dane49, "rozszerzone");
-                
-                if (rozs != null && rozs.hasAttribute("opis1")) {
-                	return safeAttr(rozs, "opis1");
-                }
-                // jeśli numer jest bezpośrednio w <numer> wewnątrz 49
-                Element numer = firstElementByTag(dane49, "numer");
-                if (numer != null) {
-                    String txt = numer.getTextContent();
-                    if (txt != null && !txt.trim().isEmpty()) return txt.trim();
-                    String attrNr = safeAttr(numer, "nr");
-                    if (attrNr != null && !attrNr.isEmpty()) return attrNr;
-                }
-            }
-        }
-        return "";
-    }
-
-    // ------------------------------
-    // UWAGI (operator + opis pozycji)
-    // ------------------------------
-    private List<String> extractNotes(Document doc) {
-
-        List<String> notes = new ArrayList<>();
-
-        // operator z typ 02 (pierwsze dane)
-        Element dane02 = firstElementByTag(doc, "dane");
-        if (dane02 != null) {
-            Element operator = firstElementByTag(dane02, "operatorzy");
-            if (operator != null) {
-                String name = safeAttr(operator, "nazwa");
-                if (name != null && !name.isEmpty()) notes.add("Operator: " + name);
-            }
-        }
-        return notes;
-    }
-
     private List<DmsRapKasa> extractPositions48(Document doc, List<DmsRapKasa> list, Contractor contractor) {
     	if (doc == null) return list;
     	NodeList docs = doc.getElementsByTagName("document");
@@ -334,8 +161,9 @@ public class DmsParserRD implements DmsParser{
             if (dane48 == null) continue;
             DmsRapKasa r = new DmsRapKasa();
             r.setContractor(contractor);
-         // 1) klasyfikacja Z/W
+            // 1) kierunek: tylko Z/W na typ 48 (kod_dok zwykle 03 — nie rozróżnia DW vs DWP)
             Element klas = firstDirectChild(dane48, "klasyfikatory");
+            Element numEl = firstDirectChild(dane48, "numer");
             if (klas != null) {
                 String kier = "Z".equalsIgnoreCase(klas.getAttribute("klasyfikacja"))
                         ? "przychód"
@@ -343,16 +171,17 @@ public class DmsParserRD implements DmsParser{
                 r.setKierunek(kier);
             }
 
-            // 2) numer raportu kasowego (kod_dok="01")
-            Element numEl = firstDirectChild(dane48, "numer");
-            if (numEl != null && "01".equals(numEl.getAttribute("kod_dok"))) {
-            	String rawNumber = numEl.getTextContent().trim();
-            	String attrNr = numEl.getAttribute("nr");
-            	//r.setNrDokumentu(rawNumber);
-                //r.setNrRKB(removeLeadingZeroInFirstSegment(attrNr)); // np. 01/00001/2026
-                //r.setReportNumber(removeLeadingZeroInFirstSegment(rawNumber));
-                //r.setReportNumberPos(removeLeadingZeroInFirstSegment(rawNumber));
-                r.setDowodNumber(removeLeadingZeroInFirstSegment(rawNumber));
+            // 2) numer dowodu: karta 03 (lub 01 raport) — bez rozróżniania 03 vs 04
+            if (numEl != null) {
+                String tx = numEl.getTextContent() != null ? numEl.getTextContent().trim() : "";
+                if (!tx.isEmpty()) {
+                    String kd = safeAttr(numEl, "kod_dok").trim();
+                    String seg = tx.contains("/") ? tx.substring(0, tx.indexOf('/')).trim() : "";
+                    if ("03".equals(kd) || "04".equals(kd) || "01".equals(kd)
+                            || "03".equals(seg) || "04".equals(seg) || "01".equals(seg)) {
+                        r.setDowodNumber(removeLeadingZeroInFirstSegment(tx));
+                    }
+                }
             }
 
             // 3) kwota KP/KW
@@ -439,14 +268,10 @@ public class DmsParserRD implements DmsParser{
                         //if (attrNr != null && !attrNr.isBlank()) nr = attrNr;
                     }
                 }
-                String existingKierunek = "";
-                // weź kolejny skeleton z listy (jeśli jest), inaczej utwórz nowy
                 DmsRapKasa match = null;
                 if (lpAttr != null && !lpAttr.isBlank()) {
                     for (DmsRapKasa p : list) {
-                        String existingLp = p.getLp();
-                        existingKierunek = p.getKierunek();
-                        if (lpAttr.equals(existingLp)) {
+                        if (lpAttr.equals(p.getLp())) {
                             match = p;
                             break;
                         }
@@ -459,17 +284,28 @@ public class DmsParserRD implements DmsParser{
                         match = new DmsRapKasa();
                         list.add(match);
                     }
-                    skeletonIndex++; // przesuwamy wskaźnik na następny skeleton
+                    skeletonIndex++;
                 }
 
-                // ustawiamy pola z 49 (w Twoim przypadku nie nadpisują pól z 48)
-                if (kwRk != null && !kwRk.isBlank()) match.setKwotaRk(kwRk);
-                if (numer49 != null && !numer49.isBlank()) match.setNrDokumentu(numer49);
+                String kierunekLine = match.getKierunek() != null ? match.getKierunek() : "";
+                if (kwRk != null && !kwRk.isBlank()) {
+                    double v = parseKwotaDouble(kwRk);
+                    if (v < 0) {
+                        kwRk = String.format(Locale.US, "%.2f", Math.abs(v));
+                    }
+                }
+
+                if (kwRk != null && !kwRk.isBlank()) {
+                    match.setKwotaRk(kwRk);
+                }
+                if (numer49 != null && !numer49.isBlank()) {
+                    match.setNrDokumentu(numer49);
+                }
                 match.setLp(lpAttr);
                 match.setOpis1(opis1);
-                match.setKierunek(existingKierunek);
-                //match.setNrDokKasowego(lpAttr);
-                // opcjonalny log debugowy
+                match.setKierunek(kierunekLine);
+                match.setInvertKpdKwdSymbol(false);
+                applyDowodFromAncestorTyp48(dane49, match);
                 log.info(String.format("49 RD -> filled skeleton id='%s' nrDokumentu='%s' kwotaRk='%s'",
                          System.identityHashCode(match), match.getNrDokumentu(), match.getKwotaRk()));
             }
@@ -479,9 +315,9 @@ public class DmsParserRD implements DmsParser{
 
     private List<DmsRapKasa> extractPositionsRD(Document doc, DmsParsedDocument out) {
     	String podmiot ="";
-    	Contractor contractor = extractContractor(doc); 
-    	out.setContractor(contractor);
-        if (contractor != null) {
+    	Contractor co = extractContractor(doc); 
+    	out.setContractor(co);
+        /*if (contractor != null) {
             if (contractor.getNip() != null && !contractor.getNip().isBlank()) {
                 podmiot = contractor.getNip();
             } else {
@@ -491,31 +327,80 @@ public class DmsParserRD implements DmsParser{
             // c.podmiot = podmiot;
         } else {
             podmiot = "";
-        }
-    	out.setContractor(contractor);
+        }*/
+    	if ("Tak".equalsIgnoreCase(out.getDokumentFiskalny())) {
+          	 log.info(String.format("if 1 podmiot='%s' fullName='%s'", podmiot, co.fullName));
+               // dokument fiskalny (paragon)
+          	 if ((co.getNip() == null || co.getNip().isBlank()) 
+          		        && (co.getFullName() == null || co.getFullName().isBlank())) {
+                   // brak NIP — traktujemy jako sprzedaż paragonowa
+                   String paragonName = "SPRZEDAZ_PARAGONOWA";
+                   if (co != null) {
+                       // ustawiaj tylko jeśli nie nadpisujesz czegoś ważnego
+                       co.setFullName(paragonName);
+                       co.setName1("Sprzedaż Paragonowa");
+                       co.setPodmiot(paragonName);
+                   }
+                   podmiot = paragonName;
+               } else {
+                   // jest NIP lub full name 
+              	 log.info(String.format("if 2 podmiot='%s' fullName='%s' nip='%s'", podmiot, co.fullName, co.getNip()));
+              		 if (co.getNip() != null && !co.getNip().isBlank()) {
+              		 podmiot = co.getNip().trim();
+              		 log.info(String.format("if 3 podmiot='%s' fullName='%s' nip='%s'", podmiot, co.fullName, co.getNip()));
+              		 co.setPodmiot(podmiot);
+              	 } else {
+                       podmiot = co.getFullName().trim();
+                       log.info(String.format("if 4 podmiot='%s' fullName='%s'", podmiot, co.fullName));
+                       co.setPodmiot(podmiot);
+              	 }
+                   //if (c != null) c.setPodmiot(podmiot);
+               }
+           } else {
+          	 log.info(String.format("else podmiot='%s'", podmiot));
+               // nie jest dokumentem fiskalnym — preferuj NIP, potem fullName
+               if (co != null && co.getNip() != null && !co.getNip().isBlank()) {
+                   podmiot = co.getNip().trim();
+                   co.setPodmiot(podmiot);
+               } else if (co != null && co.getFullName() != null && !co.getFullName().isBlank()) {
+                   podmiot = co.getFullName().trim();
+                   co.setPodmiot(podmiot);
+               } else {
+            	   String paragonName = "SPRZEDAZ_PARAGONOWA";
+                   if (co != null) {
+                       // ustawiaj tylko jeśli nie nadpisujesz czegoś ważnego
+                       co.setFullName(paragonName);
+                       co.setName1("Sprzedaż Paragonowa");
+                       co.setPodmiot(paragonName);
+                   }
+                   podmiot = paragonName;
+               }
+               if (co != null) co.setPodmiot(podmiot);
+           }
+    	out.setContractor(co);
     	out.setPodmiot(podmiot);
 	    // 1) Pozycje z typ="48"
 	    List<DmsRapKasa> list = new ArrayList<>();
-	    extractPositions48(doc,list,contractor);   // istniejące pozycje na poziomie 48
+	    extractPositions48(doc,list,co);   // istniejące pozycje na poziomie 48
 	   extractPositions49(doc,list);   // nowe: pozycje z dokumentów 49
 	    //log.info(String.format("ext RD list='%s '", list));
 	 // po zebraniu listy rapKasa (po extractPositions48 i extractPositions49)
-	    String dowod = null;
-	    if (out != null) {
-	        // pole, które wcześniej ustawiłeś w extractAndSetReportNumberPosFromFirstPosition
-	        dowod = out.getDowodNumber(); // lub out.getNrDowodu() / właściwy getter
-	    }
-	    if (dowod != null && !dowod.isBlank()) {
+	    String fallbackDowod = out != null ? out.getDowodNumber() : null;
+	    if (fallbackDowod != null && !fallbackDowod.isBlank()) {
 	        for (DmsRapKasa r : list) {
-	            // ustawiamy numer dowodu KP/KW w polach pozycji
-	            r.setDowodNumber(dowod); // pole używane do zapisu NR_RAPORTU / NR_DOWODU w XML
-	            //r.setReportNumberPos(removeLeadingZeroInFirstSegment(dowod)); // jeśli chcesz formatowany wariant
-	            //r.setReportNumber(removeLeadingZeroInFirstSegment(dowod));
+	            String dowod = r.getDowodNumber();
+	            if (dowod == null || dowod.isBlank()) {
+	                dowod = fallbackDowod;
+	            }
+	            if (dowod == null || dowod.isBlank()) {
+	                continue;
+	            }
+	            r.setDowodNumber(dowod);
 	            String numerFa = dowod;
-	            String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, "D",numerFa, 36);
+	            String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, "D", numerFa, 36);
 	            String fullKey = MappingIdDocs.buildFullKey(podmiot, numerFa);
 	            String hash = MappingIdDocs.shortHashFromFullKey(fullKey, 6);
-	            String docKey = MappingIdDocs.generateDocId(podmiot, "K" ,numerFa, 36);
+	            String docKey = MappingIdDocs.generateDocId(podmiot, "C", numerFa, 36);
 
 	            r.setFullKey(fullKey);
 	            out.setFullKey(fullKey);
@@ -528,48 +413,41 @@ public class DmsParserRD implements DmsParser{
 	            List<DmsPayment> payId = out.getPayments();
 	            if (payId != null && !payId.isEmpty()) {
 	            	log.info("payments size="+out.getPayments().size());
-	                payId.get(0).setIdPlatn(nrIdPlat); // setIdPlatn zwraca void — wykonaj to osobno
+	                payId.get(0).setIdPlatn(nrIdPlat);
 	            }
 	            log.info("ext RD parser: przypisano dowodNumber='" + dowod + "' kwotaRk='" + r.getKwotaRk() + "' do pozycji; nrDokumentu='" + r.getNrDokumentu() + "' file=" + out.getSourceFileName());
 	        }
 	    } else {
-	        log.info("ext RD parser: brak dowodNumber w out — nie przypisano do pozycji; file=" + out.getSourceFileName());
+	        boolean anyLine = false;
+	        for (DmsRapKasa r : list) {
+	            String dowod = r.getDowodNumber();
+	            if (dowod == null || dowod.isBlank()) {
+	                continue;
+	            }
+	            anyLine = true;
+	            String numerFa = dowod;
+	            String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, "D", numerFa, 36);
+	            String fullKey = MappingIdDocs.buildFullKey(podmiot, numerFa);
+	            String hash = MappingIdDocs.shortHashFromFullKey(fullKey, 6);
+	            String docKey = MappingIdDocs.generateDocId(podmiot, "C", numerFa, 36);
+	            r.setFullKey(fullKey);
+	            out.setFullKey(fullKey);
+	            r.setDocKey(docKey);
+	            out.setDocKey(docKey);
+	            r.setNrIdPlat(nrIdPlat);
+	            out.setNrIdPlat(nrIdPlat);
+	            r.setHash(hash);
+	            out.setHash(hash);
+	            log.info("ext RD parser: dowod tylko z linii='" + dowod + "' file=" + out.getSourceFileName());
+	        }
+	        if (!anyLine) {
+	            log.info("ext RD parser: brak dowodNumber w out i pozycjach; file=" + out.getSourceFileName());
+	        }
 	    }
 
 	    return list;
 
-	 // sprawdź, czy istnieje document typ=03
-	    /*boolean has03 = false;
-	    NodeList allDocs = doc.getElementsByTagName("document");
-	    for (int i = 0; i < allDocs.getLength(); i++) {
-	        Element el = (Element) allDocs.item(i);
-	        if ("03".equals(el.getAttribute("typ"))) {
-	            has03 = true;
-	            break;
-	        }
-	    }*/
-
-	    // jeśli brak 03 i brak 50 → twórz pozycje z VAT 06
-	    /*if (!has03 && list.isEmpty()) {
-	        list = createPositionsFromVat06(doc);
-	    }*/
-
-	    // 2) Uzupełnienie z typ="03"
-	    //apply03ToPositions(doc, list);
-
-	    // 3) VAT z typ="06"
-	    //applyVatToPositions(out, list);
-
-	    // 4) Korekty
-	   //applyCorrectionsDZ(out, list);
-
-	}        
-
-    
-
-
-
-
+	}       
     private void extractAndSetReportAndDowodNumbers(Document doc, DmsParsedDocument out) {
     	if (doc == null || out == null) return;
         NodeList docs = doc.getElementsByTagName("document");
@@ -598,72 +476,92 @@ public class DmsParserRD implements DmsParser{
                 break; // tylko pierwszy document typ=02
             }
         }
+        // Pierwszy sensowny numer z typ 48 (kod_dok często tylko 03 — kierunek DW/DWP z Z/W w pozycjach)
+        String chosen = null;
+        String nrRkbChosen = null;
         for (int i = 0; i < docs.getLength(); i++) {
             Element el = (Element) docs.item(i);
-            if (el == null) continue;
-            //log.info("1 Inspecting document: tag=" + el.getNodeName() + " typ=" + el.getAttribute("typ") + " attrs=" + listAttributes(el));
-            if (!"48".equals(el.getAttribute("typ"))) continue; // tylko pozycje typu 48
+            if (el == null || !"48".equals(el.getAttribute("typ"))) {
+                continue;
+            }
             Element dane48 = firstDirectChild(el, "dane");
             if (dane48 == null) {
-            	log.info("1 Found document typ=48 but no direct <dane> child; file=" + out.getSourceFileName());
-            	continue;
+                log.info("1 Found document typ=48 but no direct <dane> child; file=" + out.getSourceFileName());
+                continue;
             }
-
-            // spróbuj pobrać numer z elementu 'numer' z kod_dok="01"
             Element numEl = firstDirectChild(dane48, "numer");
             if (numEl == null) {
                 log.info("1 Found <dane> in typ=48 but no direct <numer>; file=" + out.getSourceFileName());
                 continue;
             }
-         // preferujemy tekst elementu (np. "01/00003/2026"), bez harmonizacji
             String raw = numEl.getTextContent();
-            String repNrRKB = numEl.getAttribute("nr").trim();
-            out.setNrRKB(repNrRKB);
-            if (raw == null || raw.isBlank()) raw = numEl.getAttribute("nr");
+            if (raw == null || raw.isBlank()) {
+                raw = numEl.getAttribute("nr");
+            }
             if (raw == null || raw.isBlank()) {
                 log.info("1 numer element empty in typ=48; file=" + out.getSourceFileName());
                 continue;
             }
+            raw = raw.trim();
+            String repNrRKB = numEl.getAttribute("nr").trim();
+            if (chosen == null) {
+                chosen = raw;
+                nrRkbChosen = repNrRKB;
+                break;
+            }
+        }
+        if (chosen != null) {
+            out.setDowodNumber(chosen);
+            out.setNrRKB(nrRkbChosen);
+            log.info(String.format("1 RD parser: ustawiono dowodNumber = '%s' nrRKB='%s' file=%s",
+                    chosen, nrRkbChosen, out.getSourceFileName()));
+        }
+    }
+    private String extractPaymentDescription(Element dane48) {
+        NodeList docs = dane48.getElementsByTagName("document");
 
-            raw = raw.trim(); // tylko trim, zachowujemy format "01/00003/2026"
-            // **TUTAJ TYLKO** ustawiamy pole dowodowe — nie ruszamy reportNumber/reportNumberPos/nrRKB
-            out.setDowodNumber(raw); // <- jeśli Twój setter ma inną nazwę, zamień na właściwy (np. setNrDowodu)
-            log.info("1 RD parser: ustawiono dowodNumber (DW) = '" + raw + "' file=" + out.getSourceFileName());
-            //////////////////////////
-            /*log.info("Pos RD parser: nie znaleziono document typ=48; file=" + out.getSourceFileName());
-            String raw1 = null;
-            if (numEl != null && "01".equals(numEl.getAttribute("kod_dok"))) {
-            	raw1= numEl.getTextContent();
-                log.info("Pos Found <dane> but no direct <numer> child; file=" + out.getSourceFileName() +" raw= " + raw1);
-            }
-            String rawNrKpW = null;
-            if (numEl != null && "01".equals(numEl.getAttribute("kod_dok"))) {
-            	rawNrKpW = numEl.getTextContent();
-            	log.info("Pos numer kod_dok != '01' (rawNrKpW='" + rawNrKpW + "'), file=" + out.getSourceFileName());
-            	
-            }
-            // fallback: jeśli nie ma elementu numer, spróbuj z opisu/klasyfikatorów
-            if ((raw == null || raw.isBlank())) {
-                Element opisEl = firstDirectChild(dane48, "opis");
-                if (opisEl != null) raw = opisEl.getTextContent();
-            }
+        for (int i = 0; i < docs.getLength(); i++) {
+            Element el = (Element) docs.item(i);
 
-            if (raw1 != null) {
-                raw1 = removeLeadingZeroInFirstSegment(raw1.trim());
-                // usuń tylko trailing/leading spacje; nie zmieniaj formatu numeru
-                out.setReportNumberPos(raw1);
-                // opcjonalnie ustaw też reportNumber (jeśli chcesz, żeby pole reportNumber było dostępne)
-                if (out.getReportNumber() == null || out.getReportNumber().isBlank()) {
-                    out.setReportNumber(raw);
+            if ("49".equals(el.getAttribute("typ"))) {
+                Element dane49 = firstElementByTag(el, "dane");
+                if (dane49 == null) continue;
+                Element rozs = firstElementByTag(dane49, "rozszerzone");
+                
+                if (rozs != null && rozs.hasAttribute("opis1")) {
+                	return safeAttr(rozs, "opis1");
                 }
-                log.info("Pos RD parser: ustawiono out.reportNumberPos = '" + raw1 + "' file=" + out.getSourceFileName());
-            }*/
-            
-            return; 
+                // jeśli numer jest bezpośrednio w <numer> wewnątrz 49
+                Element numer = firstElementByTag(dane49, "numer");
+                if (numer != null) {
+                    String txt = numer.getTextContent();
+                    if (txt != null && !txt.trim().isEmpty()) return txt.trim();
+                    String attrNr = safeAttr(numer, "nr");
+                    if (attrNr != null && !attrNr.isEmpty()) return attrNr;
+                }
             }
-        
+        }
+        return "";
     }
 
+    // ------------------------------
+    // UWAGI (operator + opis pozycji)
+    // ------------------------------
+    private List<String> extractNotes(Document doc) {
+
+        List<String> notes = new ArrayList<>();
+
+        // operator z typ 02 (pierwsze dane)
+        Element dane02 = firstElementByTag(doc, "dane");
+        if (dane02 != null) {
+            Element operator = firstElementByTag(dane02, "operatorzy");
+            if (operator != null) {
+                String name = safeAttr(operator, "nazwa");
+                if (name != null && !name.isEmpty()) notes.add("Operator: " + name);
+            }
+        }
+        return notes;
+    }
     // ------------------------------
     // Pomocnicze metody
     // ------------------------------
@@ -677,6 +575,45 @@ public class DmsParserRD implements DmsParser{
             n = n.getParentNode();
         }
         return null;
+    }
+
+    /** Numer dowodu z nadrzędnego document typ=48 dla pozycji typ 49. */
+    private void applyDowodFromAncestorTyp48(Element dane49, DmsRapKasa match) {
+        if (dane49 == null || match == null) {
+            return;
+        }
+        Element doc48 = findAncestorDocumentOfType(dane49, "48");
+        if (doc48 == null) {
+            return;
+        }
+        Element dane48 = firstDirectChild(doc48, "dane");
+        if (dane48 == null) {
+            return;
+        }
+        Element numEl = firstDirectChild(dane48, "numer");
+        if (numEl == null) {
+            return;
+        }
+        String raw = numEl.getTextContent();
+        if (raw == null || raw.isBlank()) {
+            return;
+        }
+        match.setDowodNumber(raw.trim());
+        String nrAttr = numEl.getAttribute("nr");
+        if (nrAttr != null && !nrAttr.trim().isEmpty()) {
+            match.setNrRKB(nrAttr.trim());
+        }
+    }
+
+    private static double parseKwotaDouble(String s) {
+        if (s == null || s.isBlank()) {
+            return 0.0;
+        }
+        try {
+            return Double.parseDouble(s.trim().replace(",", "."));
+        } catch (Exception e) {
+            return 0.0;
+        }
     }
 
     private Element firstDirectChild(Element parent, String tag) {

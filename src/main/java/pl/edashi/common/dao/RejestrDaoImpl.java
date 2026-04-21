@@ -3,6 +3,7 @@ import javax.sql.DataSource;
 
 import pl.edashi.common.logging.AppLogger;
 import pl.edashi.converter.service.ConverterConfig;
+import pl.edashi.converter.service.ParserRegistry;
 import pl.edashi.dms.model.MappingTarget;
 
 import java.sql.*;
@@ -11,15 +12,23 @@ import java.math.BigDecimal;
 public class RejestrDaoImpl implements RejestrDao {
 	    //private final DataSource ds;
 		private final AppLogger log = new AppLogger("RejestrDaoImpl");
-	    private final String url;
+	    private final ConverterConfig cfg;
 	    private final String user;
 	    private final String pass;
 
 	    public RejestrDaoImpl() {
-	        ConverterConfig cfg = new ConverterConfig();
-	        this.url = cfg.getRejestrJdbcUrl();
+	        this.cfg = new ConverterConfig();
 	        this.user = cfg.getRejestrJdbcUser();
 	        this.pass = cfg.getRejestrJdbcPassword();
+	    }
+
+	    /** URL z {@code converter.properties} wg bieżącego oddziału ({@link ParserRegistry}). */
+	    private String jdbcUrl() {
+	        String o = ParserRegistry.getInstance().getOddzial();
+	        if (o == null || o.isBlank()) {
+	            o = "01";
+	        }
+	        return cfg.getRejestrJdbcUrl(o);
 	    }
 
 	    //public RejestrDaoImpl(DataSource ds) { this.ds = ds; }
@@ -39,7 +48,7 @@ public class RejestrDaoImpl implements RejestrDao {
 	        } catch (ClassNotFoundException cnfe) {
 	            throw new SQLException("Driver not found", cnfe);
 	        }
-	        try (Connection c = DriverManager.getConnection(url, user, pass);
+	        try (Connection c = DriverManager.getConnection(jdbcUrl(), user, pass);
 	             PreparedStatement ps = c.prepareStatement(sql)) {
 	            ps.setString(1, fullKey);
 	            try (ResultSet rs = ps.executeQuery()) {
@@ -69,9 +78,9 @@ public class RejestrDaoImpl implements RejestrDao {
 	            throw new SQLException("Driver not found", cnfe);
 	        }
 
-	        try (Connection c = DriverManager.getConnection(url, user, pass);
+	        try (Connection c = DriverManager.getConnection(jdbcUrl(), user, pass);
 	             PreparedStatement ps = c.prepareStatement(sql)) {
-	        	//log.info(String.format("Uzyskano połączenie DB (autocommit=%s) dla url='%s '", c.getAutoCommit(), url));
+	        	//log.info(String.format("Uzyskano połączenie DB (autocommit=%s) dla url='%s '", c.getAutoCommit(), jdbcUrl()));
 	            ps.setString(1, nrIdPlat);
 	            try (ResultSet rs = ps.executeQuery()) {
 	                return rs.next();
@@ -99,7 +108,7 @@ public class RejestrDaoImpl implements RejestrDao {
             throw new SQLException("Driver not found", cnfe);
         }
 	        //log.info(String.format("Ins SQL: ='%s '", sql));
-	        try (Connection conn = DriverManager.getConnection(url, user, pass);
+	        try (Connection conn = DriverManager.getConnection(jdbcUrl(), user, pass);
 	        		PreparedStatement ps = conn.prepareStatement(sql)) {
 	            ps.setString(1, fullKey);
 	            ps.setString(2, podmiot);
@@ -187,7 +196,7 @@ public class RejestrDaoImpl implements RejestrDao {
         } catch (ClassNotFoundException cnfe) {
             throw new SQLException("Driver not found", cnfe);
         }
-    	    try (Connection cn = DriverManager.getConnection(url, user, pass);
+    	    try (Connection cn = DriverManager.getConnection(jdbcUrl(), user, pass);
     	         PreparedStatement us = cn.prepareStatement(sql)) {
     	    	us.setString(1, podmiot);
     	        us.setString(2, nrFaktury);
@@ -229,7 +238,7 @@ public class RejestrDaoImpl implements RejestrDao {
         } catch (ClassNotFoundException cnfe) {
             throw new SQLException("Driver not found", cnfe);
         }
-    	    try (Connection conn = DriverManager.getConnection(url, user, pass);
+    	    try (Connection conn = DriverManager.getConnection(jdbcUrl(), user, pass);
 	             PreparedStatement ps = conn.prepareStatement(upd)) {
 	            ps.setString(1, fullKey);
 	            int updated = ps.executeUpdate();

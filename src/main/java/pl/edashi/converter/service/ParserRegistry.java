@@ -33,6 +33,8 @@ public final class ParserRegistry {
         ready.put("PO", false);
         ready.put("PZ", false);
         ready.put("RD", true);
+        ready.put("DWP", true);
+        ready.put("DWW", true);
         ready.put("RO", true);
         ready.put("RZ", true);
         ready.put("ZC", false);

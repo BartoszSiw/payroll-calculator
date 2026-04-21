@@ -41,9 +41,11 @@
     <appender-ref ref="CONSOLE"/>
     <appender-ref ref="SIFT"/>
   </root>
-
+<!-- quiet down the whole app -->
+<logger name="pl.edashi" level="WARN"/>
   <!-- przykładowe poziomy dla pakietów -->
-  <logger name="pl.edashi" level="DEBUG"/> 
+  <logger name="pl.edashi.DmsParserDK" level="DEBUG"/> 
+  <logger name="pl.edashi.DmsParserRD" level="DEBUG"/> 
  <!-- <logger name="pl.edashi.dms.parser.DmsParserDS" level="OFF" additivity="false"/> -->
 <!-- <logger name="pl.edashi.common.logging.AppLogger" level="OFF" additivity="false"/> -->
 

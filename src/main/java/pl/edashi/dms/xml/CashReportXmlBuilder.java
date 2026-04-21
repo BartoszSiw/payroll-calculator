@@ -53,8 +53,6 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	            rejSekcja.appendChild(makeCdata(docXml, "BAZA_ZRD_ID", "KSIEG"));
 	            rejSekcja.appendChild(makeCdata(docXml, "BAZA_DOC_ID", idKsiegOddzial));
 	        }
-
-	        // REJESTR_ZAKUPU_VAT
 	        Element rk = docXml.createElementNS(NS, "RAPORT_KB");
 	        rejSekcja.appendChild(rk);
 	     // META
@@ -135,7 +133,7 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
     	        rap.appendChild(makeCdata(docXml, "JEST_WYNAGRODZENIEM", "Nie"));
     	        rap.appendChild(makeCdata(docXml, "TYP_PODMIOTU", "kontrahent"));
     	        //0000000000
-    	        rap.appendChild(makeCdata(docXml, "PODMIOT", safeContractorField(k, "nip")));
+    	        rap.appendChild(makeCdata(docXml, "PODMIOT", safeContractorField(k, "podmiot")));
     	        rap.appendChild(makeCdata(docXml, "PODMIOT_ID", ""));
     	        rap.appendChild(makeCdata(docXml, "PODMIOT_NIP", safeContractorField(k, "nip")));
     	        rap.appendChild(makeCdata(docXml, "NAZWA1", safeContractorField(k, "name1")));
@@ -212,7 +210,10 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	            case "02":
 	                return "gotówka";
 	            case "DW":
+	            case "DWP":
+	            case "DWW":
 	            case "03":
+	            case "04":
 	                return "karta";
 	            default:
 	                return ""; // nieznany symbol -> puste (bez błędów)
@@ -222,7 +223,7 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 	        if (rachunek == null) return "";
 	        switch (rachunek) {
 	            case "RO":
-	                return "KARTA"; // dokument kartowy
+	                return "KARTD"; // dokument kartowy
 	            case "KO":
 	                return "1";  // dokument gotówkowy
 	            default:
@@ -275,6 +276,7 @@ public class CashReportXmlBuilder implements XmlSectionBuilder {
 
 	        String value;
 	        switch (field) {
+	        	case "podmiot":           value = c.getPodmiot(); break;
 	            case "nip":           value = c.getNip(); break;
 	            case "name1":         value = c.getName1(); break;
 	            case "name2":         value = c.getName2(); break;

@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.w3c.dom.Document;
 
 public class CardReportAssembler {
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(CardReportAssembler.class);
@@ -46,7 +45,10 @@ public class CardReportAssembler {
 
         // 3. RD – wszystkie zapisy kartowe do tego raportu
         List<DmsParsedDocument> rdList = docs.stream()
-                .filter(d -> "RD".equalsIgnoreCase(d.getDocumentType()))
+                .filter(d -> {
+                    String t = d.getDocumentType();
+                    return "RD".equalsIgnoreCase(t) || "DWP".equalsIgnoreCase(t);
+                })
                 .filter(d -> nrRaportu.equals(d.getReportNumber()))
                 .collect(Collectors.toList());
 
@@ -62,6 +64,7 @@ public class CardReportAssembler {
         // liczniki dla numeracji pozycji (możesz dostosować klucze jeśli potrzebne)
         Map<String,Integer> counters = new HashMap<>();
         counters.put("DW", 0);
+        counters.put("DWP", 0);
 
         // 5. Dodajemy wszystkie RD jako pozycje raportu kartowego
         for (DmsParsedDocument rd : rdList) {
@@ -100,17 +103,22 @@ public class CardReportAssembler {
             ///        ? rd.getRapKasa().get(0).getNrDokumentu()
             ///       : rd.getNrDokumentu());
             pos.setNrDokumentu(rdEntry.getNrDokumentu());
-            pos.setSymbolKPW(mapSymbolDokumentuZapisu(rd.getDowodNumber()));
+            String rawDowod = rdEntry.getDowodNumber();
+            if (rawDowod == null || rawDowod.isBlank()) {
+                rawDowod = rd.getDowodNumber();
+            }
+            pos.setSymbolKPW(CashReportAssembler.symbolCardDokumentuZapisuForRapLine(kier));
 
-            String mapped = safe(mapDowodNumber(rd.getDowodNumber(), ro.getNrRep()));
+            String mapped = safe(CashReportAssembler.mappedCardDowodForRapLine(
+                    rawDowod, ro.getNrRep(), kier));
             String code = mapped.split("/")[0].trim();
 
-            // typ pozycji: rozróżnienie wpływ/wypływ kartowy (przykładowe klucze)
-            String typeKey = null;
-            if ("DW".equalsIgnoreCase(code)) {
+            String typeKey;
+            if ("DWP".equalsIgnoreCase(code)) {
+                typeKey = "DWP";
+            } else if ("DW".equalsIgnoreCase(code)) {
                 typeKey = "DW";
             } else {
-                // domyślnie traktujemy jako płatność kartą
                 typeKey = "DW";
             }
 
@@ -132,10 +140,12 @@ public class CardReportAssembler {
             Rozliczenie r = new Rozliczenie();
             r.setKwotaRk(pos.getKwotaRk());
             r.setDataDokumentu(pos.getDataWystawienia());
-            r.setNumerLewegoDokumentu(nrLewyDoc);
-            r.setNumerPrawegoDokumentu(pos.getDocKey());
-            r.setTypLewegoDokumentu("zdarzenie");
-            r.setTypPrawegoDokumentu("zapis");
+            r.setNumerLewegoDokumentu(pos.getDowodNumber());
+            r.setRowIdLewego(pos.getDocKey());
+            r.setNumerPrawegoDokumentu(pos.getNrDokumentu());
+            r.setRowIdPrawego(nrLewyDoc);
+            r.setTypLewegoDokumentu("zapis");
+            r.setTypPrawegoDokumentu("zdarzenie");
             r.setIdZrodla("");
             out.getRozliczenia().add(r);
             //LOG.debug(String.format("CardAssembler added pos: typeKey='%s' mapped='%s' suffix='%s' finalMapped='%s' counters='%s'", typeKey, mapped, suffix, finalMapped, counters));
@@ -144,78 +154,12 @@ public class CardReportAssembler {
         return out;
     }
 
-    // --- pomocnicze metody (skopiowane / dostosowane z CashReportAssembler) ---
+    // --- pomocnicze metody ---
 
     private String stripTime(String dateTime) {
         if (dateTime == null) return null;
         int space = dateTime.indexOf(' ');
         return space > 0 ? dateTime.substring(0, space) : dateTime;
-    }
-
-    private static String mapDowodNumber(String src, String nrRKB) {
-        if (src == null) return null;
-        src = src.trim();
-        if (src.matches("^(DW)/\\d+/\\d{6}/\\d{4}$")) {
-            return src;
-        }
-
-        String[] parts = src.split("/");
-        if (parts.length < 3) return src;
-
-        String code = parts[0].trim();
-        String rawNumber = parts[1].replaceAll("\\D", "");
-        String year = parts[2].trim();
-
-        if (rawNumber.isEmpty()) return src;
-
-        String type;
-        switch (code) {
-            case "03": type = "DW"; break;
-            default: return src;
-        }
-
-        int num;
-        try {
-            num = Integer.parseInt(rawNumber);
-        } catch (NumberFormatException e) {
-            return src;
-        }
-
-        String padded = String.format("%06d", num);
-
-        String prefix = "";
-        if (nrRKB != null) {
-            String nr = nrRKB.trim().replaceAll("\\D", "");
-            if (!nr.isEmpty()) {
-                try {
-                    int nrInt = Integer.parseInt(nr);
-                    prefix = String.format("%03d", nrInt);
-                } catch (NumberFormatException ignored) {
-                    prefix = nr;
-                }
-            }
-        }
-
-        if (!prefix.isEmpty()) {
-            int replaceLen = Math.min(prefix.length(), padded.length());
-            padded = prefix + padded.substring(replaceLen);
-        }
-
-        return String.format("%s/1/%s/%s", type, padded, year);
-    }
-
-    private static String mapSymbolDokumentuZapisu(String dowodNumber) {
-        if (dowodNumber == null) return null;
-        String s = dowodNumber.trim();
-        if (s.isEmpty()) return null;
-
-        String[] parts = s.split("/");
-        if (parts.length < 1) return null;
-
-        switch (parts[0].trim()) {
-            case "03": return "DW";
-            default:   return null;
-        }
     }
 
     private static String safe(String s) {

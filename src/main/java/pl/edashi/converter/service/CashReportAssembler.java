@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -90,6 +91,8 @@ public class CashReportAssembler {
             Contractor posContractor = dk.getContractor();
             pos.setContractor(posContractor);  
             pos.setDataWystawienia(stripTime(dk.getMetadata().getDate()));
+            // Nr rejestru raportu (np. 038) — z KO/DK dokumentu, NIE z atrybutu nr przy <numer> w typ 48
+            // (ten atrybut to często lp/slot w obrębie dowodu → 009 zamiast 038 w NUMER_ZAPISU).
             pos.setNrRKB(dk.getNrRKB());
             //LOG.info("Assembler: | dk.getNrRKB="+dk.getNrRKB()+" | ko.getNrRep="+ko.getNrRep());
             //pos.setLp(dk.getRapKasa().get(0).getLp());
@@ -102,16 +105,26 @@ public class CashReportAssembler {
             pos.setOpis1(rkEntry.getOpis1());
             pos.setReportDate(dk.getReportDate());
             pos.setNrDokumentu(rkEntry.getNrDokumentu());
-            pos.setSymbolKPW(mapSymbolDokumentuZapisu(dk.getDowodNumber()));
+            String rawDowod = rkEntry.getDowodNumber();
+            if (rawDowod == null || rawDowod.isBlank()) {
+                rawDowod = dk.getDowodNumber();
+            }
+            String symKpw = mapSymbolDokumentuZapisu(rawDowod);
+            if (rkEntry.isInvertKpdKwdSymbol()) {
+                symKpw = invertKpdKwdSymbol(symKpw);
+            }
+            pos.setSymbolKPW(symKpw);
             //pos.setDocKey(dk.getDocKey());
             //LOG.info("Cash AsMbl dk.getDocKey="+dk.getDocKey());
             String code = null;
-            String mapped = safe(mapDowodNumber(dk.getDowodNumber(),ko.getNrRep()));
+            String mapped = safe(mapDowodNumber(rawDowod, ko.getNrRep()));
+            if (rkEntry.isInvertKpdKwdSymbol()) {
+                mapped = swapMappedKpdKwdPrefix(mapped);
+            }
             code = mapped.split("/")[0].trim();
             String typeKey = null;
             if ("KWD".equalsIgnoreCase(code)) typeKey = "KWD";
             else if ("KPD".equalsIgnoreCase(code)) typeKey = "KPD";
-            else if ("DW".equalsIgnoreCase(code)) typeKey = "DW";
             String suffix = "";
             suffix = nextCounter(counters, typeKey, 3);
             String finalMapped = replaceSuffixWithCounter(mapped, suffix);
@@ -137,10 +150,12 @@ public class CashReportAssembler {
             Rozliczenie r = new Rozliczenie();
             r.setKwotaRk(pos.getKwotaRk());
             r.setDataDokumentu(pos.getDataWystawienia());
-            r.setNumerLewegoDokumentu(nrLewyDoc);
-            r.setNumerPrawegoDokumentu(pos.getDocKey());
-            r.setTypLewegoDokumentu("zdarzenie");
-            r.setTypPrawegoDokumentu("zapis");
+            r.setNumerLewegoDokumentu(pos.getDowodNumber());
+            r.setRowIdLewego(pos.getDocKey());
+            r.setNumerPrawegoDokumentu(pos.getNrDokumentu());
+            r.setRowIdPrawego(nrLewyDoc);
+            r.setTypLewegoDokumentu("zapis");
+            r.setTypPrawegoDokumentu("zdarzenie");
             r.setIdZrodla("");
             out.getRozliczenia().add(r);
 
@@ -154,19 +169,22 @@ public class CashReportAssembler {
         int space = dateTime.indexOf(' ');
         return space > 0 ? dateTime.substring(0, space) : dateTime;
     }
-    private static String mapDowodNumber(String src, String nrRKB) {
+    /** Gotówka: tylko 01/02. Karta (RD) używa {@link #mapCardDowodFrom03(String, String, boolean)} — sam kod 03 nie rozróżnia DW od DWP. */
+    public static String mapDowodNumber(String src, String nrRKB) {
         if (src == null) return null;
         src = src.trim();
-        // jeśli już jest w docelowym formacie, zwróć bez zmian
+        if (src.matches("^(KPD|KWD)/\\d+/\\d{6}/\\d{4}$")) {
+            return src;
+        }
         if (src.matches("^(KP|KW)/\\d+/\\d{6}/\\d{4}$")) {
             return src;
         }
 
         String[] parts = src.split("/");
-        if (parts.length < 3) return src; // nieznany format -> zwróć oryginał
+        if (parts.length < 3) return src;
 
         String code = parts[0].trim();
-        String rawNumber = parts[1].replaceAll("\\D", ""); // zostaw tylko cyfry
+        String rawNumber = parts[1].replaceAll("\\D", "");
         String year = parts[2].trim();
 
         if (rawNumber.isEmpty()) return src;
@@ -175,7 +193,7 @@ public class CashReportAssembler {
         switch (code) {
             case "01": type = "KPD"; break;
             case "02": type = "KWD"; break;
-            default: return src; // nieznany kod -> zwróć oryginał
+            default: return src;
         }
 
         int num;
@@ -187,16 +205,14 @@ public class CashReportAssembler {
 
         String padded = String.format("%06d", num);
 
-        // --- normalizacja nrRKB do 3 cyfr (np. "1" -> "001") ---
         String prefix = "";
         if (nrRKB != null) {
             String nr = nrRKB.trim().replaceAll("\\D", "");
             if (!nr.isEmpty()) {
                 try {
                     int nrInt = Integer.parseInt(nr);
-                    prefix = String.format("%03d", nrInt); // zawsze 3 cyfry
+                    prefix = String.format("%03d", nrInt);
                 } catch (NumberFormatException ignored) {
-                    // jeśli nie da się sparsować, użyj surowego nr (bez niecyfr)
                     prefix = nr;
                 }
             }
@@ -210,20 +226,134 @@ public class CashReportAssembler {
         return String.format("%s/1/%s/%s", type, padded, year);
     }
 
-    private static String mapSymbolDokumentuZapisu(String dowodNumber) {
+    /**
+     * Raport kartowy: w DMS jest tylko {@code 03/…}; symbol DW (rozchód) vs DWP (przychód) wynika z kierunku (Z/W, ujemna kwota w parserze).
+     */
+    public static String mapCardDowodFrom03(String src, String nrRKB, boolean przychodDwp) {
+        if (src == null) return null;
+        src = src.trim();
+        String head = przychodDwp ? "DWP" : "DW";
+        if (src.matches("^(DW|DWP)/\\d+/\\d{6}/\\d{4}$")) {
+            return src;
+        }
+        String[] parts = src.split("/");
+        if (parts.length < 3) return src;
+        if (!"03".equals(parts[0].trim())) {
+            return src;
+        }
+        String rawNumber = parts[1].replaceAll("\\D", "");
+        String year = parts[2].trim();
+        if (rawNumber.isEmpty()) return src;
+        int num;
+        try {
+            num = Integer.parseInt(rawNumber);
+        } catch (NumberFormatException e) {
+            return src;
+        }
+        String padded = String.format("%06d", num);
+        String prefix = "";
+        if (nrRKB != null) {
+            String nr = nrRKB.trim().replaceAll("\\D", "");
+            if (!nr.isEmpty()) {
+                try {
+                    int nrInt = Integer.parseInt(nr);
+                    prefix = String.format("%03d", nrInt);
+                } catch (NumberFormatException ignored) {
+                    prefix = nr;
+                }
+            }
+        }
+        if (!prefix.isEmpty()) {
+            int replaceLen = Math.min(prefix.length(), padded.length());
+            padded = prefix + padded.substring(replaceLen);
+        }
+        return String.format("%s/1/%s/%s", head, padded, year);
+    }
+
+    /** {@code true} gdy kierunek to wpływ / przychód (np. Z na typ 48 po parsowaniu). */
+    public static boolean isPrzychodKierunek(String kierunek) {
+        if (kierunek == null || kierunek.isBlank()) {
+            return false;
+        }
+        String t = kierunek.trim().toLowerCase(Locale.ROOT);
+        return t.startsWith("przych");
+    }
+
+    public static String symbolCardFromKierunek(String kierunek) {
+        return isPrzychodKierunek(kierunek) ? "DWP" : "DW";
+    }
+
+    /** RD: symbol z kierunku (Z/W na typ 48), nie z segmentu 03/04. */
+    public static String symbolCardDokumentuZapisuForRapLine(String kierunek) {
+        return symbolCardFromKierunek(kierunek);
+    }
+
+    public static String mappedCardDowodForRapLine(String rawDowod, String nrRKB, String kierunek) {
+        return mapCardDowodFrom03(rawDowod, nrRKB, isPrzychodKierunek(kierunek));
+    }
+
+    public static String mapSymbolDokumentuZapisu(String dowodNumber) {
         if (dowodNumber == null) return null;
         String s = dowodNumber.trim();
         if (s.isEmpty()) return null;
 
-        // oczekiwany format: "NN/xxxxx/YYYY"
         String[] parts = s.split("/");
         if (parts.length < 1) return null;
 
         switch (parts[0].trim()) {
             case "01": return "KPD";
             case "02": return "KWD";
-            default:   return null; // nieznany kod -> nie ustawiamy
+            default:   return null;
         }
+    }
+
+    /**
+     * Używane też w {@link pl.edashi.dms.mapper.DmsToDmsMapper} dla pojedynczej pozycji raportu kasowego.
+     */
+    public static String symbolDokumentuZapisuForRapLine(String rawDowodFromXml, boolean invertKpdKwd) {
+        String sym = mapSymbolDokumentuZapisu(rawDowodFromXml);
+        if (invertKpdKwd) {
+            sym = invertKpdKwdSymbol(sym);
+        }
+        return sym;
+    }
+
+    /** Wynik {@link #mapDowodNumber(String, String)} z opcjonalną zamianą KPD↔KWD (ujemna kwota w parserze). */
+    public static String mappedDowodForRapLine(String src, String nrRKB, boolean invertKpdKwd) {
+        String mapped = safe(mapDowodNumber(src, nrRKB));
+        if (invertKpdKwd) {
+            mapped = swapMappedKpdKwdPrefix(mapped);
+        }
+        return mapped;
+    }
+
+    /** Po ujemnej kwocie: KPD↔KWD (gotówka). */
+    private static String invertKpdKwdSymbol(String sym) {
+        if (sym == null) return null;
+        String t = sym.trim();
+        if ("KWD".equalsIgnoreCase(t)) return "KPD";
+        if ("KPD".equalsIgnoreCase(t)) return "KWD";
+        return sym;
+    }
+
+    /** KWD/…↔KPD/… */
+    private static String swapMappedKpdKwdPrefix(String mapped) {
+        if (mapped == null || mapped.isBlank()) {
+            return mapped;
+        }
+        int slash = mapped.indexOf('/');
+        if (slash <= 0) {
+            return mapped;
+        }
+        String head = mapped.substring(0, slash).trim();
+        String rest = mapped.substring(slash);
+        if ("KWD".equalsIgnoreCase(head)) {
+            return "KPD" + rest;
+        }
+        if ("KPD".equalsIgnoreCase(head)) {
+            return "KWD" + rest;
+        }
+        return mapped;
     }
     private static String safe(String s) {
         return s == null ? "" : s;

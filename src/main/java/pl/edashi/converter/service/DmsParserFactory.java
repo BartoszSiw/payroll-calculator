@@ -25,7 +25,10 @@ public class DmsParserFactory {
             case "RO": return new DmsParserRO();
             case "RZ": return new DmsParserRZ();
             case "DK": return new DmsParserDK();
-            case "RD": return new DmsParserRD();             
+            case "RD":
+            case "DWP":
+            case "DWW":
+                return new DmsParserRD();
             default:
                 throw new IllegalArgumentException("Nieobsługiwany typ dokumentu: " + type);
         }

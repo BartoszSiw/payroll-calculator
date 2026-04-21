@@ -59,6 +59,7 @@ pl\edashi\dms\parser\DmsParserPZ.class
 pl\edashi\dms\parser\DmsParserRZ.class
 pl\edashi\optima\mapper\ContractorMapper.class
 pl\edashi\dms\parser\DmsParserZC.class
+pl\edashi\common\util\NipFormat.class
 pl\edashi\payroll\service\PayrollService.class
 pl\edashi\dms\model\DmsParsedDocument.class
 pl\edashi\dms\parser\DmsParserRO.class

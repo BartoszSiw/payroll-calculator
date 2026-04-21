@@ -1,5 +1,7 @@
 package pl.edashi.dms.model;
 
+import pl.edashi.common.util.NipFormat;
+
 public class Contractor {
 	public String id;
     public String nip;
@@ -41,7 +43,7 @@ public class Contractor {
 
     // --- Settery ---
     public void setId(String id) { this.id = id != null ? id : ""; }
-    public void setNip(String nip) { this.nip = nip != null ? nip : ""; }
+    public void setNip(String nip) { this.nip = NipFormat.digitsOnly(nip); }
     public void setName1(String name1) { this.name1 = name1 != null ? name1 : ""; }
     public void setName2(String name2) { this.name2 = name2 != null ? name2 : ""; }
     public void setName3(String name3) { this.name3 = name3 != null ? name3 : ""; }

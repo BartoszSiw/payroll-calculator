@@ -9,6 +9,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
+import pl.edashi.common.util.NipFormat;
 import pl.edashi.dms.model.DmsParsedContractor;
 import pl.edashi.dms.model.DmsParsedContractorList;
 
@@ -46,7 +47,7 @@ public class DmsParserSL {
                         c.nazwa3 = d.getAttribute("nazwa3");
                         c.fullName = (c.nazwa1 + " " + c.nazwa2 + " " + c.nazwa3).trim();
                         c.nipKraj = d.getAttribute("kod_kraju");
-                        c.nip = d.getAttribute("nip").trim();
+                        c.nip = NipFormat.digitsOnly(d.getAttribute("nip"));
                         c.regon = d.getAttribute("regon").trim();
                         c.pesel = "";
                         c.akronim = c.nip;//d.getAttribute("kod_klienta");

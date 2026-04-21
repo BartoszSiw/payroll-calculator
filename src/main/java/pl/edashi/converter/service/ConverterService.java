@@ -460,7 +460,7 @@ public class ConverterService {
 
         		        return out;
         		    }
-        		    	if ("DK".equals(type) || "RD".equals(type)) {
+        		    	if ("DK".equals(type) || "RD".equals(type) || "DWP".equals(type) || "DWW".equals(type)) {
         		    	    addIfNotBlank(out, doc.getInvoiceShortNumber(), doc.getSourceFileName());
         		    	    addIfNotBlank(out, doc.getInvoiceNumber(), doc.getSourceFileName());
         		    	    if (doc.getPositions() != null) {

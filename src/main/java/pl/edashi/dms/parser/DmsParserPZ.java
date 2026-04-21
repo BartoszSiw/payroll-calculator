@@ -312,7 +312,7 @@ public class DmsParserPZ {
                 Element rozs = (Element) dane.getElementsByTagName("rozszerzone").item(0);
                 if (rozs == null) return null;
                 c.id = safeAttr(rozs, "kod_klienta");
-                c.nip = safeAttr(rozs, "nip");
+                c.setNip(safeAttr(rozs, "nip"));
                 c.name1 = safeAttr(rozs, "nazwa1");
                 c.name2 = safeAttr(rozs, "nazwa2");
                 c.name3 = safeAttr(rozs, "nazwa3");

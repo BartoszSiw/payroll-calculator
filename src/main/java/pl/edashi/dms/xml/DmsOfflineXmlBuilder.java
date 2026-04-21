@@ -1,6 +1,7 @@
 package pl.edashi.dms.xml;
 
 import pl.edashi.common.logging.AppLogger;
+import pl.edashi.common.util.NipFormat;
 import pl.edashi.dms.model.DmsDocumentOut;
 import pl.edashi.dms.model.DmsOutputPosition;
 import pl.edashi.dms.model.DmsPayment;
@@ -106,14 +107,14 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         rs.appendChild(make(docXml, "TYP_PODMIOTU", "kontrahent"));
         rs.appendChild(make(docXml, "PODMIOT", safe(removeHyphensBetweenDigits(doc.getPodmiotAkronim())))); // uproszczenie
         //rs.appendChild(make(docXml, "PODMIOT_ID", ""));
-        rs.appendChild(make(docXml, "PODMIOT_NIP", safe(removeHyphensBetweenDigits(doc.getPodmiotNip()))));
+        rs.appendChild(make(docXml, "PODMIOT_NIP", safe(NipFormat.digitsOnly(doc.getPodmiotNip()))));
 
         rs.appendChild(make(docXml, "NAZWA1", safe(doc.getNazwa1())));
         rs.appendChild(make(docXml, "NAZWA2", safe(doc.getNazwa2())));
         rs.appendChild(make(docXml, "NAZWA3", safe(doc.getNazwa3())));
 
         rs.appendChild(make(docXml, "NIP_KRAJ", safe(doc.getKraj())));   // na przyszłość możesz zmapować z doc.kraj
-        rs.appendChild(make(docXml, "NIP", safe(removeHyphensBetweenDigits(doc.getPodmiotNip()))));
+        rs.appendChild(make(docXml, "NIP", safe(NipFormat.digitsOnly(doc.getPodmiotNip()))));
         rs.appendChild(make(docXml, "KRAJ", safe(doc.getKraj())));
         rs.appendChild(make(docXml, "WOJEWODZTWO", safe(doc.getWojewodztwo())));
         rs.appendChild(make(docXml, "POWIAT", safe(doc.getPowiat())));
@@ -129,7 +130,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         rs.appendChild(make(docXml, "TYP_PLATNIKA", "kontrahent"));
         rs.appendChild(make(docXml, "PLATNIK", safe(removeHyphensBetweenDigits(doc.getPodmiotAkronim()))));
         //rs.appendChild(make(docXml, "PLATNIK_ID", doc.podmiotId));
-        rs.appendChild(make(docXml, "PLATNIK_NIP", safe(removeHyphensBetweenDigits(doc.getPodmiotNip()))));
+        rs.appendChild(make(docXml, "PLATNIK_NIP", safe(NipFormat.digitsOnly(doc.getPodmiotNip()))));
         rs.appendChild(make(docXml, "PESEL", ""));
         rs.appendChild(make(docXml, "ROLNIK", "Nie"));
 
@@ -162,7 +163,10 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         rs.appendChild(make(docXml, "VAN_FA_Z_PA", "Nie"));
         rs.appendChild(make(docXml, "VAN_RODZAJ", "0"));
         rs.appendChild(make(docXml, "MPP", safe(doc.getMpp() != null ? doc.getMpp() : "Tak")));
-        rs.appendChild(make(docXml, "NR_KSEF", ""));
+        rs.appendChild(make(docXml, "NR_KSEF", safe(doc.getNrKsef())));
+        if (doc.getNrKsef() != null && !doc.getNrKsef().isEmpty()) {
+        	rs.appendChild(make(docXml, "KSEF_DATA_PRZYJECIA", safe(doc.getDataWystawienia())));
+        }
         rs.appendChild(make(docXml, "DODATKOWY_OPIS", doc.getDodatkowyOpis()));
 
         // POZYCJE
@@ -252,7 +256,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
                 plat.appendChild(make(docXml, "PLATNOSC_TYP_PODMIOTU", "kontrahent"));
                 plat.appendChild(make(docXml, "PLATNOSC_PODMIOT", safe(removeHyphensBetweenDigits(doc.getPodmiotAkronim()))));
                 //plat.appendChild(make(docXml, "PLATNOSC_PODMIOT_ID", doc.podmiotId));
-                plat.appendChild(make(docXml, "PLATNOSC_PODMIOT_NIP", safe(removeHyphensBetweenDigits(doc.getPodmiotNip()))));
+                plat.appendChild(make(docXml, "PLATNOSC_PODMIOT_NIP", safe(NipFormat.digitsOnly(doc.getPodmiotNip()))));
                 plat.appendChild(make(docXml, "PLAT_ELIXIR_O1", safe(doc.getInvoiceNumber())));
                 plat.appendChild(make(docXml, "PLAT_ELIXIR_O2", safe(p.getOpis())));
                 plat.appendChild(make(docXml, "PLAT_ELIXIR_O3", ""));
@@ -261,7 +265,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
                 plat.appendChild(make(docXml, "PLAT_VAN_FA_Z_PA", "Nie"));
                 plat.appendChild(make(docXml, "PLAT_SPLIT_PAYMENT", "Nie"));
                 plat.appendChild(make(docXml, "PLAT_SPLIT_KWOTA_VAT", safe(p.getVatZ()) != null ? safe(p.getVatZ()) : ""));
-                plat.appendChild(make(docXml, "PLAT_SPLIT_NIP", safe(doc.getPodmiotNip())));
+                plat.appendChild(make(docXml, "PLAT_SPLIT_NIP", safe(NipFormat.digitsOnly(doc.getPodmiotNip()))));
                 plat.appendChild(make(docXml, "PLAT_SPLIT_NR_DOKUMENTU", safe(doc.getNumer())));
             }
         }  //else {

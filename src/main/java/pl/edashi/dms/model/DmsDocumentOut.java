@@ -2,6 +2,7 @@ package pl.edashi.dms.model;
 import java.util.ArrayList;
 import java.util.List;
 import pl.edashi.common.logging.AppLogger;
+import pl.edashi.common.util.NipFormat;
 public class DmsDocumentOut {
 	private List<DmsOutputPosition> pozycje = new ArrayList<>();
 	private List<DmsOutputPosition> rapKasa = new ArrayList<>();
@@ -198,7 +199,7 @@ public class DmsDocumentOut {
     public void setPodmiotId(String podmiotId) { this.podmiotId = safe(podmiotId); }
 
     public String getPodmiotNip() { return podmiotNip; }
-    public void setPodmiotNip(String podmiotNip) { this.podmiotNip = safe(podmiotNip); }
+    public void setPodmiotNip(String podmiotNip) { this.podmiotNip = safe(NipFormat.digitsOnly(podmiotNip)); }
     
     public String getPodmiot() { return podmiot; }
     public void setPodmiot(String podmiot) { this.podmiot = safe(podmiot); }

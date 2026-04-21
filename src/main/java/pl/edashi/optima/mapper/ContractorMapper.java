@@ -1,5 +1,6 @@
 package pl.edashi.optima.mapper;
 
+import pl.edashi.common.util.NipFormat;
 import pl.edashi.dms.model.DmsParsedContractor;
 import pl.edashi.optima.model.OfflineContractor;
 
@@ -29,7 +30,7 @@ public class ContractorMapper {
         if (src.isCompany) {
             c.finalny = "Nie";
             c.platnikVat = "Tak";
-            c.nip = src.nip;
+            c.nip = NipFormat.digitsOnly(src.nip);
             c.nipKraj = src.nipKraj;
             c.regon = src.regon;
             c.pesel = "";

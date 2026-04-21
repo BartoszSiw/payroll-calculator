@@ -296,7 +296,7 @@ public class ConverterServlet extends HttpServlet {
                         // przykładowe zbiory typów (użyj swoich stałych)
                         Set<String> DS_TYPES = Set.of("DS", "FV", "PR", "FZL", "FVK", "RWS", "PRK", "FZLK", "FVU", "FVM", "FVG", "FH", "FHK");
                         Set<String> DZ_TYPES = Set.of("DZ","FVZ","FVZK","FZK","FS","FK","UMUZ");
-                        Set<String> DK_TYPES = Set.of("KO","KZ","DK","RO","RZ","RD");
+                        Set<String> DK_TYPES = Set.of("KO","KZ","DK","RO","RZ","RD","DWP","DWW");
                         Set<String> DD_TYPES = Set.of("DM","PO");
                         try {
                             if (DZ_TYPES.contains(docType)) {

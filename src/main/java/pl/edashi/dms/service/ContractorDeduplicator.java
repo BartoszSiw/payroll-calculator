@@ -1,5 +1,13 @@
 package pl.edashi.dms.service;
-import pl.edashi.dms.model.DmsParsedContractor; import java.text.Normalizer; import java.util.*;
+
+import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import pl.edashi.common.util.NipFormat;
+import pl.edashi.dms.model.DmsParsedContractor;
 public class ContractorDeduplicator {
 
 	    public List<DmsParsedContractor> deduplicatePersons(List<DmsParsedContractor> input) {
@@ -10,7 +18,7 @@ public class ContractorDeduplicator {
 	        	String key;
 	            if (c.isCompany) {
 	            	if (c.nip != null && !c.nip.isEmpty()) {
-	                    key = "NIP:" + normalize(c.nip);
+	                    key = "NIP:" + NipFormat.digitsOnly(c.nip);
 	            }
 	            	else {
 	                    key = "FIRMA:" + normalize(c.fullName) + "|" +

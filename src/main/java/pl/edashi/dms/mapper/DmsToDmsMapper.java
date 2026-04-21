@@ -1,6 +1,7 @@
 package pl.edashi.dms.mapper;
 import pl.edashi.common.logging.AppLogger;
 import pl.edashi.common.util.MappingIdDocs;
+import pl.edashi.converter.service.CashReportAssembler;
 import pl.edashi.converter.servlet.DocTypeConstants;
 import pl.edashi.dms.model.*;
 import pl.edashi.dms.model.DmsParsedDocument.DmsVatEntry;
@@ -151,14 +152,25 @@ public class DmsToDmsMapper {
                    outRk.setKwotaRk(k.getKwotaRk());
                    outRk.setKierunek(k.getKierunek());
                    outRk.setOpis1(k.getOpis1());
-                   outRk.setSymbolKPW(mapSymbolDokumentuZapisu(k.getDowodNumber()));
+                   boolean cardRapLine = "RD".equalsIgnoreCase(srcType) || "DWP".equalsIgnoreCase(srcType);
+                   if (cardRapLine) {
+                       outRk.setSymbolKPW(CashReportAssembler.symbolCardDokumentuZapisuForRapLine(k.getKierunek()));
+                   } else {
+                       outRk.setSymbolKPW(CashReportAssembler.symbolDokumentuZapisuForRapLine(k.getDowodNumber(), k.isInvertKpdKwdSymbol()));
+                   }
                    outRk.setDocKey(k.getDocKey());
                    String code = null;
-                   String mapped = safe(mapDowodNumber(k.getDowodNumber(),src.getNrRep()));
+                   String mapped;
+                   if (cardRapLine) {
+                       mapped = safe(CashReportAssembler.mappedCardDowodForRapLine(k.getDowodNumber(), src.getNrRep(), k.getKierunek()));
+                   } else {
+                       mapped = safe(CashReportAssembler.mappedDowodForRapLine(k.getDowodNumber(), src.getNrRep(), k.isInvertKpdKwdSymbol()));
+                   }
                    code = mapped.split("/")[0].trim();
                    String typeKey = null;
                    if ("KWD".equalsIgnoreCase(code)) typeKey = "KWD";
                    else if ("KPD".equalsIgnoreCase(code)) typeKey = "KPD";
+                   else if ("DWP".equalsIgnoreCase(code)) typeKey = "DWP";
                    else if ("DW".equalsIgnoreCase(code)) typeKey = "DW";
                    String suffix = "";
                    log.info(String.format("MAPPER BEFORE: k.getDocKey=%s mapped=%s raw=%s getOpis1=%s typeKey=%s countersd=%s", k.getDocKey(),mapped, k.getDowodNumber(), k.getOpis1(), typeKey, countersd));
@@ -257,6 +269,10 @@ public class DmsToDmsMapper {
             case "110" -> "110" ;
             case "120" -> "120" ;
             case "121" -> "121" ;
+            case "122" -> "122" ;
+            case "130" -> "130" ;
+            case "132" -> "132" ;
+            case "139" -> "139" ;
             case "141" -> "141" ;
             case "143" -> "143" ;
             case "191" -> "191" ;
@@ -270,80 +286,6 @@ public class DmsToDmsMapper {
             default -> "";
         };
     }
-    private static String mapDowodNumber(String src, String nrRKB) {
-        if (src == null) return null;
-        src = src.trim();
-        // jeśli już jest w docelowym formacie, zwróć bez zmian
-        if (src.matches("^(KP|KW|DW)/\\d+/\\d{6}/\\d{4}$")) {
-            return src;
-        }
-
-        String[] parts = src.split("/");
-        if (parts.length < 3) return src; // nieznany format -> zwróć oryginał
-
-        String code = parts[0].trim();
-        String rawNumber = parts[1].replaceAll("\\D", ""); // zostaw tylko cyfry
-        String year = parts[2].trim();
-
-        if (rawNumber.isEmpty()) return src;
-
-        String type;
-        switch (code) {
-            case "01": type = "KPD"; break;
-            case "02": type = "KWD"; break;
-            case "03": type = "DW"; break;
-            default: return src; // nieznany kod -> zwróć oryginał
-        }
-
-        int num;
-        try {
-            num = Integer.parseInt(rawNumber);
-        } catch (NumberFormatException e) {
-            return src;
-        }
-
-        String padded = String.format("%06d", num);
-
-        // --- normalizacja nrRKB do 2 cyfr (np. "1" -> "01") ---
-        String prefix = "";
-        if (nrRKB != null) {
-            String nr = nrRKB.trim().replaceAll("\\D", "");
-            if (!nr.isEmpty()) {
-                try {
-                    int nrInt = Integer.parseInt(nr);
-                    prefix = String.format("%03d", nrInt); // zawsze 2 cyfry
-                } catch (NumberFormatException ignored) {
-                    // jeśli nie da się sparsować, użyj surowego nr (bez niecyfr)
-                    prefix = nr;
-                }
-            }
-        }
-
-        if (!prefix.isEmpty()) {
-            int replaceLen = Math.min(prefix.length(), padded.length());
-            padded = prefix + padded.substring(replaceLen);
-        }
-
-        return String.format("%s/1/%s/%s", type, padded, year);
-    }
-
-    private static String mapSymbolDokumentuZapisu(String dowodNumber) {
-        if (dowodNumber == null) return null;
-        String s = dowodNumber.trim();
-        if (s.isEmpty()) return null;
-
-        // oczekiwany format: "NN/xxxxx/YYYY"
-        String[] parts = s.split("/");
-        if (parts.length < 1) return null;
-
-        switch (parts[0].trim()) {
-            case "01": return "KPD";
-            case "02": return "KWD";
-            case "03": return "DW";
-            default:   return null; // nieznany kod -> nie ustawiamy
-        }
-    }
-
     private String stripTime(String dateTime) {
         if (dateTime == null) return null;
         int space = dateTime.indexOf(' ');

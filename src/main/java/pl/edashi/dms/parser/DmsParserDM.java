@@ -193,7 +193,7 @@ public class DmsParserDM {
                 Element dane = (Element) el.getElementsByTagName("dane").item(0);
                 Element rozs = (Element) dane.getElementsByTagName("rozszerzone").item(0);
                 c.id = rozs.getAttribute("kod_klienta");
-                c.nip = rozs.getAttribute("nip");
+                c.setNip(rozs.getAttribute("nip"));
                 c.name1 = rozs.getAttribute("nazwa1");
                 c.name2 = rozs.getAttribute("nazwa2");
                 c.name3 = rozs.getAttribute("nazwa3");

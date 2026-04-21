@@ -17,6 +17,7 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 /**
  * Parser DK.xml
  * - wyciąga główny numer dokumentu (z elementu <numer> w <dane>)
@@ -138,7 +139,7 @@ public class DmsParserDK implements DmsParser{
                 String wyr = rozs.getAttribute("wyr");
                 c.isCompany = "F".equalsIgnoreCase(wyr);
                 c.id = rozs.getAttribute("kod_klienta");
-                c.nip = rozs.getAttribute("nip");
+                c.setNip(rozs.getAttribute("nip"));
                 c.name1 = rozs.getAttribute("nazwa1");
                 c.name2 = rozs.getAttribute("nazwa2");
                 c.name3 = rozs.getAttribute("nazwa3");
@@ -168,7 +169,7 @@ public class DmsParserDK implements DmsParser{
         Contractor c = new Contractor(); 
         c.isCompany = false; 
         c.czynny = "Nie"; 
-        c.nip = ""; 
+        c.setNip(""); 
         c.name1 = ""; 
         c.name2 = ""; 
         c.name3 = ""; 
@@ -283,12 +284,11 @@ public class DmsParserDK implements DmsParser{
             if (dane48 == null) continue;
             DmsRapKasa r = new DmsRapKasa();
             r.setContractor(contractor);
-         // 1) klasyfikacja Z/W
+         // 1) klasyfikacja Z/W na poziomie typ 48 (szkielet; pozycje typ 49 ustawiają kierunek osobno)
             Element klas = firstDirectChild(dane48, "klasyfikatory");
             if (klas != null) {
-                String kier = "Z".equalsIgnoreCase(klas.getAttribute("klasyfikacja"))
-                        ? "przychód"
-                        : "rozchód";
+                String kk = safeAttr(klas, "klasyfikacja").trim();
+                String kier = "Z".equalsIgnoreCase(kk) ? "przychód" : "rozchód";
                 r.setKierunek(kier);
             }
 
@@ -388,13 +388,23 @@ public class DmsParserDK implements DmsParser{
                         //if (attrNr != null && !attrNr.isBlank()) nr = attrNr;
                     }
                 }
-                String existingKierunek = "";
+                // Kierunek: osobno dla każdej pozycji typ 49 — Z/W z linii lub z nadrzędnego typ 48; ujemna kwota → wartość dodatnia + odwrócenie kierunku
+                Element klas49 = firstDirectChild(dane49, "klasyfikatory");
+                String kierunekLine = resolveKierunekForTyp49(dane49, klas49);
+                boolean invertKpdKwd = false;
+                if (kwRk != null && !kwRk.isBlank()) {
+                    double v = parseKwotaDouble(kwRk);
+                    if (v < 0) {
+                        kwRk = String.format(Locale.US, "%.2f", Math.abs(v));
+                        kierunekLine = invertKierunek(kierunekLine);
+                        invertKpdKwd = true; // kod 01/02 z XML → w assemblerze zamiana KPD↔KWD razem z kierunkiem
+                    }
+                }
                 // weź kolejny skeleton z listy (jeśli jest), inaczej utwórz nowy
                 DmsRapKasa match = null;
                 if (lpAttr != null && !lpAttr.isBlank()) {
                     for (DmsRapKasa p : list) {
                         String existingLp = p.getLp();
-                        existingKierunek = p.getKierunek();
                         if (lpAttr.equals(existingLp)) {
                             match = p;
                             break;
@@ -416,7 +426,9 @@ public class DmsParserDK implements DmsParser{
                 if (numer49 != null && !numer49.isBlank()) match.setNrDokumentu(numer49);
                 match.setLp(lpAttr);
                 match.setOpis1(opis1);
-                match.setKierunek(existingKierunek);
+                match.setKierunek(kierunekLine);
+                match.setInvertKpdKwdSymbol(invertKpdKwd);
+                applyDowodFromAncestorTyp48(dane49, match);
 
                 //match.setNrDokKasowego(lpAttr);
                 // opcjonalny log debugowy
@@ -428,9 +440,9 @@ public class DmsParserDK implements DmsParser{
 
     private List<DmsRapKasa> extractPositionsDK(Document doc, DmsParsedDocument out) {
   String podmiot ="";
-        Contractor cont = extractContractor(doc);
-        out.setContractor(cont);
-        if (cont != null) {
+        Contractor co = extractContractor(doc);
+        out.setContractor(co);
+        /*if (cont != null) {
             if (cont.getNip() != null && !cont.getNip().isBlank()) {
                 podmiot = cont.getNip();
             } else {
@@ -440,24 +452,75 @@ public class DmsParserDK implements DmsParser{
             // c.podmiot = podmiot;
         } else {
             podmiot = "";
+        }*/
+        if ("Tak".equalsIgnoreCase(out.getDokumentFiskalny())) {
+       	 log.info(String.format("if 1 podmiot='%s' fullName='%s'", podmiot, co.fullName));
+            // dokument fiskalny (paragon)
+       	 if ((co.getNip() == null || co.getNip().isBlank()) 
+       		        && (co.getFullName() == null || co.getFullName().isBlank())) {
+                // brak NIP — traktujemy jako sprzedaż paragonowa
+                String paragonName = "SPRZEDAZ_PARAGONOWA";
+                if (co != null) {
+                    // ustawiaj tylko jeśli nie nadpisujesz czegoś ważnego
+                    co.setFullName(paragonName);
+                    co.setName1("Sprzedaż Paragonowa");
+                    co.setPodmiot(paragonName);
+                }
+                podmiot = paragonName;
+            } else {
+                // jest NIP lub full name 
+           	 log.info(String.format("if 2 podmiot='%s' fullName='%s' nip='%s'", podmiot, co.fullName, co.getNip()));
+           		 if (co.getNip() != null && !co.getNip().isBlank()) {
+           		 podmiot = co.getNip().trim();
+           		 log.info(String.format("if 3 podmiot='%s' fullName='%s' nip='%s'", podmiot, co.fullName, co.getNip()));
+           		 co.setPodmiot(podmiot);
+           	 } else {
+                    podmiot = co.getFullName().trim();
+                    log.info(String.format("if 4 podmiot='%s' fullName='%s'", podmiot, co.fullName));
+                    co.setPodmiot(podmiot);
+           	 }
+                //if (c != null) c.setPodmiot(podmiot);
+            }
+        } else {
+       	 log.info(String.format("else podmiot='%s'", podmiot));
+            // nie jest dokumentem fiskalnym — preferuj NIP, potem fullName
+            if (co != null && co.getNip() != null && !co.getNip().isBlank()) {
+                podmiot = co.getNip().trim();
+                co.setPodmiot(podmiot);
+            } else if (co != null && co.getFullName() != null && !co.getFullName().isBlank()) {
+                podmiot = co.getFullName().trim();
+                co.setPodmiot(podmiot);
+            } else {
+         	   String paragonName = "SPRZEDAZ_PARAGONOWA";
+               if (co != null) {
+                   // ustawiaj tylko jeśli nie nadpisujesz czegoś ważnego
+                   co.setFullName(paragonName);
+                   co.setName1("Sprzedaż Paragonowa");
+                   co.setPodmiot(paragonName);
+               }
+               podmiot = paragonName;
+           }
+            if (co != null) co.setPodmiot(podmiot);
         }
-
-        out.setContractor(cont);
+        out.setContractor(co);
         out.setPodmiot(podmiot);
 	    // 1) Pozycje z typ="48"
 	    List<DmsRapKasa> list = new ArrayList<>();
-	    extractPositions48(doc,list,cont);   // istniejące pozycje na poziomie 48
+	    extractPositions48(doc,list,co);   // istniejące pozycje na poziomie 48
 	    extractPositions49(doc,list,out);   // nowe: pozycje z dokumentów 49
 	    //log.info(String.format("ext DK list='%s '", list));
 	 // po zebraniu listy rapKasa (po extractPositions48 i extractPositions49)
-	    String dowod = null;
-	    if (out != null) {
-	        // pole, które wcześniej ustawiłeś w extractAndSetReportNumberPosFromFirstPosition
-	        dowod = out.getDowodNumber(); // lub out.getNrDowodu() / właściwy getter
-	    }
-	    if (dowod != null && !dowod.isBlank()) {
+	    String fallbackDowod = out != null ? out.getDowodNumber() : null;
+	    if (fallbackDowod != null && !fallbackDowod.isBlank()) {
 	        for (DmsRapKasa r : list) {
-	            // ustawiamy numer dowodu KP/KW w polach pozycji
+	            String dowod = r.getDowodNumber();
+	            if (dowod == null || dowod.isBlank()) {
+	                dowod = fallbackDowod;
+	            }
+	            if (dowod == null || dowod.isBlank()) {
+	                continue;
+	            }
+	            // ustawiamy numer dowodu KP/KW w polach pozycji (najpierw z typ 48 nadrzędnego dla typ 49)
 	        	r.setPodmiot(podmiot);
 	            r.setDowodNumber(dowod); // pole używane do zapisu NR_RAPORTU / NR_DOWODU w XML
 	            //r.setReportNumberPos(removeLeadingZeroInFirstSegment(dowod)); // jeśli chcesz formatowany wariant
@@ -484,7 +547,33 @@ public class DmsParserDK implements DmsParser{
 	            log.info("ext DK parser dowodNumber='" + dowod + "' do pozycji; nrDokumentu='" + r.getNrDokumentu() + "' file=" + out.getSourceFileName());
 	        }
 	    } else {
-	        log.info("ext DK parser: brak dowodNumber w out — nie przypisano do pozycji; file=" + out.getSourceFileName());
+	        boolean anyLine = false;
+	        for (DmsRapKasa r : list) {
+	            String dowod = r.getDowodNumber();
+	            if (dowod == null || dowod.isBlank()) {
+	                continue;
+	            }
+	            anyLine = true;
+	            r.setPodmiot(podmiot);
+	            r.setDowodNumber(dowod);
+	            String numerFa = dowod;
+	            String nrIdPlat = MappingIdDocs.generateCandidate(podmiot, "D", numerFa, 36);
+	            String fullKey = MappingIdDocs.buildFullKey(podmiot, numerFa);
+	            String hash = MappingIdDocs.shortHashFromFullKey(fullKey, 6);
+	            String docKey = MappingIdDocs.generateDocId(podmiot, "K", numerFa, 36);
+	            r.setFullKey(fullKey);
+	            out.setFullKey(fullKey);
+	            r.setDocKey(docKey);
+	            out.setDocKey(docKey);
+	            r.setNrIdPlat(nrIdPlat);
+	            out.setNrIdPlat(nrIdPlat);
+	            r.setHash(hash);
+	            out.setHash(hash);
+	            log.info("ext DK parser dowodNumber='" + dowod + "' (tylko z linii) nrDokumentu='" + r.getNrDokumentu() + "' file=" + out.getSourceFileName());
+	        }
+	        if (!anyLine) {
+	            log.info("ext DK parser: brak dowodNumber (out i pozycje) — nie przypisano do pozycji; file=" + out.getSourceFileName());
+	        }
 	    }
 
 	    return list;
@@ -543,75 +632,94 @@ public class DmsParserDK implements DmsParser{
                 break; // tylko pierwszy document typ=02
             }
         }
+        // Wiele bloków document typ="48" w jednym pliku: wcześniej brano tylko pierwszy (return) —
+        // wtedy numer z kod_dok="01" (KPD) mógł zablokować właściwy "02" (KWD).
+        String dowod02 = null;
+        String nrRkb02 = null;
+        String dowod01 = null;
+        String nrRkb01 = null;
+        String dowodAny = null;
+        String nrRkbAny = null;
         for (int i = 0; i < docs.getLength(); i++) {
             Element el = (Element) docs.item(i);
             if (el == null) continue;
-            //log.info("1 Inspecting document: tag=" + el.getNodeName() + " typ=" + el.getAttribute("typ") + " attrs=" + listAttributes(el));
-            if (!"48".equals(el.getAttribute("typ"))) continue; // tylko pozycje typu 48
+            if (!"48".equals(el.getAttribute("typ"))) continue;
             Element dane48 = firstDirectChild(el, "dane");
             if (dane48 == null) {
-            	log.info("1 Found document typ=48 but no direct <dane> child; file=" + out.getSourceFileName());
-            	continue;
+                log.info("1 Found document typ=48 but no direct <dane> child; file=" + out.getSourceFileName());
+                continue;
             }
-
-            // spróbuj pobrać numer z elementu 'numer' z kod_dok="01"
             Element numEl = firstDirectChild(dane48, "numer");
             if (numEl == null) {
                 log.info("1 Found <dane> in typ=48 but no direct <numer>; file=" + out.getSourceFileName());
                 continue;
             }
-         // preferujemy tekst elementu (np. "01/00003/2026"), bez harmonizacji
             String raw = numEl.getTextContent();
-            String repNrRKB = numEl.getAttribute("nr").trim();
-            out.setNrRKB(repNrRKB);
-            //if (raw == null || raw.isBlank()) raw = numEl.getAttribute("nr");
             if (raw == null || raw.isBlank()) {
                 log.info("1 numer element empty in typ=48; file=" + out.getSourceFileName());
                 continue;
             }
-
-            raw = raw.trim(); // tylko trim, zachowujemy format "01/00003/2026"
-            // **TUTAJ TYLKO** ustawiamy pole dowodowe — nie ruszamy reportNumber/reportNumberPos/nrRKB
-            out.setDowodNumber(raw); // <- jeśli Twój setter ma inną nazwę, zamień na właściwy (np. setNrDowodu)
-            log.info("1 DK parser: ustawiono dowodNumber (KP/KW) = '" + raw + "' file=" + out.getSourceFileName());
-            //////////////////////////
-            /*log.info("Pos DK parser: nie znaleziono document typ=48; file=" + out.getSourceFileName());
-            String raw1 = null;
-            if (numEl != null && "01".equals(numEl.getAttribute("kod_dok"))) {
-            	raw1= numEl.getTextContent();
-                log.info("Pos Found <dane> but no direct <numer> child; file=" + out.getSourceFileName() +" raw= " + raw1);
+            raw = raw.trim();
+            String repNrRKB = numEl.getAttribute("nr").trim();
+            String kodDok = safeAttr(numEl, "kod_dok").trim();
+            if (dowodAny == null) {
+                dowodAny = raw;
+                nrRkbAny = repNrRKB;
             }
-            String rawNrKpW = null;
-            if (numEl != null && "01".equals(numEl.getAttribute("kod_dok"))) {
-            	rawNrKpW = numEl.getTextContent();
-            	log.info("Pos numer kod_dok != '01' (rawNrKpW='" + rawNrKpW + "'), file=" + out.getSourceFileName());
-            	
+            if ("02".equals(kodDok) && dowod02 == null) {
+                dowod02 = raw;
+                nrRkb02 = repNrRKB;
+            } else if ("01".equals(kodDok) && dowod01 == null) {
+                dowod01 = raw;
+                nrRkb01 = repNrRKB;
             }
-            // fallback: jeśli nie ma elementu numer, spróbuj z opisu/klasyfikatorów
-            if ((raw == null || raw.isBlank())) {
-                Element opisEl = firstDirectChild(dane48, "opis");
-                if (opisEl != null) raw = opisEl.getTextContent();
-            }
-
-            if (raw1 != null) {
-                raw1 = removeLeadingZeroInFirstSegment(raw1.trim());
-                // usuń tylko trailing/leading spacje; nie zmieniaj formatu numeru
-                out.setReportNumberPos(raw1);
-                // opcjonalnie ustaw też reportNumber (jeśli chcesz, żeby pole reportNumber było dostępne)
-                if (out.getReportNumber() == null || out.getReportNumber().isBlank()) {
-                    out.setReportNumber(raw);
-                }
-                log.info("Pos DK parser: ustawiono out.reportNumberPos = '" + raw1 + "' file=" + out.getSourceFileName());
-            }*/
-            
-            return; 
-            }
-        
+        }
+        String chosen = dowod02 != null ? dowod02 : (dowod01 != null ? dowod01 : dowodAny);
+        String nrRkbChosen = dowod02 != null ? nrRkb02 : (dowod01 != null ? nrRkb01 : nrRkbAny);
+        if (chosen != null) {
+            out.setDowodNumber(chosen);
+            out.setNrRKB(nrRkbChosen);
+            log.info(String.format("1 DK parser: ustawiono dowodNumber (KP/KW) = '%s' nrRKB='%s' (prefer kod_dok 02>01>pierwszy) file=%s",
+                    chosen, nrRkbChosen, out.getSourceFileName()));
+        }
     }
 
     // ------------------------------
     // Pomocnicze metody
     // ------------------------------
+    /**
+     * Numer dowodu KP/KW (np. {@code 02/00001/2026}) z {@code document typ="48"} obejmującego tę pozycję typ 49.
+     * W jednym pliku DK może być wiele bloków 48 z różnym {@code kod_dok} — dokumentowy fallback z
+     * {@link #extractAndSetReportAndDowodNumbers} nie wystarcza; assembler musi widzieć ten numer w
+     * {@link DmsRapKasa#getDowodNumber()}.
+     */
+    private void applyDowodFromAncestorTyp48(Element dane49, DmsRapKasa match) {
+        if (dane49 == null || match == null) {
+            return;
+        }
+        Element doc48 = findAncestorDocumentOfType(dane49, "48");
+        if (doc48 == null) {
+            return;
+        }
+        Element dane48 = firstDirectChild(doc48, "dane");
+        if (dane48 == null) {
+            return;
+        }
+        Element numEl = firstDirectChild(dane48, "numer");
+        if (numEl == null) {
+            return;
+        }
+        String raw = numEl.getTextContent();
+        if (raw == null || raw.isBlank()) {
+            return;
+        }
+        match.setDowodNumber(raw.trim());
+        String nrAttr = numEl.getAttribute("nr");
+        if (nrAttr != null && !nrAttr.trim().isEmpty()) {
+            match.setNrRKB(nrAttr.trim());
+        }
+    }
+
     private Element findAncestorDocumentOfType(Node start, String typ) {
         Node n = start;
         while (n != null) {
@@ -622,6 +730,64 @@ public class DmsParserDK implements DmsParser{
             n = n.getParentNode();
         }
         return null;
+    }
+
+    /** Jak przy typ 48: Z → przychód, każdy inny kod (W, DZ, …) → rozchód. */
+    private static String kierunekFromTyp48Klasyfikatory(Element klas48) {
+        if (klas48 == null) {
+            return "";
+        }
+        String kk = safeAttr(klas48, "klasyfikacja").trim();
+        return "Z".equalsIgnoreCase(kk) ? "przychód" : "rozchód";
+    }
+
+    /**
+     * Kierunek dla pojedynczej pozycji typ 49: jawne Z/W z linii; DS/DZ i inne (bez Z/W na linii) —
+     * ta sama reguła co nagłówek typ 48 (Z → przychód, W → rozchód). Powiązanie z dokumentem DS na linii
+     * nie determinuje kierunku gotówki; liczy się klasyfikacja dowodu kasowego (typ 48).
+     */
+    private String resolveKierunekForTyp49(Element dane49, Element klas49) {
+        if (klas49 != null) {
+            String kk = safeAttr(klas49, "klasyfikacja").trim();
+            if ("Z".equalsIgnoreCase(kk)) {
+                return "przychód";
+            }
+            if ("W".equalsIgnoreCase(kk)) {
+                return "rozchód";
+            }
+        }
+        Element doc48 = findAncestorDocumentOfType(dane49, "48");
+        if (doc48 == null) {
+            return "";
+        }
+        Element dane48 = firstDirectChild(doc48, "dane");
+        Element klas48 = dane48 != null ? firstDirectChild(dane48, "klasyfikatory") : null;
+        return kierunekFromTyp48Klasyfikatory(klas48);
+    }
+
+    private static String invertKierunek(String k) {
+        if (k == null || k.isBlank()) {
+            return "";
+        }
+        String t = k.trim();
+        if ("przychód".equalsIgnoreCase(t)) {
+            return "rozchód";
+        }
+        if ("rozchód".equalsIgnoreCase(t)) {
+            return "przychód";
+        }
+        return k;
+    }
+
+    private static double parseKwotaDouble(String s) {
+        if (s == null || s.isBlank()) {
+            return 0.0;
+        }
+        try {
+            return Double.parseDouble(s.trim().replace(",", "."));
+        } catch (Exception e) {
+            return 0.0;
+        }
     }
 
     private Element firstDirectChild(Element parent, String tag) {
