@@ -18,6 +18,15 @@
     <param-value>C:/XML/Output</param-value>
   </context-param>
   <context-param>
+    <param-name>watchDir</param-name>
+    <param-value>\\\\172.16.0.125\\apl\\pliki\\dms-xml\\exp_xml\\ok</param-value>
+</context-param>
+
+<context-param>
+    <param-name>outputDir</param-name>
+    <param-value>\\\\172.16.0.125\\apl\\pliki\\dms-xml\\exp_xml\\Optima\\Output</param-value>
+</context-param>
+  <context-param>
     <param-name>watcherWorkerThreads</param-name>
     <param-value>1</param-value>
   </context-param>

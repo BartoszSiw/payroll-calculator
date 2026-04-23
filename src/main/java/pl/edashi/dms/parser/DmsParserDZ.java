@@ -149,6 +149,7 @@ public class DmsParserDZ implements DmsParser{
         out.setPositions(extractPositionsDZ(doc, out,bruttoUmowa,rejestrDZ));
         List<DmsPosition> list75 = createPositionsFrom75(doc);
         out.setDodatkowyOpis(positionsToOpis(list75));
+        out.setVin(firstNonBlankVin(list75));
         // 2) Wartości stawka / netto / vat (document typ="06")
         // ============================
 
@@ -196,6 +197,16 @@ public class DmsParserDZ implements DmsParser{
         String code = "Z";
         out.setMappingTarget(MappingTarget.fromCode(code));
         return out;
+    }
+
+    private String firstNonBlankVin(List<DmsPosition> positions) {
+        if (positions == null || positions.isEmpty()) return "";
+        for (DmsPosition p : positions) {
+            if (p == null) continue;
+            String vin = p.getVin();
+            if (vin != null && !vin.isBlank()) return vin.trim();
+        }
+        return "";
     }
 
     // ------------------------------
@@ -371,7 +382,7 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
     private List<DmsPosition> extractPositionsDZ(Document doc, DmsParsedDocument out, String bruttoUmowa,String rejestrDZ) {
 
     	    // 1) Pozycje z typ="50"
-    	    List<DmsPosition> list = extractPositions50(doc,rejestrDZ);
+    	    List<DmsPosition> list = extractPositions50(doc,rejestrDZ,out.getOddzial());
     	 // sprawdź, czy istnieje document typ=03
     	    boolean has03 = false;
     	    NodeList allDocs = doc.getElementsByTagName("document");
@@ -404,7 +415,7 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
     	}
 
   
-    private List<DmsPosition> extractPositions50(Document doc, String rejestrDZ) {
+    private List<DmsPosition> extractPositions50(Document doc, String rejestrDZ, String oddzial) {
         List<DmsPosition> list = new ArrayList<>();
 
         NodeList docs = doc.getElementsByTagName("document");
@@ -428,7 +439,11 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
                 p.typDZ = safeAttr(dane, "typ");
                 p.jm = safeAttr(dane, "jm");
                 p.jmSymb = safeAttr(dane, "jm_symb");
+                if ("02".equals(oddzial)) {
+                    p.netto = wart != null ? safeAttr(wart, "netto") : "";
+                } else {
                 p.netto = wart != null ? safeAttr(wart, "netto_prup") : "";
+                }
                 p.cenaNetto = wart != null ? safeAttr(wart, "cena_netto") : "";
                 p.opis = rozs != null ? safeAttr(rozs, "opis1") : "";
                 p.nrKonta = rozs != null ? safeAttr(rozs, "nr_konta") : "";
@@ -588,6 +603,15 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
             p.lp = dane.getAttribute("lp");
             if (p.lp == null || p.lp.isBlank()) {
                 p.lp = String.valueOf(i + 1);
+            }
+
+            // VIN (header classifier)
+            Element klas = firstElementByTag(dane, "klasyfikatory");
+            if (klas != null) {
+                String vin = safeAttr(klas, "vin");
+                if (vin != null && !vin.isBlank()) {
+                    p.setVin(vin.trim());
+                }
             }
             //p.statusVat = "nie podlega";
             //p.stawkaVat = "0";

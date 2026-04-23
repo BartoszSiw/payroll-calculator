@@ -33,6 +33,17 @@ public class DocumentOutGenerator {
 
     public enum Status { OK, SKIPPED, ERROR }
 
+    private static String normalizeOddzial(String raw) {
+        if (raw == null) return "";
+        String s = raw.trim();
+        if (s.isEmpty()) return "";
+        // DMS bywa niespójny: "2" vs "02"
+        if (s.length() == 1 && Character.isDigit(s.charAt(0))) {
+            return "0" + s;
+        }
+        return s;
+    }
+
     public static class DocOutGenerationResult {
         public final Status status;
         public final DmsDocumentOut docOut;
@@ -111,7 +122,7 @@ public class DocumentOutGenerator {
             DmsParsedDocument d = (DmsParsedDocument) parsed;
 
             String docRejestr = d.getDaneRejestr() != null ? d.getDaneRejestr().trim().toUpperCase() : "";
-            String docOddzial = d.getOddzial() != null ? d.getOddzial().trim() : "";
+            String docOddzial = normalizeOddzial(d.getOddzial());
             if (d.getDocumentType() != null) d.setDocumentType(d.getDocumentType().trim().toUpperCase());
 
             if (filtrRejestry != null && !filtrRejestry.isEmpty()) {
@@ -124,11 +135,13 @@ public class DocumentOutGenerator {
             }
 
             if (filtrOddzial != null && !filtrOddzial.isBlank()) {
+                String filt = normalizeOddzial(filtrOddzial);
                 String effectiveDocOddzial = docOddzial.isBlank() ? "01" : docOddzial;
-                if (!filtrOddzial.equals(effectiveDocOddzial)) {
+                if (!filt.equals(effectiveDocOddzial)) {
                     String reason = "docOddzial mismatch";
                     resultsQueue.add(String.format("Pominięto: %s (%s)", fileName, reason));
-                    log.info(String.format("5 generateAndRecord: skipping file %s because docOddzial='%s' (effective='%s') != filter '%s'", fileName, docOddzial, effectiveDocOddzial, filtrOddzial));
+                    log.info(String.format("5 generateAndRecord: skipping file %s because docOddzial='%s' (effective='%s') != filter '%s' (normalized='%s')",
+                            fileName, d.getOddzial(), effectiveDocOddzial, filtrOddzial, filt));
                     return DocOutGenerationResult.skipped(reason, d);
                 }
             }

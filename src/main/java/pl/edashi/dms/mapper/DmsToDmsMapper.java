@@ -99,6 +99,8 @@ public class DmsToDmsMapper {
         doc.setDocKey(safe(src.getDocKey()));
         doc.setHash(safe(src.getHash()));
         doc.setNrBank(safe(src.getNrBank()));
+        doc.setVin(safe(src.getVin()));
+        log.info(String.format("2 doc vin='%s'",doc.getVin()));
      // POZYCJE - inicjalizacja listy i mapowanie pozycji
         doc.setPozycje(new ArrayList<>());
         List<DmsPosition> positions = src.getPositions();
@@ -130,6 +132,7 @@ public class DmsToDmsMapper {
                 outPos.setNettoKoMat(safe(p.getNettoKoMat()));
                 outPos.setKwotyDodatkowe(p.getKwotyDodatkowe());
                 //log.info(String.format("Mapper pos odliczenia='%s'",p.getOdliczenia()));
+                log.info(String.format("3 DmsOutputPosition vin='%s'",outPos.getVin()));
                 doc.getPozycje().add(outPos);
             }
         }

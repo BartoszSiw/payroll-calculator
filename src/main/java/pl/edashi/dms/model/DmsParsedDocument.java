@@ -79,7 +79,7 @@ public class DmsParsedDocument {
     public String expKrajowy = "";
     public String dodatkowyOpis ="";
     public String nrBank = "";
-    //private String vin = "";
+    private String vin = "";
 
     // dodatkowe pola pomocnicze
     private String sourceFileName = "";
@@ -186,8 +186,7 @@ public class DmsParsedDocument {
 	public void setDodatkowyOpis(String dodatkowyOpis) {this.dodatkowyOpis = safe(dodatkowyOpis); }
 	public void setNrBank(String nrBank) {this.nrBank = safe(nrBank);}
 	public void setMappingTarget(MappingTarget mappingTarget) { this.mappingTarget = mappingTarget; }
-	
-	//public void setVin(String vin) {this.vin  = vin ;}
+	public void setVin(String vin) { this.vin = safe(vin); }
     // --- Gettery ---
     public String getNrKsef() {
         return nrKsef;
@@ -317,7 +316,7 @@ public class DmsParsedDocument {
     public String getDodatkowyOpis() {return dodatkowyOpis;}
     public String getNrBank() {return nrBank;}
     public MappingTarget getMappingTarget() { return mappingTarget; }
-	    //public String getVin() {return vin;}
+    public String getVin() { return vin; }
     // --- Utility ---
 
     @Override

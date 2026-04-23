@@ -46,6 +46,17 @@ public class ConverterService {
     private final XmlStructureComparator structureComparator;
     private final AppLogger log = new AppLogger("ConverterService");
 
+    private static String normalizeOddzial(String raw) {
+        if (raw == null) return "";
+        String s = raw.trim();
+        if (s.isEmpty()) return "";
+        // DMS bywa niespójny: "2" vs "02"
+        if (s.length() == 1 && Character.isDigit(s.charAt(0))) {
+            return "0" + s;
+        }
+        return s;
+    }
+
     public ConverterService(DocumentRepository repository, RejestrDao rejestrDao) {
         this.repository = repository;
         this.rejestrDao = rejestrDao;
@@ -142,7 +153,7 @@ public class ConverterService {
         // parsowanie
         DmsParsedDocument d = parser.parse(doc, sourceFile);
         String docRejestr = d.getDaneRejestr() == null ? "" : d.getDaneRejestr().trim().toUpperCase();
-        String docOddzial = d.getOddzial() == null ? "" : d.getOddzial().trim();
+        String docOddzial = normalizeOddzial(d.getOddzial());
         ParserRegistry registry = ParserRegistry.getInstance();
         DateFilterRegistry dateFilter = DateFilterRegistry.getInstance();
         log.info(String.format("11 processSingleDocument AFTER PARSE: parsedClass=%s metadata=%s docRejestr=%s docOddzial=%s", d.getClass().getName(),d.getMetadata(),docRejestr,docOddzial));
@@ -175,9 +186,14 @@ public class ConverterService {
         	log.info(String.format("12 processSingleDocument filtrRejestry='%s' docRejestr='%s'", filtrRejestry, docRejestr));
             return new SkippedDocument(d.getDocumentType(), "Rejestr not in filter");
         }
-        if (filtrOddzial != null && !filtrOddzial.isBlank() && !filtrOddzial.equals(docOddzial)) {
-        	log.info(String.format("13 processSingleDocument filtrOddzial='%s' docOddzial='%s'", filtrOddzial, docOddzial));
+        if (filtrOddzial != null && !filtrOddzial.isBlank()) {
+            String filt = normalizeOddzial(filtrOddzial);
+            String effectiveDocOddzial = docOddzial.isBlank() ? "01" : docOddzial;
+            if (!filt.equals(effectiveDocOddzial)) {
+                log.info(String.format("13 processSingleDocument filtrOddzial='%s' docOddzial='%s' effectiveDocOddzial='%s' normalizedFiltr='%s'",
+                        filtrOddzial, d.getOddzial(), effectiveDocOddzial, filt));
             return new SkippedDocument(d.getDocumentType(), "Oddzial not in filter");
+            }
         }
         if (!registry.isEnabled(docType)) {
             log.info(String.format("14 processSingleDocument Pominięto: registry disabled docType='%s' fullKey='%s'", docType, fullKey));

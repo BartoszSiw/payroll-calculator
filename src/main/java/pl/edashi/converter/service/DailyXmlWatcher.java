@@ -1232,7 +1232,7 @@ public class DailyXmlWatcher {
         log.info("DailyXmlWatcher shutdown requested");
     }
     /**
-     * Pomocnicza metoda: buduje raporty (KO/RO i kartowe) i zapisuje je jako KO_RO_yyyyMMdd_HHmmss.xml
+     * Pomocnicza metoda: buduje raporty (KO/RO i kartowe) i zapisuje je jako {@code {prefix}CASH_yyyyMMdd_HHmmss.xml}.
      * - reportNumbers: zebrane numery raportów (KO/RO)
      * - assemblerCash / assemblerCard: używane do budowy DmsDocumentOut raportów
      * - idKsieg: ustawiane na root builderach
@@ -1339,14 +1339,7 @@ public class DailyXmlWatcher {
                 Files.writeString(outPathR, xmlR, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                 log.info("persistPublishedFinalDocs: published reports finalDoc " + outPathR);
                 messages.add("Opublikowano finalDoc (raporty): " + fileNameOutR);
-                if (this.generator != null) {
-                    try {
-                        this.generator.publishFinalDoc("KO_RO", xmlR, tsR);
-                        log.info(String.format("buildAndWriteReports: published to generator outputGroup=KO_RO ts=%s", tsR));
-                    } catch (Exception ex) {
-                        log.error("buildAndWriteReports: failed to publish KO_RO to generator", ex);
-                    }
-                }
+                // Bez publishFinalDoc(KO_RO) — inaczej następny persist (inny oddział) zapisuje out_KO_RO ze starym XML.
             }
 
         } catch (Exception e) {

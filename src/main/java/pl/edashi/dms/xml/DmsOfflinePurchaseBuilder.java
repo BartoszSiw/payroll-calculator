@@ -118,7 +118,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         //rz.appendChild(makeCdata(docXml, "PLATNIK_ID", safe(doc.getPodmiotId())));
         rz.appendChild(makeCdata(docXml, "PLATNIK_NIP", safe(NipFormat.digitsOnly(doc.getPodmiotNip()))));
         rz.appendChild(makeCdata(docXml, "PLATNIK_RACHUNEK_NR", safe(doc.getNrBank())));
-        rz.appendChild(makeCdata(docXml, "OPIS", ""));//safe(doc.getOpis())));
+        rz.appendChild(makeCdata(docXml, "OPIS", safe(doc.getVin())));//
         rz.appendChild(makeCdata(docXml, "FORMA_PLATNOSCI", firstPaymentForm(doc)));
         rz.appendChild(makeCdata(docXml, "FORMA_PLATNOSCI_ID", safe(doc.getFormaPlatnosciId())));
         rz.appendChild(makeCdata(docXml, "DEKLARACJA_VAT7", safe(doc.getDeklaracjaVat7())));
@@ -144,7 +144,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         if (doc.getNrKsef() != null && !doc.getNrKsef().isEmpty()) {
         	rz.appendChild(makeCdata(docXml, "KSEF_DATA_PRZYJECIA", safe(doc.getDataWystawienia())));
         }
-        rz.appendChild(makeCdata(docXml, "DODATKOWY_OPIS", safe(doc.getDodatkowyOpis())));
+        rz.appendChild(makeCdata(docXml, "DODATKOWY_OPIS", safe(doc.getDodatkowyOpis())+" "+safe(doc.getVin())));
 
         // POZYCJE
         Element pozycje = docXml.createElementNS(NS, "POZYCJE");
@@ -229,8 +229,8 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
                 plat.appendChild(makeCdata(docXml, "PLAT_ELIXIR_O4", ""));
                 plat.appendChild(makeCdata(docXml, "PLAT_FA_Z_PA", "Nie"));
                 plat.appendChild(makeCdata(docXml, "PLAT_VAN_FA_Z_PA", "Nie"));
-                plat.appendChild(makeCdata(docXml, "PLAT_SPLIT_PAYMENT", safe(p.getSplitPayment() != null ? p.getSplitPayment() : "Nie")));
-                plat.appendChild(makeCdata(docXml, "PLAT_SPLIT_KWOTA_VAT", formatAmount(p.getVatZ())));
+                plat.appendChild(makeCdata(docXml, "PLAT_SPLIT_PAYMENT", "Tak"));// safe(p.getSplitPayment() != null ? p.getSplitPayment() : "Tak")));
+                plat.appendChild(makeCdata(docXml, "PLAT_SPLIT_KWOTA_VAT", formatAmount(p.getVat())));//formatAmount(p.getVatZ())));
                 plat.appendChild(makeCdata(docXml, "PLAT_SPLIT_NIP", safe(NipFormat.digitsOnly(doc.getPodmiotNip()))));
                 plat.appendChild(makeCdata(docXml, "PLAT_SPLIT_NR_DOKUMENTU", safe(doc.getInvoiceNumber())));
             }
