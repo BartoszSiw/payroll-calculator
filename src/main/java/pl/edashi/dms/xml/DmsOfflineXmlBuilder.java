@@ -135,7 +135,7 @@ public class DmsOfflineXmlBuilder implements XmlSectionBuilder {
         rs.appendChild(make(docXml, "ROLNIK", "Nie"));
 
         // OPIS, waluta, forma płatności – na razie prosto
-        rs.appendChild(make(docXml, "OPIS", ""));
+        rs.appendChild(make(docXml, "OPIS", doc.getPozycje().get(0).getKategoria()));
         rs.appendChild(make(docXml, "WALUTA", "PLN")); // PLN domyślnie w systemie
         rs.appendChild(make(docXml, "FORMA_PLATNOSCI", firstPaymentForm(doc)));
         rs.appendChild(make(docXml, "FORMA_PLATNOSCI_ID", "")); // brak w modelu – zostawiamy puste

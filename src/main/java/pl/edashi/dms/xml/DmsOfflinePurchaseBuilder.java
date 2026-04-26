@@ -118,7 +118,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
         //rz.appendChild(makeCdata(docXml, "PLATNIK_ID", safe(doc.getPodmiotId())));
         rz.appendChild(makeCdata(docXml, "PLATNIK_NIP", safe(NipFormat.digitsOnly(doc.getPodmiotNip()))));
         rz.appendChild(makeCdata(docXml, "PLATNIK_RACHUNEK_NR", safe(doc.getNrBank())));
-        rz.appendChild(makeCdata(docXml, "OPIS", safe(doc.getVin())));//
+        rz.appendChild(makeCdata(docXml, "OPIS", safe(doc.getPozycje().get(0).getKategoria2())));//
         rz.appendChild(makeCdata(docXml, "FORMA_PLATNOSCI", firstPaymentForm(doc)));
         rz.appendChild(makeCdata(docXml, "FORMA_PLATNOSCI_ID", safe(doc.getFormaPlatnosciId())));
         rz.appendChild(makeCdata(docXml, "DEKLARACJA_VAT7", safe(doc.getDeklaracjaVat7())));
@@ -184,7 +184,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
 
                 // OPIS_POZ / OPIS_POZ_2
                 poz.appendChild(makeCdata(docXml, "OPIS_POZ", safe(p.getOpis())));
-                poz.appendChild(makeCdata(docXml, "OPIS_POZ_2", safe(p.getOpis2())));
+                poz.appendChild(makeCdata(docXml, "OPIS_POZ_2", "Pozycje: " + doc.getPozycje().size() +" "+ safe(p.getOpis2())));
             }
         }
 
@@ -230,7 +230,7 @@ public class DmsOfflinePurchaseBuilder implements XmlSectionBuilder {
                 plat.appendChild(makeCdata(docXml, "PLAT_FA_Z_PA", "Nie"));
                 plat.appendChild(makeCdata(docXml, "PLAT_VAN_FA_Z_PA", "Nie"));
                 plat.appendChild(makeCdata(docXml, "PLAT_SPLIT_PAYMENT", "Tak"));// safe(p.getSplitPayment() != null ? p.getSplitPayment() : "Tak")));
-                plat.appendChild(makeCdata(docXml, "PLAT_SPLIT_KWOTA_VAT", formatAmount(p.getVat())));//formatAmount(p.getVatZ())));
+                plat.appendChild(makeCdata(docXml, "PLAT_SPLIT_KWOTA_VAT", formatAmount(p.getVatZ())));
                 plat.appendChild(makeCdata(docXml, "PLAT_SPLIT_NIP", safe(NipFormat.digitsOnly(doc.getPodmiotNip()))));
                 plat.appendChild(makeCdata(docXml, "PLAT_SPLIT_NR_DOKUMENTU", safe(doc.getInvoiceNumber())));
             }

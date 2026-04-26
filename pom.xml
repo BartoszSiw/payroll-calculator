@@ -111,6 +111,14 @@
   <profiles>
   <profile>
     <id>converter-client</id>
+    <dependencies>
+      <!-- Ensure client WAR has logging enabled (like dev). -->
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>1.4.14</version>
+      </dependency>
+    </dependencies>
     <build>
       <finalName>PayACon-converter</finalName>
       <plugins>
@@ -136,12 +144,39 @@
             <failOnMissingWebXml>false</failOnMissingWebXml>
             <webXml>src/main/webconverter/WEB-INF/web.xml</webXml>
             <packagingExcludes>payroll/**</packagingExcludes>
+            <packagingExcludes>**/pl/edashi/converter/license/LicenseTool.java</packagingExcludes>
             <webResources>
               <resource>
                 <directory>src/main/webconverter</directory>
               </resource>
             </webResources>
           </configuration>
+        </plugin>
+        <!-- Put a logback.xml on classpath for client WAR -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.3.1</version>
+          <executions>
+            <execution>
+              <id>copy-client-logback</id>
+              <phase>process-resources</phase>
+              <goals>
+                <goal>copy-resources</goal>
+              </goals>
+              <configuration>
+                <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+                <resources>
+                  <resource>
+                    <directory>src/main/resources/dev</directory>
+                    <includes>
+                      <include>logback.xml</include>
+                    </includes>
+                  </resource>
+                </resources>
+              </configuration>
+            </execution>
+          </executions>
         </plugin>
       </plugins>
     </build>

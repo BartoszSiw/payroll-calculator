@@ -68,7 +68,7 @@
         <input type="hidden" name="allowUpdate" value="false">
         <input type="checkbox" id="allowUpdate" name="allowUpdate" value="true">
     </div>
-    <div style="margin-top:12px;">
+   <%--<div style="margin-top:12px;">
         <label for="scheduledTime">Uruchom jak o godzinie</label>
         <input type="time" id="scheduledTime" name="scheduledTime" value="00:00" class="time-input" />
           <label> Wait before manual run (ms): <input type="number" name="waitMillis" min="0" step="100" value="0" /></label>
@@ -81,7 +81,7 @@
         <div class="field-help" style="margin-top:6px;">
             Kliknij, aby wysłać żądanie do serwera z parametrem symulującym uruchomienie harmonogramu.
         </div>
-    </div>
+    </div> --%>
 </c:if>
     <div class="form-section">
         <label for="rejestr" class="field-label"><strong>Wybierz rejestry</strong></label>

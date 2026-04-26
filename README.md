@@ -64,6 +64,10 @@ Final XML document ready for import into Comarch Optima.
 - C:\Tomcat11\bin
 - create file setenv.bat and paste line below
 - set CATALINA_OPTS=-Dorg.apache.tomcat.util.http.fileupload.fileCountMax=-1
+- deploy WAR for prod client no payroll mvn clean package -P converter-client -DskipTests
+- deploy WAR for prod client no payroll logs mvn -Pconverter-client -DskipTests package
+- deploy WAR for prod mvn clean package -P prod -DskipTests
+- deploy default WAR for dev mvn clean package -DskipTests
 
 ## 🧱 Project Structure
 

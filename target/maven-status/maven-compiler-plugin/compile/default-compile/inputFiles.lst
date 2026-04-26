@@ -5,6 +5,7 @@ C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\dms\parser\DmsParserRD.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\converter\service\CashReportAssembler.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\payroll\dao\EmployeeDAO.java
+C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\converter\auth\LoginServlet.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\employees\UpdateEmployeeServlet.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\dms\parser\util\DocumentNumberExtractor.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\converter\repository\DocumentRepository.java
@@ -23,6 +24,8 @@ C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\dms\parser\DmsParserWZ.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\employees\ImportEmployees.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\dms\parser\DmsParser.java
+C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\converter\license\LicenseStatus.java
+C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\converter\license\LicenseTool.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\dms\model\DmsOutputPosition.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\dms\parser\DmsParserPZ.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\dms\parser\DmsParserPO.java
@@ -40,6 +43,7 @@ C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\converter\service\DateFilterRegistry.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\openai\AskAIServlet.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\openai\package-info.java
+C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\converter\license\LicenseVerifier.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\dms\model\DmsPayment.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\converter\service\CardReportAssembler.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\dms\parser\DmsParserDM.java
@@ -79,9 +83,11 @@ C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\dms\xml\XmlSectionBuilder.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\common\util\NipFormat.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\dms\model\DmsParsedContractor.java
+C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\converter\auth\LogoutServlet.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\database\AddEmployeeServlet.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\converter\service\XmlWatcher.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\optima\builder\ContractorsXmlBuilder.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\converter\service\ConverterConfig.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\optima\model\OfflineContractor.java
+C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\converter\auth\AuthFilter.java
 C:\Users\Administrator.DSI\Workspaces\MyEclipse\PayACon\src\main\java\pl\edashi\dms\parser\DmsParserRO.java

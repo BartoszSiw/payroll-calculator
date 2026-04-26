@@ -445,7 +445,11 @@ public class ConverterServlet extends HttpServlet {
         String outputName = "out_" + outputGroup; // outputGroup np. "DS_DZ" lub inna logika
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
         String ts = LocalDateTime.now().format(fmt);
-        Path outputDirPath = Paths.get("C:/XML/Output"); // lub pobierz z kontekstu/parametru
+        // Prefer outputDir from web.xml (converter-client). Fallback for local/non-client deploys.
+        String outputDirParam = getServletContext() != null ? getServletContext().getInitParameter("outputDir") : null;
+        Path outputDirPath = (outputDirParam != null && !outputDirParam.isBlank())
+                ? Paths.get(outputDirParam.trim())
+                : Paths.get("C:/XML/Output");
         Files.createDirectories(outputDirPath);
         log.info(String.format("36 Servlet: finalDoc outputName=%s", outputName));
         //////////////////////////////////////

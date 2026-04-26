@@ -17,15 +17,18 @@
     <param-name>outputDir</param-name>
     <param-value>C:/XML/Output</param-value>
   </context-param>
+    <context-param>
+    <param-name>configPath</param-name>
+    <param-value>C:\\Tomcat11\\apache-tomcat-11.0.15\\conf\\converter.properties</param-value> 
+</context-param>
   <context-param>
-    <param-name>watchDir</param-name>
-    <param-value>\\\\172.16.0.125\\apl\\pliki\\dms-xml\\exp_xml\\ok</param-value>
-</context-param>
-
-<context-param>
-    <param-name>outputDir</param-name>
-    <param-value>\\\\172.16.0.125\\apl\\pliki\\dms-xml\\exp_xml\\Optima\\Output</param-value>
-</context-param>
+    <param-name>licensePath</param-name>
+    <param-value>C:\\Tomcat11\\apache-tomcat-11.0.15\\conf\\license.json</param-value>
+  </context-param>
+  <context-param>
+    <param-name>licenseHostname</param-name>
+    <param-value>AT-SRV003</param-value>
+  </context-param>
   <context-param>
     <param-name>watcherWorkerThreads</param-name>
     <param-value>1</param-value>
@@ -42,4 +45,32 @@
     <welcome-file>default.jsp</welcome-file>
     <welcome-file>default.htm</welcome-file>
   </welcome-file-list>
+
+  <!-- Authentication (session-based) -->
+  <filter>
+    <filter-name>AuthFilter</filter-name>
+    <filter-class>pl.edashi.converter.auth.AuthFilter</filter-class>
+  </filter>
+  <filter-mapping>
+    <filter-name>AuthFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+
+  <servlet>
+    <servlet-name>LoginServlet</servlet-name>
+    <servlet-class>pl.edashi.converter.auth.LoginServlet</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>LoginServlet</servlet-name>
+    <url-pattern>/LoginServlet</url-pattern>
+  </servlet-mapping>
+
+  <servlet>
+    <servlet-name>LogoutServlet</servlet-name>
+    <servlet-class>pl.edashi.converter.auth.LogoutServlet</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>LogoutServlet</servlet-name>
+    <url-pattern>/LogoutServlet</url-pattern>
+  </servlet-mapping>
 </web-app>

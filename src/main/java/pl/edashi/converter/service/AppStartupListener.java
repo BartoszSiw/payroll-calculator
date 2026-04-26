@@ -2,6 +2,7 @@ package pl.edashi.converter.service;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.Files;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -14,19 +15,61 @@ import pl.edashi.common.dao.RejestrDao;
 import pl.edashi.common.dao.RejestrDaoImpl;
 import pl.edashi.common.logging.AppLogger;
 import pl.edashi.converter.repository.DocumentRepository;
+import pl.edashi.converter.license.LicenseStatus;
+import pl.edashi.converter.license.LicenseVerifier;
 
 @WebListener
 public class AppStartupListener implements ServletContextListener {
     private DailyXmlWatcher watcher;
     private final AppLogger log = new AppLogger("AppStartupListener");
     Path toggleFile = AppConfig.ALLOW_UPDATE_FILE;
-    ConverterConfig config = new ConverterConfig();
-    int hour = config.getWatcherHour();
-    int minute = config.getWatcherMinute();
     @Override
-    public void contextInitialized(ServletContextEvent sce) {
-        ServletContext ctx = sce.getServletContext();
-        //ParserRegistry.getInstance().initAllowUpdateFromFile(toggleFile, log);
+     public void contextInitialized(ServletContextEvent sce) {
+         ServletContext ctx = sce.getServletContext();
+         //ParserRegistry.getInstance().initAllowUpdateFromFile(toggleFile, log);
+         String configPathParam = ctx.getInitParameter("configPath");
+         String effectiveConfigPath = (configPathParam != null && !configPathParam.isBlank())
+                 ? configPathParam.trim()
+                 : System.getProperty("configPath");
+         log.info(String.format(
+                 "ConverterConfig resolution: servletContext.configPath='%s' systemProperty.configPath='%s' effective='%s'",
+                 configPathParam,
+                 System.getProperty("configPath"),
+                 effectiveConfigPath));
+         if (effectiveConfigPath != null && !effectiveConfigPath.isBlank()) {
+             // Make it visible for code paths that still use ConverterConfig() default ctor (DAO, watcher).
+             System.setProperty("configPath", effectiveConfigPath);
+         }
+        try {
+            if (effectiveConfigPath != null && !effectiveConfigPath.isBlank()) {
+                Path p = Paths.get(effectiveConfigPath);
+                log.info(String.format("ConverterConfig file check: path=%s exists=%s readable=%s",
+                        p.toAbsolutePath(), Files.exists(p), Files.isReadable(p)));
+            }
+        } catch (Throwable t) {
+            log.warn("ConverterConfig file check failed: " + t.getMessage());
+        }
+         ConverterConfig config = new ConverterConfig(effectiveConfigPath);
+
+        // License verification (offline)
+        String licensePathParam = ctx.getInitParameter("licensePath");
+        String licenseHostnameParam = ctx.getInitParameter("licenseHostname");
+        LicenseStatus lic;
+        try {
+            if (licensePathParam == null || licensePathParam.isBlank()) {
+                lic = LicenseStatus.invalid("Brak context-param licensePath");
+            } else {
+                Path licJson = Paths.get(licensePathParam.trim());
+                Path licSig = Paths.get(licensePathParam.trim() + ".sig");
+                lic = LicenseVerifier.verify(licJson, licSig, licenseHostnameParam == null ? "" : licenseHostnameParam.trim());
+            }
+        } catch (Throwable t) {
+            lic = LicenseStatus.invalid("Błąd licencji: " + t.getMessage());
+        }
+        ctx.setAttribute(LicenseVerifier.CTX_ATTR_LICENSE, lic);
+        log.info(String.format("License status: valid=%s message=%s", lic.valid, lic.message));
+         int hour = config.getWatcherHour();
+         int minute = config.getWatcherMinute();
         String watchDir = ctx.getInitParameter("watchDir");
         String outputDir = ctx.getInitParameter("outputDir");
         boolean allowUpdate = Boolean.parseBoolean(ctx.getInitParameter("allowUpdate"));
@@ -97,7 +140,7 @@ public class AppStartupListener implements ServletContextListener {
     }
     // Config.java (or in AppStartupListener)
     public static final class AppConfig {
-        public static final Path OUTPUT_DIR = Paths.get("C:/XML/Output");
+        public static final Path OUTPUT_DIR = Paths.get("\\\\172.16.0.125\\apl\\pliki\\dms-xml\\exp_xml\\Optima\\Output");
         public static final Path ALLOW_UPDATE_FILE = OUTPUT_DIR.resolve("allowUpdate.flag");
     }
 }

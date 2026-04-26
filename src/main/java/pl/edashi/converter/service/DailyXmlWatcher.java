@@ -684,11 +684,6 @@ public class DailyXmlWatcher {
     			return;
     		}
 
-    		if ("02".equals(oddzialFilterPass) && isSlPrefixFilename(file)) {
-    		    log.info(String.format("37 DailyXmlWatcher: skip SL file for oddzial 02 pass: %s", fileName));
-    		    return;
-    		}
-
     		Set<String> watcherFiltrRejestry = ParserRegistry.getInstance().getFilters();
     		watcherFiltrOddzial = oddzialFilterPass != null && !oddzialFilterPass.isBlank()
     		        ? oddzialFilterPass.trim()
@@ -1216,15 +1211,11 @@ public class DailyXmlWatcher {
     }
 
     private void writeGroupedOutputs(List<String> outSL, List<String> outDSDZ, List<String> outCashCard, List<String> outOther, String outputFilePrefix) {
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
-        String ts = LocalDateTime.now().format(fmt);
+        // Keep list-building logic (outSL/outDSDZ/outCashCard/outOther) for future use,
+        // but do not generate additional label-only XML files (output_*.xml).
         String pfx = outputFilePrefix == null ? "" : outputFilePrefix;
-        log.info(String.format("54 About to write outputs: outSL=%d outDSDZ=%d outCashCard=%d outOther=%d prefix=%s",
+        log.info(String.format("54 Output label lists prepared (not written): outSL=%d outDSDZ=%d outCashCard=%d outOther=%d prefix=%s",
                 outSL.size(), outDSDZ.size(), outCashCard == null ? 0 : outCashCard.size(), outOther.size(), pfx));
-        if (!outSL.isEmpty()) writeOutputFile("SL", outSL, ts, pfx);
-        if (!outDSDZ.isEmpty()) writeOutputFile("DS_DZ", outDSDZ, ts, pfx);
-        if (outCashCard != null && !outCashCard.isEmpty()) writeOutputFile("CASH_CARD", outCashCard, ts, pfx);
-        if (!outOther.isEmpty()) writeOutputFile("OTHER", outOther, ts, pfx);
     }
     public void shutdown() {
         scheduler.shutdownNow();

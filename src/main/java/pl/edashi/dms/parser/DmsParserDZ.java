@@ -442,7 +442,7 @@ private void applyCorrectionsDZ(DmsParsedDocument out, List<DmsPosition> list) {
                 if ("02".equals(oddzial)) {
                     p.netto = wart != null ? safeAttr(wart, "netto") : "";
                 } else {
-                p.netto = wart != null ? safeAttr(wart, "netto_prup") : "";
+                p.netto = wart != null ? safeAttr(wart, "netto") : ""; // netto_prup 
                 }
                 p.cenaNetto = wart != null ? safeAttr(wart, "cena_netto") : "";
                 p.opis = rozs != null ? safeAttr(rozs, "opis1") : "";
@@ -654,7 +654,7 @@ log.info("1 doc in positions From VAT doc='%s '"+ doc);
             //p.opis = "TOWARY";
             //p.rodzajKoszty = "Towary";
             //p.kategoria2="TOWARY";
-            log.info(String.format("[75][POS] p.odliczenia='%s'", p.getNumer()));
+            log.info(String.format("[75][POS] p.odliczenia='%s'", p.getOdliczenia()));
             list75.add(p);
         }
 
@@ -1024,10 +1024,13 @@ log.info("76 doc in positions From VAT list='%s' doc='%s'"+list76+ doc);
                 // zawsze dodatnia kwota płatności
                 kwota = String.format(Locale.US, "%.2f", Math.abs(kw));
                 p.setKwota(kwota);
-                // VAT = VAT dokumentu (typ 06) — korzystamy z getterów/setterów DmsParsedDocument
-                String vatAmount = out.getVatAmount() != null && !out.getVatAmount().isEmpty() ? out.getVatAmount() : "0.00";
+                // VAT for split payment should come from typ 06 VAT entries (sum), not from positions.
+                // Do not change VAT mechanism in positions; just provide correct payment VAT value.
+                String vatAmount = sumVatFromEntries(out);
+                p.setVat(vatAmount);
                 p.setVatZ(vatAmount);
                 out.setVatZ(vatAmount);
+                log.info(String.format("0 extractPayments: split VAT amount='%s': ", vatAmount));
                 Element daty = firstElementByTag(dane, "daty");
                 String termin = daty != null ? safeAttr(daty, "data") : "";
                 p.setTermin(termin);
@@ -1067,16 +1070,16 @@ log.info("76 doc in positions From VAT list='%s' doc='%s'"+list76+ doc);
              String lp = safeAttr(dane, "lp");
              String bruttoStr = safeAttr(wart, "brutto");
              String nettoStr = safeAttr(wart, "netto");
-             //log.info(String.format("1 extractPayments: nettoStr='%s': ,lp='%s': ", nettoStr, lp));
+             log.info(String.format("1 extractPayments: nettoStr='%s': ,lp='%s': ", nettoStr, lp));
              double kw = parseDoubleSafe(bruttoStr);
              if (kw < 0) { out.setKierunek("rozchód"); } else { out.setKierunek("przychód"); }
              // zawsze dodatnia kwota płatności
              bruttoStr = String.format(Locale.US, "%.2f", Math.abs(kw));
-             //log.info(String.format("2 extractPayments: bruttoStr='%s': ,kw='%s': ", bruttoStr, kw));
+             log.info(String.format("2 extractPayments: bruttoStr='%s': ,kw='%s': ", bruttoStr, kw));
              p.setKwota(bruttoStr);
              double kwn = parseDoubleSafe(nettoStr);
              dSumAdvanceNet = dSumAdvanceNet + kwn;
-             //log.info(String.format("3 extractPayments: dSumAdvanceNet='%s': ,kwn='%s': ", dSumAdvanceNet, kwn));
+             log.info(String.format("3 extractPayments: dSumAdvanceNet='%s': ,kwn='%s': ", dSumAdvanceNet, kwn));
              nettoStr = String.format(Locale.US, "%.2f", Math.abs(kwn));
              sSumAdvanceNet = String.format(Locale.US, "%.2f", Math.abs(dSumAdvanceNet));
              String advanceNet = sSumAdvanceNet;
@@ -1088,7 +1091,7 @@ log.info("76 doc in positions From VAT list='%s' doc='%s'"+list76+ doc);
                  double netto  = nettoStr != null && !nettoStr.isEmpty() ? parseDoubleSafe(nettoStr) : 0.0;
                  double vatZaliczki = brutto - netto;
                  dSumAdvanceVat = dSumAdvanceVat + vatZaliczki;
-                 //log.info(String.format("3 extractPayments: dSumAdvanceVat='%s': ,vatZaliczki='%s': ", dSumAdvanceVat, vatZaliczki));
+                 log.info(String.format("3 extractPayments: dSumAdvanceVat='%s': ,vatZaliczki='%s': ", dSumAdvanceVat, vatZaliczki));
                  String vatZ = String.format(Locale.US, "%.2f", vatZaliczki);
                  p.setVatZ(vatZ);
                  out.setVatZ(vatZ);
@@ -1113,6 +1116,24 @@ log.info("76 doc in positions From VAT list='%s' doc='%s'"+list76+ doc);
             
         }
         return listOut;
+    }
+
+    private String sumVatFromEntries(DmsParsedDocument out) {
+        try {
+            if (out == null || out.getVatEntries() == null || out.getVatEntries().isEmpty()) {
+                String v = out != null ? out.getVatAmount() : null;
+                return (v == null || v.isBlank()) ? "0.00" : v;
+            }
+            double sum = 0.0;
+            for (DmsVatEntry e : out.getVatEntries()) {
+                if (e == null) continue;
+                sum += parseDoubleSafe(e.vat);
+            }
+            return String.format(Locale.US, "%.2f", sum);
+        } catch (Exception ex) {
+            String v = out != null ? out.getVatAmount() : null;
+            return (v == null || v.isBlank()) ? "0.00" : v;
+        }
     }
     // ------------------------------
     // KONTRAHENT
